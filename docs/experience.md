@@ -38,7 +38,7 @@
   - T-041 缓冲 + 快照保存模型（c4b4710，ADR-023 v1.3）：Cmd+N 建快照 / 内容变更
     自动写 buffer.sqlite（崩溃保护）/ Cmd+S 合并缓冲 → 当前快照；修复 BUG-009
     （默认 Buffer onChange 未接线 → 无 dirty ● / 退出保护）
-  - T-042 快照改为纯文本（进行中，ADR-023 v1.4）：快照 = `.txt` 文本文件（Buffer
+  - T-042 快照改为纯文本（b8cd54b，ADR-023 v1.4）：快照 = `.txt` 文本文件（Buffer
     可打开），SQLite 仅作缓冲；新增 snapshot 模块
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
