@@ -76,7 +76,7 @@
 
 > 审查结论与证据见 [docs/issues.md](issues.md)；按严重度顺序修复：P0 → P2 清理 → P1 功能 → 门禁加固。
 
-- [ ] T-034 审查问题登记：新建 docs/issues.md 并同步索引 / Roadmap / Changelog（I-001~I-008）
+- [x] T-034 审查问题登记：新建 docs/issues.md 并同步索引 / Roadmap / Changelog（I-001~I-008）
 - [x] T-035 Up/Down 光标 UTF-8 边界修复（I-001，BUG-008，ADR-005 底线）+ Up/Down 纳入属性测试差分
 - [x] T-036 存量清理：删除无消费者 `Selection::clamp`（I-004）、校正文档计数漂移与 T-032 审计回填（I-005）、核验 .DS_Store 未入库并清理工作树残留（I-006 误报纠正）
 - [x] T-037 保存切片（v1 磁盘写回方向，后被 T-040 修正）：File「保存」Cmd+S + dirty 标题 + 关闭保护（I-002，ADR-023）
@@ -85,6 +85,41 @@
 - [x] T-040 Cmd+S 自动保存到 SQLite（ADR-023 v1.2，用户确认反转 T-037 磁盘写回）：每次保存新建「日期+序号」快照文件（单日多版本），默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 可覆盖）；磁盘写回（用户指定路径）显式 Deferred 到未来文件系统切片
 - [x] T-041 缓冲 + 快照保存模型（ADR-023 v1.3，用户指示）：Cmd+N 创建「日期+序号」快照文件；内容变更自动写入缓冲文件 buffer.sqlite（崩溃保护）；Cmd+S 合并缓冲 → 当前快照；修复 BUG-009（默认文档 onChange 未接线 → 无 dirty「●」/ 退出保护）
 - [x] T-042 快照改为纯文本文件（ADR-023 v1.4，用户反馈 .sqlite 无法在 Buffer 打开）：Cmd+N 创建 `aster-YYYY-MM-DD-<seq>.txt`、Cmd+S 合并缓冲文本进当前快照（可直接在 Buffer / 任何编辑器打开）；SQLite 仅保留缓冲（buffer.sqlite）
+
+## Phase 7 — 测试强化专项（2026-08-03 起，用户指示「专门投入各种测试」）
+
+> 来源：T-050 集成测试 + T-051 变异测试暴露的盲区清单。执行原则：每个切片
+> 先变异 / 注入定位盲区，再补测试；0 生产代码改动不可作为验收（发现缺陷须
+> 登记 BUG 并修复）。排序按风险，可调整。
+
+- [ ] T-052 IME 契约审计：`MetalView.characterIndex(for:)` 返回字节偏移而
+  NSTextInputClient 契约是 UTF-16 索引（CJK 点击定位错位候选）；`setMarkedText`
+  忽略 `replacementRange`（选中文本输入拼音时组合显示与选区重叠）。验收：真实
+  IME / 模拟输入验证，确认缺陷 → 登记 BUG + 修复 + 回归；无缺陷 → 契约测试固化
+- [ ] T-053 渲染层变异测试：TextRenderer / VertexBuilder / GlyphAtlas /
+  AtlasPacker 关键算法变异（坐标换算、图集分配、UV 采样、缓存失效），像素读回
+  测试保持全绿；全绿变体 = 盲区 → 补测试
+- [ ] T-054 失败可见性审计：缓冲自动保存失败仅 NSLog（用户不可见，ADR-004
+  打折）；`setupStorage` 失败（只读目录）后打开/保存行为。验收：注入写失败断言
+  用户可见提示；确认缺陷 → 登记 BUG + 修复
+- [ ] T-055 快照合并原子写：ADR-023 守则 c 承认合并写非原子（写入中途崩溃截断
+  快照）——实现 tmp + rename 原子写 + 崩溃注入测试（大内容写中途 kill）
+- [ ] T-056 存储损坏与迁移：损坏 buffer.sqlite（截断 / 乱字节）启动不崩、旧
+  schema（user_version=0）迁移、只读目录、多实例并发同一 buffer.sqlite
+- [ ] T-057 多文档时序测试：真实窗口关闭（applicationShouldTerminateAfterLast
+  WindowClosed 路径）、NSMenuItem action 触发、拖放、真实 IME 事件（T-050 只
+  直接调方法，绕过了 run loop 时序）
+- [ ] T-058 状态机随机序列扩展：T-051 不变量测试加入 undo / redo / 丢弃 /
+  崩溃恢复 / 打开同名路径操作类型与更多种子（固定种子确定性保持）
+- [ ] T-059 已知限制行为固化：T-024 前「打开第二个文件丢前一个未保存编辑」、
+  T-029 前「恢复只呈现最新缓冲文档」——写当前行为契约测试（标注 ADR 限制），
+  防止修复前意外漂移；对应切片落地时更新断言
+- [ ] T-060 崩溃完整测试：进程级 kill -9 强杀（真实崩溃路径，非伪造哨兵）、
+  恢复重复（缓冲行删除失败被吞）、崩溃循环空快照累积
+- [ ] T-061 跨 UTC 午夜轮转测试：快照 seq 与日期解耦语义（跨日保存 seq 落到
+  新日期前缀）——注入固定日期验证跨日行为，确认是否需修复
+- [ ] T-062 变异测试工具化：手工变异（T-051 流程）脚本化——变异点清单 +
+  自动注入 / 恢复 / 结果记录，纳入每切片质量门禁（新增状态机逻辑先变异）
 
 ## Task 编号规则
 
