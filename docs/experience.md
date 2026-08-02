@@ -9,8 +9,8 @@
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（26 个 XCTest 全绿），源码 1226 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-017 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-017 光标（BUG-002 可见性修复 + 闪烁）→ T-014 剪贴板
-  （方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
+- **下一任务：** T-018 水平滚动（ADR-019 已定：v1 默认，scrollX + 光标横向可见性）
+  → 随后 T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
 - **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
@@ -63,7 +63,8 @@
 | --- | --- | --- |
 | 文本存储 | `String`（Buffer 内部实现细节） | T-020 基准证明不达标时换 Rope/Gap（ADR-006） |
 | 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-020），接口不变 |
-| 软换行 | v1 不做，按行渲染 + 水平滚动 | T-012 渲染切片另走 ADR |
+| 软换行 | 用户可选、默认关闭；默认按行渲染 + 水平滚动（ADR-019） | 配置系统（Lua/Config DSL）切片落地后经配置开启 |
+| 水平滚动 | v1 默认能力（ADR-019，T-018）：scrollX 点值平移 + 光标横向可见性 | 平滑滚动动画随 T-022 |
 | 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
 | Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-021 |
 | 多光标 / mmap | 未定 | T-020 基准后定 |
@@ -124,5 +125,9 @@
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
 - 每次切片遇到新问题，把解法追加到上面的踩坑记录。
-- **T-014 前置**：深浅色跟随（窗口 appearance + Theme 模型 T-006 接线）、剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；颜色进顶点已由 ADR-016 预留；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-015（ADR-017 备注）。
+- **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-015（ADR-017 备注）。
+- **T-018 前置（ADR-019）**：水平滚动 = 视图层 `scrollX` 点值 + 触控板双指 / Shift+滚轮
+  平移 + 光标横向可见性（内容宽度按可见行最大宽度）；软换行默认关，开启后视觉折行
+  属 App 渲染层（Layout 逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经
+  Config DSL / Lua 开启。
 - **快速启动命令**：`cargo test`（core）；`./bridge/build.sh && cd bridge && swift test`；`cd app && swift test`；`cd app && swift run`（GUI，会开窗口）。
