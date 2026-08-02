@@ -50,6 +50,8 @@
     PendingDocs 登记全部未决；退出覆盖全部（保存全部 / 全部不保存 / 取消）；
     无模态弹窗原则（底部 y/n 随 T-026）
   - T-047 空快照退出清理（80adf3c，ADR-023 v1.6）：干净退出删零长度 .txt 快照
+  - T-048 发版 CI 检查修复（86d456a）：clippy 1.97 新 lint / CI-Bench 结果目录 /
+    版本断言格式校验（ADR-021 v1.2）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
