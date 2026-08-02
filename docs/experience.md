@@ -146,6 +146,11 @@
   修复在测试自身；CI 只按路径触发（改 core 不跑 Swift，纯文档不触发）是设计行为。
 - **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
   给下一个 agent 的提醒，不要重读全部源码。
+- **会话结束未决项（2026-08-02）**：下一步切片三选一，用户尚未选定——
+  ① T-015 文件打开接线（DocumentManager 首次进产品，Rule 14 存量处置推进）；
+  ② T-018 前置的 MetalView / TextRenderer 拆分（298/292 行贴 300 红线）；
+  ③ T-033 fuzz + 基准回归告警（criterion 阈值能力未接 CI）。另外：audits.md
+  审计登记制度已生效，新切片必须留审计行；本会话 6 笔治理/基准/测试提交已推送。
 - **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-024（Command Palette，ADR-017 备注）。
 - **T-018 前置（ADR-019）**：水平滚动 = 视图层 `scrollX` 点值 + 触控板双指 / Shift+滚轮
   平移 + 光标横向可见性（内容宽度按可见行最大宽度）；软换行默认关，开启后视觉折行
