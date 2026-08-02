@@ -2,13 +2,17 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-011 完成）
 
-- **代码：** Rust Core 已完成 T-001 ~ T-010（core 1283 行 / 94 测试）；bridge/ 3 个 XCTest；app/ 4 个 XCTest，全绿。
+- **代码：**
+  - Rust Core：T-001 ~ T-010（buffer / selection / history / layout / theme / command / event / lua / store / bridge），`core/src` 共 1283 行，94 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
+  - bridge/：swift-bridge 绑定 Swift Package（3 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
+  - app/：AppKit 壳（4 个 XCTest 全绿），源码 238 行（Rule 12 的 Swift 预算 ≤5,000 行自此生效）。
 - **决策：** ADR-001 ~ ADR-015 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-012（Metal 渲染管线：文本渲染 spike）。
+- **下一任务：** T-012（Metal 渲染管线：文本渲染 spike，CoreText + IME + CJK）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
-- **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
+- **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
+- **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
 
 ## 工作方式（验证有效，继续保持）
 
@@ -19,6 +23,9 @@
 - 遇到"未确定项"直接进实现 = 违规：未确定项清单在 ADR-006，必须先更新 ADR。
 - 宪法（docs/constitution.md）不可由 agent 自行修改；修订需用户确认。
 - 沙箱环境：git 写 `.git` 需要提权（`require_escalated`）；既有依赖构建本地可用，**新增依赖首次构建需联网**（沙箱内 `cargo add` / 首次 `cargo test` 需 `require_escalated`）。
+- **多包构建链**：`core/`（Rust）→ `bridge/`（绑定包）→ `app/`（AppKit）。改动 core / bridge.rs 后必须先 `./bridge/build.sh`（cargo build --release + 复制绑定 / staticlib / lua / sqlite）再 `swift test`；CI-Swift 作业第一步行同一脚本。
+- **Swift 门禁现状**：`swift-format lint --recursive bridge/Tests app/Tests` + `swift test`（bridge、app 两个包分别跑）；生成绑定（Sources）不 lint。
+- 需要运行 GUI（app 启动验证）时用短时后台运行 + kill 抓 stderr，别长时间驻留。
 
 ## 技术经验（Rust / Clippy / 测试）
 
@@ -62,6 +69,9 @@
 | 插件信任 | 默认信任，不沙箱 | 引入插件市场时重估（ADR-003） |
 | macOS | 仅最新版，零兼容负担 | 永久（ADR-002） |
 | 遥测 | 默认无，显式开启 | 永久（ADR-004） |
+| Lua 宿主 | mlua 0.12（lua54 + vendored） | 插件线程化时重估 Send/Sync（T-008 已评估） |
+| Bridge 构建 | swift-bridge 0.1.59 + `bridge/build.sh`；staticlib + lua/sqlite 传递依赖显式链接进 Swift 包 | swift-bridge 升级（major）另走 ADR（依赖政策） |
+| AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
 
 ## 踩坑记录（可追加）
 
@@ -77,11 +87,16 @@
 | 2026-08-02 | T-009 | rusqlite `row.get::<u64>()` 编译失败 | 存储层以 i64 读写，读取时 `as u64` 转型 |
 | 2026-08-02 | T-010 | swift-format 默认 2 空格，手写测试 4 空格被 lint 警告 | `swift-format format --in-place` 格式化；生成绑定不 lint |
 | 2026-08-02 | T-010 | 链接报 `___swift_bridge__$*` 符号缺失 | 非符号问题，是 `-L` 路径丢前导斜杠（#filePath）或未链 Lua/SQLite 静态库 |
+| 2026-08-02 | T-011 | `swift run` 30+ 条链接警告（built for newer macOS） | 部署目标不一致：manifest `.v26` + `MACOSX_DEPLOYMENT_TARGET=26.0`；改 env 后必须 `cargo clean --release`（cargo 不跟踪 env，Lua 由 lua-src 编译） |
+| 2026-08-02 | T-011 | 生成 Swift 的 Swift 6 retroactive conformance 警告 | 生成代码目标加 `swiftSettings: [.unsafeFlags(["-suppress-warnings"])]`（不带 -Xswiftc 前缀） |
+| 2026-08-02 | T-011 | `.product(name:package:)` 报 unknown package | `package` 参数用目录名（`bridge`）而非包内 name；依赖包需声明 `products: [.library(...)]` |
 
 ## 给下一个 agent 的提醒
 
-- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、WORKFLOW、本文件。
+- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、ADR-014/015（Bridge/App 构建链）、WORKFLOW、本文件。
 - 新 Public API 必须有 ADR；未确定项进入实现前必须先更新 ADR。
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
 - 每次切片遇到新问题，把解法追加到上面的踩坑记录。
+- **T-012 前置**：字形 / GPU 缓冲格式是 ADR-006 未确定项，进入实现前必须先写 ADR；T-012 涉及 CoreText shaping + IME + CJK，是 Core 平台无关边界上的新决策点（渲染归 App，纯逻辑归 Core）。
+- **快速启动命令**：`cargo test`（core）；`./bridge/build.sh && cd bridge && swift test`；`cd app && swift test`；`cd app && swift run`（GUI，会开窗口）。
