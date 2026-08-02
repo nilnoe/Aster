@@ -2,7 +2,7 @@
 
 # Constitution — 项目宪法
 
-- **Version:** 1.3
+- **Version:** 1.4
 - **Status:** Accepted
 
 本文件是本项目**不可违反的原则**。它不是编码规范，不讨论格式、命名、风格等可调整事项。
@@ -127,6 +127,38 @@ swift test
 - **封装与接口：** 默认隐藏内部实现（`private` / `pub(crate)`）；任何 `pub` 都是决策，公共 API 必须先 ADR（Rule 4）。
 
 阈值与触发条件的执行细则见 [docs/scale.md](scale.md)。
+
+## Rule 13 — ADR 必须闭环（Decisions Must Close）
+
+任何被 Accepted 且需要代码落地的 ADR，必须在其所在发布周期内进入 Roadmap（有归属切片），或显式标记 Deferred（注明原因与重新评估条件）。
+
+实现与已接受决策出现偏离（方向相反、能力缺失、以替代方案实现而未修订 ADR）视为违规，必须由 Architecture Audit 捕获；处置只有两种：修代码回到决策，或走 ADR 修订流程（需用户确认）。不允许"先欠着"进入 Done。
+
+依据：ADR-004（os_log + tracing）被 Accepted 后从未排期实现，App 至今使用 NSLog；ADR-018 的 Lua 主题方向一度无归属切片。
+
+## Rule 14 — 无消费者的公共接口禁止交付（No API Without a Consumer）
+
+新增 Public API 必须与真实调用方同一切片交付；确需先行验证的 spike 必须显式标注"验证用"，并在 Architecture Audit 中决定保留或撤销。
+
+为"未来需求"预留的接口不允许进入 main（YAGNI）。既有无消费者接口必须在接线切片或精简审计中处置（接线或撤销），不得长期悬挂。
+
+依据：Command / Event / Lua / Store / DocumentManager / Theme 六个模块提前建成且 App 零消费者；Rule 12 约束存量撤销，本规则约束入口。
+
+## Rule 15 — 文档完整性是机械门禁（Docs Integrity Is Mechanical）
+
+ADR 索引完整性（所有 Accepted ADR 必须出现在索引且链接有效）、版本单一来源同步（core 版本 / changelog / tag 一致）、关键文档交叉引用的一致性，由 CI 机械检查，不允许依赖人工记忆。
+
+涉及 ADR / Roadmap / Changelog 的变更必须同步索引与相关文档；CI 检查不通过不得合入。
+
+依据：ADR-018 被索引漏登，changelog / roadmap 却反复引用；文档漂移此前只靠人工发现。
+
+## Rule 16 — 性能决策必须数据驱动（No Performance Decision Without a Baseline）
+
+性能是产品的第一等关切；任何涉及性能权衡的架构变更（存储结构、渲染策略、桥接方式、缓存策略），动手前必须有可复现的基准基线，并在切片 DoD 中报告对比。
+
+没有基线不允许替换数据结构、不允许宣称性能收益或"无显著影响"。数据结构选择必须基于真实负载基准（ADR-006 评估框架），不允许凭直觉定型。
+
+依据：ADR-006 的 String → Rope/Gap 决策依赖基准，而基准体系与基线长期 TBD；"Benchmark 是常态"此前是名义执行。
 
 ## 修订本宪法
 

@@ -32,6 +32,23 @@
   水平滚动为 v1 默认；软换行默认关闭的用户选项（ADR-006 修订，经用户确认）；
   视觉折行属 App 渲染层，Core Layout 边界不变（ADR-009）
 
+### Changed — 2026-08-02（治理与性能优先级，用户确认）
+
+- [docs/constitution.md](../docs/constitution.md) — Version 1.4：新增 Rule 13~16
+  （ADR 必须闭环 / 无消费者的公共接口禁止交付 / 文档完整性是机械门禁 /
+  性能决策必须数据驱动）。修订依据：复审发现的四类失败模式（ADR-004 失约、
+  零消费者模块提前建成、ADR-018 索引漏登、基准长期 TBD）；经用户确认。
+- docs(roadmap)：未接线模块接线计划落地（宪法 Rule 13 / 14 处置）——
+  DocumentManager → T-015 / T-028；Command / Event → T-024；Lua → T-024；
+  Store → T-028 / T-029；Theme → T-016 / T-024；ADR-004 日志落地 → 新增 T-031；
+  T-023 提升为数据结构决策前置门禁（宪法 Rule 16）
+- docs(adr)：ADR-006 更新——任务编号校正（T-020 → T-023 / T-021 → T-029）；
+  新增「数据结构评估框架」（评估维度 + 决策门禁，宪法 Rule 16 落地）
+- ci(docs)：新增 CI-Docs 作业（ADR 索引完整性 + 索引链接检查；宪法 Rule 15 机械执行）
+- ci(release)：CI-Release 增加版本一致性门禁（tag 与 core/Cargo.toml 必须一致；Rule 15）
+- docs(release)：发布清单增加「归档一致性」检查（tag 内容与 Changelog 归档一致）
+- docs(workflow)：WORKFLOW Architecture / Benchmark 步骤回链 Rule 13 / 14 / 16
+
 ## [Beta V0.1.1] — 2026-08-02
 
 **补丁版：** 上一版（Beta V0.1.0）发布后的缺陷修复——渲染覆盖层不可见、

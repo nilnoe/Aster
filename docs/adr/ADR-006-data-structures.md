@@ -29,7 +29,7 @@
 | BufferId | u64 单调递增（ADR-005 newtype） | 简单、可排序、日志友好；由 DocumentManager 分配（ADR-001） |
 | DocumentManager 注册表 | `HashMap<BufferId, Buffer>` | 按 id 查找是主路径；顺序遍历（窗口列表、Recent Files）按需补索引 |
 | 文本存储的决策机制 | 存储是 Buffer 内部实现细节；当前 `String`；替换必须有基准数据证明 | 不引入抽象层（宪法 Rule 1）；无数据换结构即猜测（Rule 9） |
-| 行索引（逻辑行） | v1：不可变索引 `Layout`（`Vec<usize>` 行起点，`build(text)` 一次性构建），编辑后由调用方重建 | String 存储下编辑本身 O(n)，索引不改变渐近复杂度；不可变快照无脏状态与失效 bug；树状索引随 Rope 在 T-020 后引入 |
+| 行索引（逻辑行） | v1：不可变索引 `Layout`（`Vec<usize>` 行起点，`build(text)` 一次性构建），编辑后由调用方重建 | String 存储下编辑本身 O(n)，索引不改变渐近复杂度；不可变快照无脏状态与失效 bug；树状索引随 Rope 在 T-023 基准落地后引入 |
 | 软换行 | 默认关闭的用户选项（ADR-019）：v1 默认按行渲染 + 水平滚动，用户可开启视觉折行 | 最小化（项目哲学）；默认行为不变，能力作为可选项实现（ADR-006 修订，见 ADR-019） |
 | 字形缓存 / GPU 缓冲格式 | 按需字形图集（CoreText 栅格化进单张 RGBA8 纹理，按 font+像素尺寸+glyph 去重）+ 每字形 6 顶点 quad 顶点流（32B/顶点，位置 + UV + 前景色）；图集满则整表重建 | ADR-016（T-012）落定：spike 规模下最简 GPU 文本路径；像素尺寸栅格化保证 Retina 清晰（BUG-001）；颜色走顶点便于 T-014 接 Theme |
 | 命令表 / 事件总线结构 | `HashMap<String, Box<dyn Fn(&mut CommandContext)>>` 注册表 + 带订阅 id 的事件总线（ADR-011） | 键盘 / 菜单 / Lua / 命令面板统一入口；std `Fn` 动态分发容纳异构处理器（Rule 11）；订阅 id 支持插件卸载退订 |
@@ -38,10 +38,30 @@
 
 | 数据结构 | 未定原因 |
 | --- | --- |
-| 文本存储算法（String / Gap Buffer / Rope） | 取舍（内存、复杂度、缓存局部性）取决于真实负载：大文件打开、光标附近编辑、行访问频率。当前无基准数据，选择即猜测。由 T-020 基准决定。 |
+| 文本存储算法（String / Gap Buffer / Rope / Piece Table） | 取舍（内存、复杂度、缓存局部性）取决于真实负载：大文件打开、光标附近编辑、行访问频率。当前无基准数据，选择即猜测。由 T-023 基准决定（宪法 Rule 16 门禁）。 |
 | 多光标 Selection 集合 | 产品范围未定（最小化 vs 编辑效率）；单光标 API 先行，集合形式可向后兼容扩展。 |
 | 大文件只读（mmap） | 依赖文本存储与文件模型（Disk File 绑定）；1MB+ 场景基准后决定。 |
-| Undo 栈持久化边界 | ADR 总纲要求 SQLite 负责 Undo History，但全量落盘拖慢编辑热路径；内存栈与持久化的边界须与 Crash Recovery（T-021）一起设计。本 ADR 不反转总纲，只细化。 |
+| Undo 栈持久化边界 | ADR 总纲要求 SQLite 负责 Undo History，但全量落盘拖慢编辑热路径；内存栈与持久化的边界须与 Crash Recovery（T-029）一起设计。本 ADR 不反转总纲，只细化。 |
+
+## 数据结构评估框架（宪法 Rule 16 落地）
+
+文本存储是唯一需要基准数据才能定型的核心决策，其余未确定项（行索引 / mmap / Undo 持久化）都依赖它。评估维度与基准覆盖范围固定如下，避免"凭感觉换结构"：
+
+| 维度 | 测量 / 论证内容 | 候选差异（预判，待基准证实） |
+| --- | --- | --- |
+| 编辑热路径 | 光标附近 insert / delete 均摊与最坏耗时（10k / 100k 次） | String O(n)；Gap Buffer 均摊 O(1) 但 gap 漂移与批量插入退化；Rope O(log n) 常数大 |
+| 打开成本 | 1MB / 10MB 打开耗时与峰值内存 | String 一次性分配最快；Rope 需建树；Piece Table 需建行索引 |
+| 行访问 | Layout 构建（行起点索引）耗时——当前每帧 / 每次编辑重建（ADR-009） | 取决于存储是否提供行索引能力 |
+| UTF-8 语义 | 字节偏移 ↔ 字符边界换算成本 | String 原生最省；Rope 需缓存辅助 |
+| 内存开销 | 每字节分摊 | String ~1x；Gap 预留区；Rope 节点开销；Piece Table 分片元数据 |
+| 与 Undo / IME 耦合 | EditOp（Insert / Delete / Replace）在目标结构上的实现与语义保持成本 | 逆操作栈需与存储结构匹配 |
+| 实现与维护成本 | 成熟库（如 ropey）vs 自研；新增依赖走 Rule 7 / 8 + ADR（Rule 11 复用优先） | 复用优先，自研须有证明 |
+
+决策门禁：
+
+1. T-023 基准切片先于任何"替换文本存储"的实现（宪法 Rule 16）。
+2. 基准未出前，新切片不得依赖 String 内部实现细节（Buffer API 是隔离面，ADR-005）。
+3. 决策输出：更新本表"已确定"列；反转 String 属反转 Accepted 决策，需用户确认。
 
 ## 审计
 
@@ -59,7 +79,7 @@
 
 ## 影响模块
 
-- **Core** — 为 T-003（Selection）、T-004（Undo）、T-007（Command/Event）、T-020（基准）划定决策边界。
+- **Core** — 为 T-003（Selection）、T-004（Undo）、T-007（Command/Event）、T-023（基准）划定决策边界。
 
 ## 复杂度预算（宪法 Rule 9）
 
@@ -71,3 +91,4 @@
 
 - 已确定项若被后续证据推翻，走 ADR 修订；反转 Accepted 决策需用户确认（宪法修订流程）。
 - 未确定项不允许在实现中悄悄选定；进入实现前必须先更新本 ADR。
+- 本 ADR 内的任务编号以最新 Roadmap 为准（历次重编号见 ADR-019 与 Changelog），引用时不再回改历史编号。

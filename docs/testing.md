@@ -17,6 +17,7 @@
 - Red → Green → Refactor（宪法 Rule 5）；Bug 回归测试见 [docs/bug-workflow.md](bug-workflow.md)。
 - 属性测试用于易漏边界的逻辑（文本操作、布局）。
 - 错误路径与 panic 路径必须测试（ADR-004：失败要可见）。
+- 性能相关切片必须先建立可复现基线再实现，并在 DoD 报告对比（宪法 Rule 16）。
 - Public API 的行为契约（ADR 定义）必须覆盖。
 - 测试命名：`<module>_<behavior>`，断言行为而非实现。
 

@@ -15,12 +15,14 @@
    - 新增抽象层（Trait / Protocol / 包装）→ 必须回答"为什么不能直接实现"并证明复杂度下降（宪法 Rule 1 / 2）
    - 新增依赖 / 第三方库 → 必须论证标准库不能解决，并生成 ADR（宪法 Rule 7 / 8）
    - 反转既有 Accepted 决策 → 必须获得用户确认
+   - Accepted 且需代码落地的 ADR 必须在本发布周期内进入 Roadmap，或显式标记 Deferred（注明原因与复评条件）（宪法 Rule 13）
+   - 新增 Public API 必须与真实调用方同一切片交付（宪法 Rule 14；spike 显式标注并在审计处置）
 4. **Test Design** — 设计并编写测试，定义该切片的验收标准。运行测试，确认 **Fail（Red）**。
 5. **Implementation** — 最小实现，让测试 **Pass（Green）**。随后 Refactor，测试保持 Pass。UI 保持薄，可测试的逻辑尽可能落在 Rust Core 内。
 6. **Format** — `cargo fmt` + `swift-format`。
 7. **Lint** — `cargo clippy`。
-8. **Audit** — Architecture Audit：检查切片是否符合 ADR 与宪法——Core 是否稳定、是否有隐藏耦合、是否有超出切片范围的代码、是否有违规抽象、是否通过复杂度预算（宪法 Rule 9）与规模预算（宪法 Rule 12，见 [docs/scale.md](docs/scale.md)）。
-9. **Benchmark** — 运行相关基准并与上一基线对比，记录结果。涉及 ADR Performance Goals（Cold Startup、Document Opening、Rendering）的切片必须给出量化对比；不涉及的切片也要刷新基线或记录"无显著影响"。
+8. **Audit** — Architecture Audit：检查切片是否符合 ADR 与宪法——Core 是否稳定、是否有隐藏耦合、是否有超出切片范围的代码、是否有违规抽象、是否通过复杂度预算（宪法 Rule 9）与规模预算（宪法 Rule 12，见 [docs/scale.md](docs/scale.md)）；同时检查 ADR 闭环（Rule 13）与公共接口消费者（Rule 14）。
+9. **Benchmark** — 运行相关基准并与上一基线对比，记录结果。涉及 ADR Performance Goals（Cold Startup、Document Opening、Rendering）的切片必须给出量化对比；不涉及的切片也要刷新基线或记录"无显著影响"。涉及性能取舍的架构变更必须先建立可复现基线再动手（宪法 Rule 16）。
 10. **Documentation** — 更新 ADR、README、docs、Roadmap 状态与 Changelog 中所有与本切片相关的部分。
 11. **Commit** — 全量质量门禁通过（宪法 Rule 6）：`cargo fmt`、`cargo clippy`、`cargo test`、`swift-format`、`swift test`。全部通过才允许提交。Commit message 引用对应的 Task 与 ADR。
 

@@ -32,33 +32,34 @@
 - [x] T-012 Metal 渲染管线：文本渲染 spike（CoreText + IME + CJK）
 - [x] T-013 编辑循环：键盘输入、光标、滚动、选择
 - [ ] T-014 剪贴板：复制 / 剪切 / 粘贴 + Edit 菜单接线（系统 NSPasteboard；ADR-018）
-- [ ] T-015 拖放与文档选择器：文件拖入 Buffer、NSOpenPanel 打开（ADR-018）
+- [ ] T-015 拖放与文档选择器：文件拖入 Buffer、NSOpenPanel 打开；接线 DocumentManager `open`（Disk 源，ADR-001）（ADR-018）
 
 > 深浅色跟随系统不在本阶段：固定深色启动态，主题可编程能力由 Lua 提供（ADR-018）。
 
 ## Phase 3 — 渲染与编辑打磨（ADR-018 / ADR-019 方向）
 
-- [ ] T-016 渲染质量：sRGB + gamma 校正（抗锯齿边缘与系统渲染对齐）
+- [ ] T-016 渲染质量：sRGB + gamma 校正（抗锯齿边缘与系统渲染对齐）；渲染颜色接入 Core Theme（ADR-010，固定深色启动主题）
 - [x] T-017 光标：闪烁与可见性（BUG-002 修复随缺陷流程）
 - [ ] T-018 水平滚动：长行平移可读，光标横向可见性（ADR-019）
 - [ ] T-019 软换行：用户可选、默认关闭的视觉折行（ADR-019）
 - [ ] T-020 编辑细节：DeleteForward + 词级移动（Option+←/→）
 - [ ] T-021 选择打磨：双击选词 / 三击选行
 - [ ] T-022 滚动与 IME：平滑滚动 / 候选框定位精确化
-- [ ] T-023 性能基准体系：criterion + 稳定测量（穿插执行，不阻塞功能切片；ADR-006 存储决策的前置）
+- [ ] T-023 性能基准体系：criterion + 稳定测量（ADR-006 数据结构决策的前置门禁，宪法 Rule 16；优先于任何存储替换切片，穿插于渲染 / 编辑切片之间执行）
 
 ## Phase 4 — Overlay 生态
 
-- [ ] T-024 Command Palette overlay
+- [ ] T-024 Command Palette overlay：Command / Event 接线进编辑循环（ARCHITECTURE 数据流跑通，ADR-011）+ Lua 插件加载（命令注册，ADR-012）与主题可编程入口（ADR-018）
 - [ ] T-025 Search overlay
 - [ ] T-026 StatusBar overlay
 - [ ] T-027 Shell overlay（PTY + 模糊背景）
-- [ ] T-028 Scratch 工作流：`Cmd+N` → 自动保存 → Attach Path
+- [ ] T-028 Scratch 工作流：`Cmd+N` → 自动保存 → Attach Path；接线 Store scratch 与 DocumentManager（Scratch 源，ADR-001 / ADR-013）
 
 ## Phase 5 — 稳定与发布
 
-- [ ] T-029 Crash Recovery 与 Session 恢复
+- [ ] T-029 Crash Recovery 与 Session 恢复；接线 Store session（ADR-013）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
+- [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）
 
 ## Task 编号规则
 

@@ -64,3 +64,4 @@ Task → Analysis → Architecture → Test Design → Implementation → Format
 - **Docs 是 Commit 的一部分：** 未更新文档的切片不算完成（含 Roadmap 状态与 Changelog）。
 - **违反 ADR 即停止：** 如果任务要求的行为违背 ADR 已接受的决策，先停下并向用户说明，不要擅自实现。
 - **反转 Accepted 决策需要用户确认：** 可以提出 ADR 修订建议，但改变已接受决策前必须获得用户同意。
+- **ADR 闭环与消费者（宪法 Rule 13 / 14）**：Accepted 且需代码落地的 ADR 必须排入 Roadmap 或显式 Deferred；新增 Public API 必须与真实调用方同切片交付，禁止无消费者接口进 main。

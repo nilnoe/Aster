@@ -8,7 +8,7 @@
   - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，108 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
-- **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
 - **下一任务：** T-018 水平滚动（ADR-019 已定：v1 默认，scrollX + 光标横向可见性）
   → 随后 T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
 - **版本：** Beta 阶段，当前 **Beta V0.1.1**（core `0.1.1` 单一来源，三处同步：
@@ -133,6 +133,7 @@
 - 新 Public API 必须有 ADR；未确定项进入实现前必须先更新 ADR。
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
+- 宪法 V1.4：Accepted 且需落地的 ADR 必须排入 Roadmap 或显式 Deferred（Rule 13）；新 Public API 必须同切片有真实消费者（Rule 14）；文档索引与版本一致性由 CI 检查（Rule 15）；数据结构等性能决策先建基线（Rule 16，评估框架见 ADR-006）。
 - 每次切片遇到新问题，把解法追加到上面的踩坑记录。
 - **发布**：版本号三处同步（core/Cargo.toml → 应用版本；Changelog 归档；tag）。
   打 `Beta-V*` tag 推送即自动发布（CI-Release，ADR-020）；本地等价：`./bridge/build.sh`

@@ -23,7 +23,9 @@ Trunk-based：`main` 永远可发布。功能走短生命周期分支 + PR（PR 
 4. **Benchmark**：确认基线无退化；有退化必须解释或回滚。
 5. **Tag**：`Beta-V0.x.y`，推送后由 `CI-Release` workflow 自动跑门禁、
    构建 release、打包 `Aster.app` zip 并附加到 GitHub Release（ADR-020）；
-   发布说明可直接在 Release 编辑。
+   发布说明可直接在 Release 编辑。Tag 内容必须与 Changelog 归档一致（Unreleased
+   变更不得出现在已发布 tag 内）；版本号与 core/Cargo.toml 一致由 CI-Release
+   机械检查（宪法 Rule 15）。
 6. **记录**：注明当时的最新 macOS 版本（ADR-002）。
 
 ## 热修复
