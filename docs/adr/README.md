@@ -22,6 +22,7 @@ Proposed → Accepted
 | ADR-004 | 日志与崩溃上报 | Accepted | 2026-08-02 | 0 | Core、App、Bridge | [ADR-004-logging-crash.md](ADR-004-logging-crash.md) |
 | ADR-005 | Buffer 数据模型（最小化） | Accepted | 2026-08-02 | 12 个公开项 | Core（buffer 模块） | [ADR-005-buffer-model.md](ADR-005-buffer-model.md) |
 | ADR-006 | 核心数据结构决策矩阵 | Accepted | 2026-08-02 | 0 | Core | [ADR-006-data-structures.md](ADR-006-data-structures.md) |
+| ADR-007 | Selection 模型（anchor / head） | Accepted | 2026-08-02 | 1 类型 + 9 方法 | Core（selection 模块） | [ADR-007-selection-model.md](ADR-007-selection-model.md) |
 
 ## 触发规则
 

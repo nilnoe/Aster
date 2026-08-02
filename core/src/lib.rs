@@ -8,6 +8,8 @@
 
 mod buffer;
 mod error;
+mod selection;
 
 pub use buffer::{Buffer, BufferId};
 pub use error::BufferError;
+pub use selection::Selection;
