@@ -176,6 +176,14 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
     needsDisplay = true
   }
 
+  // MARK: - 光标外观
+
+  override func resetCursorRects() {
+    super.resetCursorRects()
+    // BUG-005：文本编辑区必须显示 I 型光标（系统能力，Principle 4）。
+    addCursorRect(bounds, cursor: .iBeam)
+  }
+
   // MARK: - 滚动
 
   override func scrollWheel(with event: NSEvent) {

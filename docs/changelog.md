@@ -30,6 +30,9 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 
 ### Fixed — 2026-08-02
 
+- fix(app)：文本区鼠标指针为箭头而非 I 型（BUG-005，根因分类：Implementation Bug）——
+  MetalView 未注册光标矩形；`resetCursorRects` 增加 `addCursorRect(bounds, .iBeam)`
+
 - fix(app)：IME 组合期间光标不跟随（BUG-004，根因分类：Implementation Bug）——
   组合文本内联于光标处，光标却画在组合起点；改为画在组合文本末尾
   （cursor + composition 长度）。回归测试：离屏渲染后断言光标竖直线出现在
