@@ -5,14 +5,31 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015/T-033 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1726 行，120 个测试全绿（含 7 个属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
-  - bridge/：swift-bridge 绑定 Swift Package（13 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（47 个 XCTest 全绿），源码 1615 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-039（buffer /
+    selection / history / layout / theme / command / event / lua / store / bridge /
+    editor / document_manager），`core/src` 共 1787 行，122 个测试全绿（含 7 个
+    属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
+    依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
+    0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
+    proptest 1.11（dev，ADR-022）。
+  - bridge/：swift-bridge 绑定 Swift Package（15 个 XCTest 全绿；生成代码与 .a
+    不提交，`bridge/build.sh` 是唯一生成入口）。
+  - app/：AppKit 壳 + Metal 编辑视图（52 个 XCTest 全绿），源码 1775 行（Rule 12
+    的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 DocumentManager Bridge 面、ADR-021 CI 基准告警、ADR-022
   fuzz 扩展）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 /
   性能数据驱动）。
 - **本会话完成（2026-08-02 晚，均已推送 origin/main，工作树干净）：**
+  - T-034 审查问题登记（440c75b）：docs/issues.md（I-001~I-008）+ Phase 6 切片排期
+  - T-035 Up/Down 边界修复（29bdf9d，BUG-008）：floor_char_boundary 钳制 + Up/Down
+    纳入属性差分 + 边界不变量（PROPTEST_CASES=3000 通过）；property.rs 拆 support
+  - T-036 存量清理（6ceb0fe）：撤销 Selection::clamp（ADR-007 v1.1）、计数校正、
+    T-032 hash 回填；I-006 核验为误报（.DS_Store 从未入库）
+  - T-037 Disk 保存（135f44a，ADR-023）：save_text + Bridge FFI + 菜单 ⌘S +
+    dirty 标题 + 关闭保护
+  - T-038 渲染数据路径重构（7220747）：缓存行结构、每帧单次 shaping、二分定位
+  - T-039 审计与门禁加固（进行中）：CI-Docs 审计完整性检查 + CI-Release 门禁对齐
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
@@ -158,6 +175,10 @@
 | 2026-08-02 | T-033 | `PROPTEST_CASES=3000 cargo test --test property` 耗时 ~9s（默认 256 例 ~0.8s） | CI 专项 fuzz 步骤可接受；属性测试仍无 attr-macro 依赖（ADR-022 决策 4 不变） |
 | 2026-08-02 | BUG-008 | 属性测试差分排除 Up/Down，恰是 CJK 光标边界 bug 藏身处：字节列目标 `t_start + column.min(...)` 落在多字节字符内部，后续编辑全部 InvalidCharBoundary | 所有移动统一 `floor_char_boundary(new_head.min(len))`（Left/Right 已停边界，floor 恒等）；差分排除某操作 = 该操作不受不变量保护，不变量（如"光标必为字符边界"）应单独显式断言，不能只靠差分同构 |
 | 2026-08-02 | BUG-008 | 回归测试期望值写错（head=3 退格删除的是"你"而非留空） | 又是"测试失败先怀疑测试"：先推演字节区间再写断言 |
+| 2026-08-02 | T-038 | Swift `Array.partitioningIndex(where:)` 在 macOS 26 SDK 不可用（编译报 no member） | 手写标准二分（low/high 循环），Rule 11 注释说明"这是标准二分而非自研算法"；编译错误先怀疑 API 可用性再怀疑写法 |
+| 2026-08-02 | T-036 | 审查误报 .DS_Store"入库"：`find` 输出不区分跟踪状态，磁盘残留被当成已提交 | 判断"某文件是否入库"必须 `git ls-files | grep` + `git log -- <path>` 双重核验；登记表如实标记"误报撤销"并记录核验方法（Rule 15：证据优先） |
+| 2026-08-02 | T-036 | experience / audits 计数再次漂移（core 1676 vs 实 1726；App 1483 vs 1615） | 写入计数前必须 `wc -l` 实测；CI 机械门禁只覆盖 ADR 索引，experience/audits 计数靠纪律 + T-039 起审计"行为证据必填"倒逼 |
+| 2026-08-02 | T-039 | 审计回填此前靠自觉，T-018/T-015/T-033 均为事后回填 commit | 回填改为 CI 机械门禁（未回填行 ≤1 + hash 存在，fetch-depth 0）；审计行必须含行为证据（跑过的测试 / 基准 / 验证的边界） |
 
 ## 给下一个 agent 的提醒
 

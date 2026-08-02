@@ -5,15 +5,16 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 | 切片 / 事项 | Commit | 审计项 | 结论 | 违规与处置 | 日期 |
 | --- | --- | --- | --- | --- | --- |
-| T-038 渲染数据路径重构 | 本切片 | 行为证据：3 个新测试 + 既有 49 项全绿（渲染 / 像素测试行为不变）；基准记录：每帧 O(n) → O(可见行)（全文 Bridge 往返与 split 只在失效后一次），帧时间全量基线随 T-016 建立；Rule 9 三问（缓存 2 字段 + 1 行切分 API + 二分，0 抽象层 / 0 依赖）/ Rule 12（EditorModel 249、VertexBuilder 202 ≤300；App 1775 < 5,000）/ Rule 3（EditorModel 单一职责未变） | Pass | 无 | 2026-08-02 |
-| T-037 Disk 保存（ADR-023） | 本切片 | 行为证据：Core 5 + Bridge 2 + App 2 测试全绿（保存往返 / 失败可见 / 菜单 / onChange）；ADR-023 Accepted 且入索引（Rule 13 闭环）；Rule 4（1 方法 + 2 错误变体 + 1 FFI 先 ADR）/ Rule 9 三问（0 抽象层 / 0 依赖，App 薄胶水 ~96 行）/ Rule 12（AppDelegate 177、EditorModel 198、AppMenu 109 ≤300；App 总量 1711 < 5,000）/ Rule 14（onChange 是 App 模块内回调，非公共 API） | Pass | 无 | 2026-08-02 |
-| T-035 Up/Down 边界修复（BUG-008） | 本切片 | 行为证据：4 个手写回归 + Up/Down 纳入属性差分 + 边界不变量显式断言（`PROPTEST_CASES=3000` 通过）；ADR-017 v1.1 备注（字节列须 floor 到边界，ADR-005 优先）；Rule 9 三问（1 行钳制 + 模型镜像算法，0 抽象层 / 0 依赖）/ Rule 12（property.rs 超 300 行 → 拆 support（119）/ property（162）/ property_fuzz（91），全部 ≤300；editor.rs 238 ≤300） | Pass | 无 | 2026-08-02 |
+| T-039 审计与门禁加固 | 本切片 | 行为证据：CI-Docs 新增审计完整性机械检查（未回填行 ≤1 + hash 全存在，fetch-depth 0）；CI-Release 补齐 swift-format(app/Sources) / fuzz / 规模预算 / docs 完整性 / 基准回归（I-008 对齐）；Rule 9 三问（纯 CI 配置与文档，0 依赖 / 0 抽象层）/ Rule 15（审计留痕从人工回填变为机械门禁） | Pass | 无 | 2026-08-02 |
+| T-038 渲染数据路径重构 | 7220747 | 行为证据：3 个新测试 + 既有 49 项全绿（渲染 / 像素测试行为不变）；基准记录：每帧 O(n) → O(可见行)（全文 Bridge 往返与 split 只在失效后一次），帧时间全量基线随 T-016 建立；Rule 9 三问（缓存 2 字段 + 1 行切分 API + 二分，0 抽象层 / 0 依赖）/ Rule 12（EditorModel 249、VertexBuilder 202 ≤300；App 1775 < 5,000）/ Rule 3（EditorModel 单一职责未变） | Pass | 无 | 2026-08-02 |
+| T-037 Disk 保存（ADR-023） | 135f44a | 行为证据：Core 5 + Bridge 2 + App 2 测试全绿（保存往返 / 失败可见 / 菜单 / onChange）；ADR-023 Accepted 且入索引（Rule 13 闭环）；Rule 4（1 方法 + 2 错误变体 + 1 FFI 先 ADR）/ Rule 9 三问（0 抽象层 / 0 依赖，App 薄胶水 ~96 行）/ Rule 12（AppDelegate 177、EditorModel 198、AppMenu 109 ≤300；App 总量 1711 < 5,000）/ Rule 14（onChange 是 App 模块内回调，非公共 API） | Pass | 无 | 2026-08-02 |
+| T-035 Up/Down 边界修复（BUG-008） | 29bdf9d | 行为证据：4 个手写回归 + Up/Down 纳入属性差分 + 边界不变量显式断言（`PROPTEST_CASES=3000` 通过）；ADR-017 v1.1 备注（字节列须 floor 到边界，ADR-005 优先）；Rule 9 三问（1 行钳制 + 模型镜像算法，0 抽象层 / 0 依赖）/ Rule 12（property.rs 超 300 行 → 拆 support（119）/ property（162）/ property_fuzz（91），全部 ≤300；editor.rs 238 ≤300） | Pass | 无 | 2026-08-02 |
 | T-034 审查问题登记 | 440c75b | Rule 15（issues.md 入 README 索引）/ Rule 3（issues.md 单一职责）/ Rule 9 三问（0 抽象层 / 0 依赖 / 0 公共 API，纯文档） | Pass（自审） | 无 | 2026-08-02 |
 | 复审（全仓） | d996059、db053f5、bce9d05、fb82b85、aa78b6a | 文档漂移 / ADR 失约 / 零消费者模块 / 基准缺失 / 门禁缺口 | 发现并处置 | ADR-018 索引补登、宪法 V1.4（R13~16）、接线计划（T-015/016/024/028/029/031）、CI-Docs 与 CI-Release 门禁、T-023 基准落地 | 2026-08-02 |
 | T-023 性能基准体系 | aa78b6a | Rule 16 基准门禁 / Rule 3 文件 ≤300 / ADR-021 / Rule 9 三问（1 dev-dep、0 公共接口） | Pass | 无 | 2026-08-02 |
 | T-032 测试与审计加固 | d867ac7 | Rule 8（proptest ADR-022）/ Rule 9 三问 / 审计留痕制度落地 | Pass（自审） | 无 | 2026-08-02 |
 | T-018 水平滚动 | 47c1dc2 | ADR-019（0 公共 API、Core 不变）/ Rule 3（MetalView 298、TextRenderer 292 贴线，拆分后 258 / 130+200）/ Rule 9 三问（1 个视口状态 + 输入平移 + 光标可见性，无抽象层 / 无依赖）/ Rule 12（全部 ≤300，App 总量 1483 < 5,000；T-036 校正：现 1615）/ Rule 14（Viewport / VertexBuilder 均 App 模块内，非公共 API） | Pass | 无；拆分前置在本切片完成 | 2026-08-02 |
-| T-036 存量清理 | 本切片 | Rule 14（`Selection::clamp` 零消费者 → 撤销，ADR-007 v1.1 记录）/ Rule 12（core/src 1726 ≤20k；死代码移除）/ Rule 15（experience / audits 计数校正；T-032 hash 回填）/ I-006 核验纠正（.DS_Store 从未入库，误报撤销）；Rule 9 三问（0 抽象层 / 0 依赖，纯删除 + 文档校正） | Pass | I-006 误报：审查依据 find 输出未区分跟踪状态，已用 git ls-files 核验纠正 | 2026-08-02 |
+| T-036 存量清理 | 6ceb0fe | Rule 14（`Selection::clamp` 零消费者 → 撤销，ADR-007 v1.1 记录）/ Rule 12（core/src 1726 ≤20k；死代码移除）/ Rule 15（experience / audits 计数校正；T-032 hash 回填）/ I-006 核验纠正（.DS_Store 从未入库，误报撤销）；Rule 9 三问（0 抽象层 / 0 依赖，纯删除 + 文档校正） | Pass | I-006 误报：审查依据 find 输出未区分跟踪状态，已用 git ls-files 核验纠正 | 2026-08-02 |
 | BUG-006 光标边缘留白 | 98cfb30 | ADR-019 光标横向可见性语义落实 / Rule 9（2 个留白常量 + 2 条边界规则，无新增依赖 / 抽象）/ Rule 12（Viewport 75、TextRenderer 132 等全部 ≤300） | Pass | 无 | 2026-08-02 |
 | BUG-007 组合期间横向可见性 | 1d7dfe7 | ADR-019（组合末尾光标 = BUG-004 语义纳入可见性）/ Rule 9（1 行调用，无新增状态 / 依赖）/ Rule 12（MetalView+Input 99 行 ≤300） | Pass | 无 | 2026-08-02 |
 | T-015 文件打开接线 | e6a7ebd | ADR-001 v1.1（Bridge FFI 3 项已记录）/ Rule 3（全部 ≤300）/ Rule 9 三问（3 个 FFI 适配函数 + App 薄胶水，0 抽象层 / 0 依赖）/ Rule 12（pub(crate) 访问器，不构成公共 API）/ Rule 14（DocumentManager 首次进产品，真实调用方 = AppDelegate） | Pass | 无；注册表副本与会话分离的激活状态边界已记录于 ADR-001 v1.1，随 T-024 统一 | 2026-08-02 |
@@ -23,5 +24,11 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 - 每切片必须新增一行；违规项必须写明处置（修代码 / ADR 修订 / 用户确认），
   不允许只写"通过"不写依据。
+- **行为证据必填（T-039，I-007）**：审计项必须包含实际验证过的行为——运行的
+  测试 / 基准命令、验证的边界或不变量、检查的门禁；只数行数 / API 数的审计
+  不算审计。
 - Commit 列填切片提交 hash；提交前无法预先填写的填「本切片」，由 git log 追溯。
+- **回填机械门禁（T-039，I-007）**：CI-Docs 检查审计表——「本切片」只允许
+  当前切片一行（未回填不得累积），表内 commit 必须存在于 git 历史；回填是
+  合入前提，不再靠人工自觉。
 - Roadmap 复审政策（季度 / 里程碑）触发全仓审计行，结论同步到 changelog。

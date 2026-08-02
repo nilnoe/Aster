@@ -15,6 +15,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # T-039：审计 hash 完整性检查需要完整历史。
+          fetch-depth: 0
       - name: Version tag consistency (宪法 Rule 15)
         run: |
           if [[ "$GITHUB_REF" == refs/tags/Beta-V* ]]; then
@@ -37,9 +40,61 @@ jobs:
       - name: Swift gates
         run: |
           ./bridge/build.sh
-          swift-format lint --recursive bridge/Tests app/Tests
+          # T-039（I-008）：与 CI-Swift 对齐——app/Sources 手写代码必须 lint，
+          # 此前 Release 门禁只 lint 测试目录，比日常 CI 更宽松。
+          swift-format lint --recursive app/Sources bridge/Tests app/Tests
           (cd bridge && swift test)
           (cd app && swift test)
+      - name: Fuzz (property extended cases)
+        # T-039（I-008）：与 CI-Rust 对齐——发布必须跑扩展属性测试。
+        run: PROPTEST_CASES=3000 cargo test --manifest-path core/Cargo.toml --test property --test property_fuzz
+      - name: Scale Budget (core + app)
+        # T-039（I-008）：与 CI-Rust / CI-Swift 对齐——发布必须过规模预算。
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            lines=$(wc -l < "$f" | tr -d ' ')
+            if [ "$lines" -gt 300 ]; then
+              echo "OVER 300 LINES: $f ($lines)"
+              fail=1
+            fi
+          done < <(find core app \( -name '*.rs' -o -name '*.swift' \) | grep -v -E '/(target|\.build)/')
+          core_total=$(find core/src -name '*.rs' -exec cat {} + | wc -l | tr -d ' ')
+          app_total=$(find app/Sources -name '*.swift' -exec cat {} + | wc -l | tr -d ' ')
+          echo "core/src=$core_total app/Sources=$app_total"
+          if [ "$core_total" -gt 20000 ] || [ "$app_total" -gt 5000 ]; then
+            echo "OVER BUDGET"
+            fail=1
+          fi
+          exit $fail
+      - name: Docs integrity (ADR index + audit log)
+        # T-039（I-008）：与 CI-Docs 对齐——发布必须过文档机械门禁。
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            name=$(basename "$f")
+            if ! grep -qF "$name" docs/adr/README.md; then
+              echo "MISSING FROM ADR INDEX: $name"
+              fail=1
+            fi
+          done < <(find docs/adr -maxdepth 1 -name 'ADR-*.md' | sort)
+          unbackfilled=$(grep -cE '\| 本切片 \|' docs/audits.md || true)
+          if [ "$unbackfilled" -gt 1 ]; then
+            echo "UNBACKFILLED AUDIT ROWS: $unbackfilled"
+            fail=1
+          fi
+          while IFS= read -r hash; do
+            if ! git cat-file -e "$hash^{commit}" 2>/dev/null; then
+              echo "UNKNOWN COMMIT IN AUDITS: $hash"
+              fail=1
+            fi
+          done < <(grep -oE '\b[0-9a-f]{7,40}\b' docs/audits.md | sort -u)
+          exit $fail
+      - name: Benchmark regression
+        # T-039（I-008）：与 CI-Bench 对齐——发布必须跑基准回归告警。
+        run: |
+          cd core && cargo bench --bench bench_editor --bench bench_pipeline -- --quick
+          cd .. && python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion
 
   package:
     name: Package App

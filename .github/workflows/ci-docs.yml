@@ -25,6 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # T-039：审计 hash 完整性检查需要完整历史（默认浅克隆只有最新提交）。
+          fetch-depth: 0
       - name: ADR index completeness (宪法 Rule 15)
         run: |
           fail=0
@@ -43,4 +46,24 @@ jobs:
               fail=1
             fi
           done < <(grep -oE '\]\(ADR-[^)]+\.md\)' docs/adr/README.md | sed -E 's/^\]\(//; s/\)$//' | sort -u)
+          exit $fail
+      - name: Audit log integrity (宪法 Rule 15 扩展，T-039)
+        # I-007：审计留痕此前靠人工回填，无机械门禁。两条规则：
+        # 1) 「本切片」只允许出现在最末（当前切片）一行——未回填的审计行不得累积；
+        # 2) 审计表内所有 commit 引用必须真实存在于 git 历史。
+        run: |
+          fail=0
+          # 只数 Commit 列（`| 本切片 |`）；正文措辞（如"拆分前置在本切片完成"）
+          # 不计入。
+          unbackfilled=$(grep -cE '\| 本切片 \|' docs/audits.md || true)
+          if [ "$unbackfilled" -gt 1 ]; then
+            echo "UNBACKFILLED AUDIT ROWS: $unbackfilled 行（只允许当前切片一行）"
+            fail=1
+          fi
+          while IFS= read -r hash; do
+            if ! git cat-file -e "$hash^{commit}" 2>/dev/null; then
+              echo "UNKNOWN COMMIT IN AUDITS: $hash"
+              fail=1
+            fi
+          done < <(grep -oE '\b[0-9a-f]{7,40}\b' docs/audits.md | sort -u)
           exit $fail

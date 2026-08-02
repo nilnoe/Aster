@@ -65,6 +65,18 @@
 - test(app)：3 项——lineIndex 行边界 / 空文本语义、显示缓存随编辑 / 组合 / 移动
   失效、lineText 反映最新内容；既有 47 项渲染 / 像素测试全部保持绿（行为不变）
 
+### Changed — 2026-08-02（T-039 审计与门禁加固，I-007 / I-008）
+
+- ci(docs)：CI-Docs 新增审计完整性机械检查（Rule 15 扩展，I-007）——audits.md
+  「本切片」未回填行只允许当前切片一行（不得累积），表内 commit 必须真实存在
+  （checkout 改 fetch-depth 0 提供完整历史）；审计从"人工回填自觉"变为"合入前提"
+- ci(release)：CI-Release gates 与日常 CI 对齐（I-008）——补上 swift-format
+  app/Sources lint、fuzz（PROPTEST_CASES=3000）、规模预算（core + app）、docs
+  完整性（ADR 索引 + 审计表）、基准回归（--quick + bench-baseline 10% 阈值）
+- docs(audits)：审计规则增加"行为证据必填"（只数行数 / API 数的审计不算审计）；
+  回填 T-035~T-038 审计 commit（29bdf9d / 6ceb0fe / 135f44a / 7220747）
+- docs(pr)：PR 模板审计区增加行为证据与审计行必填项（T-039）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——
