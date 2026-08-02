@@ -11,7 +11,7 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-004 | IME 组合期间光标不跟随：光标画在组合起点而非组合文本末尾 | Fixed | Implementation Bug | — | d1337a3 | 2026-08-02 |
 | BUG-005 | 文本区鼠标指针是箭头而非 I 型：视图未注册 iBeam 光标矩形 | Fixed | Implementation Bug | — | c12e615 | 2026-08-02 |
 | BUG-006 | 横向滚动后行末光标消失 / 回车后左侧边距消失：`ensureCursorVisible` 无左右边缘留白——右缘光标 quad 整体出视口；左缘（回车到新行行首）scrollX 被设成 cursorX，12pt 左边距被滚出视口 | Fixed | Implementation Bug | — | 98cfb30 | 2026-08-02 |
-| BUG-007 | 拼音组合期间组合文本超出右缘不自动横向滚动：`setMarkedText` 只更新组合与重绘，未调用 `scrollCursorIntoView`（与 `insertText` 不一致），组合末尾光标超出视口 | Fixed | Implementation Bug | — | 本切片 | 2026-08-02 |
+| BUG-007 | 拼音组合期间组合文本超出右缘不自动横向滚动：`setMarkedText` 只更新组合与重绘，未调用 `scrollCursorIntoView`（与 `insertText` 不一致），组合末尾光标超出视口 | Fixed | Implementation Bug | — | 1d7dfe7 | 2026-08-02 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则
