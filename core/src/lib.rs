@@ -15,6 +15,7 @@ mod history;
 mod layout;
 mod lua;
 mod selection;
+mod store;
 mod theme;
 
 pub use buffer::{Buffer, BufferId};
@@ -26,4 +27,5 @@ pub use history::{EditOp, History};
 pub use layout::Layout;
 pub use lua::{LuaError, LuaRuntime};
 pub use selection::Selection;
+pub use store::{SessionDocument, Store, StoreError};
 pub use theme::{Color, Theme, ThemeError};

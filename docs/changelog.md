@@ -68,3 +68,6 @@
 - [ADR-012](../docs/adr/ADR-012-lua-runtime.md) — Lua Runtime（mlua 0.12，lua54 + vendored）与 Plugin API（Accepted）
 - [ADR-011](../docs/adr/ADR-011-command-event.md) — 修订 v1.1：处理器签名改为可失败，`CommandError` 新增 `HandlerFailed`（T-008 提前触发）
 - feat(core)：Lua Runtime 与 Plugin API（T-008，ADR-012）——`LuaRuntime`（load / export_commands / export_subscribers / get_global）；Lua 侧 `aster.register_command` / `aster.subscribe`；6 个契约测试；新增依赖 mlua（Rule 7 / 8 论证见 ADR-012）
+- [ADR-013](../docs/adr/ADR-013-sqlite-store.md) — SQLite 存储层（rusqlite 0.40 bundled，scratch + session 两表，Accepted）
+- [ADR-001](../docs/adr/ADR-001-document-manager.md) — 备注更新：存储层由 T-009 交付，Scratch 工作流接线在 T-019、Session / Crash Recovery 编排在 T-021
+- feat(core)：SQLite 存储层（T-009，ADR-013）——`Store`（scratch upsert / session 事务整表替换）；`SessionDocument`；9 个契约测试；新增依赖 rusqlite（Rule 7 / 8 论证见 ADR-013）

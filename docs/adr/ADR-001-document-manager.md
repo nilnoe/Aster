@@ -80,4 +80,4 @@ Buffer 与 Theme 不反向依赖 DocumentManager。
 
 - 本次仅记录 ADR，不包含实现（遵循 Workflow：Architecture 阶段先记录决策，Test Design 在前，实现在后）。
 - 后续切片：为 `open` / `close` 编写测试（Red），再实现。
-- 实现顺序：T-002 实现注册与生命周期（内存态）；Scratch 的 SQLite 落盘由 T-009 / T-021 接入；激活状态由 T-013 决定。
+- 实现顺序：T-002 实现注册与生命周期（内存态）；SQLite 存储层由 T-009（ADR-013）交付，Scratch 自动保存工作流接线在 T-019，Session / Crash Recovery 编排在 T-021；激活状态由 T-013 决定。
