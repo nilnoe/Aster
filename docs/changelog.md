@@ -77,3 +77,4 @@
 - [ADR-015](../docs/adr/ADR-015-appkit-shell.md) — AppKit 壳（程序化启动、最小菜单集、版本单一来源，Accepted）
 - feat(app)：AppKit 壳（T-011，ADR-015）——`main.swift` 程序化启动 + 空白 NSWindow + 最小菜单（App / Edit / Window）；关于面板版本号经 Bridge 来自 Core；4 个 XCTest（含 App → Bridge → Core 垂直线程）；Swift App 规模预算自此生效
 - ci(swift)：CI-Swift 增加 app 包 lint 与 test
+- fix(build)：`swift run` 构建警告清零（T-011 后续）——Swift 6 下生成绑定 retroactive conformance 警告经目标级 `-suppress-warnings` 抑制（生成代码目标）；部署目标统一为 macOS 26（manifest `.v26` + `MACOSX_DEPLOYMENT_TARGET=26.0`），消除 32 条链接警告

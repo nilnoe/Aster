@@ -58,3 +58,4 @@ app 包只负责进程启动、窗口与菜单壳；业务逻辑全部留在 Rus
 - **Swift App 规模预算（宪法 Rule 12：app/ ≤ 5,000 行）自此切片生效**；本切片约 160 行。
 - 关于面板经 `orderFrontStandardAboutPanel(options:)` 传版本号——系统 UI + Core 数据。
 - 窗口内容与菜单动作的接线随渲染 / 编辑切片替换，不预置占位 UI。
+- **部署目标（ADR-002 执行）：** app 与 bridge 包 `platforms: [.macOS(.v26)]`（tools 6.2+），且 `bridge/build.sh` 以 `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象——两端一致，否则链接器报 "built for newer macOS version" 警告。tools 6.0 的 PackageDescription 无 `.v26`。

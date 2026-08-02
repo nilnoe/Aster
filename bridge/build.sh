@@ -9,7 +9,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BRIDGE="$ROOT/bridge"
 GENERATED="$ROOT/target/generated"
 
-cargo build --release --manifest-path "$ROOT/core/Cargo.toml"
+# MACOSX_DEPLOYMENT_TARGET 与 Swift 包部署目标（.v26 → 26.0）一致：
+# 否则 mlua / rusqlite 的 C 对象按 SDK 版本编译，链接时报
+# "built for newer macOS version" 警告（ADR-002 / T-011 修复）。
+MACOSX_DEPLOYMENT_TARGET=26.0 cargo build --release --manifest-path "$ROOT/core/Cargo.toml"
 
 rm -rf "$BRIDGE/Sources/AsterBridge" "$BRIDGE/artifacts" "$BRIDGE/Sources/CAsterBridge/aster_core.h" "$BRIDGE/Sources/CAsterBridge/SwiftBridgeCore.h"
 mkdir -p "$BRIDGE/Sources/AsterBridge" "$BRIDGE/artifacts"

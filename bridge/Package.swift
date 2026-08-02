@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 
 // Aster Bridge：swift-bridge 生成的 Swift 绑定 + Rust staticlib 链接（T-010，ADR-014）。
 // 决策依据：
@@ -17,6 +17,7 @@ let packageDir = rawPackageDir.hasPrefix("/") ? rawPackageDir : "/" + rawPackage
 
 let package = Package(
     name: "AsterBridge",
+    platforms: [.macOS(.v26)],
     products: [
         .library(name: "AsterBridge", targets: ["AsterBridge"]),
     ],
@@ -28,6 +29,14 @@ let package = Package(
         .target(
             name: "AsterBridge",
             dependencies: ["CAsterBridge"],
+            // 决策依据（ADR-014 备注）：本目标只含 swift-bridge 生成的代码，
+            // Swift 6 会对其 retroactive conformance（RustStr: Identifiable/
+            // Equatable 等）报警告，而上游生成器不支持 @retroactive；
+            // 整目标抑制警告等价于 Rust 侧 `#[allow]` 生成代码 lint 的惯例，
+            // 错误仍会照常暴露。
+            swiftSettings: [
+                .unsafeFlags(["-suppress-warnings"]),
+            ],
             linkerSettings: [
                 .unsafeFlags(["-L", packageDir + "/artifacts"]),
                 .linkedLibrary("aster_core"),

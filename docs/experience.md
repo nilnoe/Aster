@@ -46,6 +46,8 @@
     - manifest 的 `#filePath` 可能丢前导斜杠；`-L` 必须保证绝对路径。
 16. **SPM 跨包消费要点**（T-011）：依赖包必须声明 `products: [.library(...)]` 才能被消费；`.product(name:package:)` 的 `package` 参数是**目录名**（如 `bridge`）而非包内 name；`@testable import` 可测试 executable target（Swift 5.5+）。
 17. **Swift App 规模预算自 T-011 生效**：app/ 源码计入宪法 Rule 12（≤5,000 行）；AppKit 壳保持 ~160 行，新 UI 切片需持续记账。
+18. **部署目标必须两端一致**（T-011 修复）：Rust C 对象（mlua/rusqlite 的 vendored/bundled C）默认按 SDK 版本编译，Swift 包部署目标较低时产生 30+ 条 `built for newer macOS version` 链接警告。解法：manifest `platforms: [.macOS(.v26)]`（需 swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0 cargo build`；改 env 后需 `cargo clean`（cargo 不跟踪 env 变化，且 Lua 由 **lua-src** 的 build script 编译，清理要打中它）。
+19. **swift-bridge 生成 Swift 的 Swift 6 警告**（T-011 修复）：生成的 `SwiftBridgeCore.swift` 有 retroactive conformance 警告（RustStr: Identifiable/Equatable），上游不支持 `@retroactive`；该目标只含生成代码，加 `swiftSettings: [.unsafeFlags(["-suppress-warnings"])]`（注意 swiftSettings 里**不要**再带 `-Xswiftc` 前缀）。
 
 ## 架构决策速查（勿重新讨论，除非出现新数据）
 
