@@ -10,6 +10,15 @@
 
 ## [Unreleased]
 
+### Added — 2026-08-02（T-050，测试基建）
+
+- App 集成测试套件：五组进程内集成测试（启动链路 / 文档生命周期 / 退出流程 /
+  崩溃恢复 / 端到端数据流），策略入 docs/testing.md；真实 NSApplication +
+  AppKit → Bridge → Core 全链路首次进自动化。
+- AppDelegate 退出 / 恢复提示抽取两个 internal 可测试接缝（生产行为不变）。
+
+### Changed — 2026-08-02（Beta V0.2 规划）
+
 <!-- 尚未发布的变更维护在此；发布时归档到 [Beta V0.x.y]。 -->
 
 ### Changed — 2026-08-02（T-049 CI-Bench 稳定性，ADR-021 v1.3）

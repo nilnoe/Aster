@@ -47,14 +47,7 @@ extension AppDelegate {
     guard needsRecoveryPrompt, let store = bufferStore else { return }
     let ids = store_scratch_ids(store)
     guard let latest = ids.max() else { return }
-    let alert = NSAlert()
-    alert.messageText = "检测到异常退出"
-    alert.informativeText =
-      "上次会话未正常退出，发现 \(ids.count) 个未提交文档。要恢复最近的一个吗？"
-      + "（未恢复的内容会登记为未决文档，退出时可一并保存或丢弃）"
-    alert.addButton(withTitle: "恢复")
-    alert.addButton(withTitle: "忽略")
-    let restore = alert.runModal() == .alertFirstButtonReturn
+    let restore = presentRecoveryAlert(count: ids.count) == 1
     do {
       if restore {
         // 恢复：内容载入新文档（新 id 接管自动保存），删除被恢复的旧行。

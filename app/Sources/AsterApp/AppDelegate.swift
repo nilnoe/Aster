@@ -14,7 +14,11 @@ import AppKit
 import AsterBridge
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+// T-050：移除 `final` 使测试可子类化注入模态提示决策（docs/testing.md 接缝）。
+// 决策依据：`final` 只是编译期优化，非架构约束；测试 seam 需要子类覆写
+// `presentPendingDocsAlert` / `presentRecoveryAlert`（Rule 9：0 抽象层，
+// 只放开一个继承点）。
+class AppDelegate: NSObject, NSApplicationDelegate {
   /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
   /// 所有打开路径统一经它，ADR-001）。
   var documentManager = document_manager_new()
@@ -75,6 +79,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// （ADR-013 v1.3 删除时机 3）。
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     guard !pendingDocs.isEmpty else { return .terminateNow }
+    switch presentPendingDocsAlert() {
+    case 1:
+      return saveAllPending() ? .terminateNow : .terminateCancel
+    case 0:
+      discardAllPending()
+      return .terminateNow
+    default:
+      return .terminateCancel
+    }
+  }
+
+  /// 未决文档退出提示（T-050 集成测试接缝；docs/testing.md）。
+  ///
+  /// 决策依据：模态交互（runModal）无法被测试进程驱动，把「弹窗并返回用户
+  /// 选择」抽为 internal 方法，测试子类覆写注入决策；生产路径行为不变
+  /// （Rule 9：1 个方法而非抽象层；无依赖注入框架）。
+  /// 返回 `Int?`：1 = 保存全部；0 = 全部不保存；nil = 取消。
+  func presentPendingDocsAlert() -> Int? {
     let alert = NSAlert()
     alert.messageText = "有 \(pendingDocs.count) 个文档存在未提交更改"
     alert.informativeText =
@@ -84,14 +106,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     alert.addButton(withTitle: "全部不保存")
     alert.addButton(withTitle: "取消")
     switch alert.runModal() {
-    case .alertFirstButtonReturn:
-      return saveAllPending() ? .terminateNow : .terminateCancel
-    case .alertSecondButtonReturn:
-      discardAllPending()
-      return .terminateNow
-    default:
-      return .terminateCancel
+    case .alertFirstButtonReturn: return 1
+    case .alertSecondButtonReturn: return 0
+    default: return 2
     }
+  }
+
+  /// 崩溃恢复提示（T-050 集成测试接缝；docs/testing.md）。
+  ///
+  /// 决策依据：模态交互（runModal）无法被测试进程驱动，把「弹窗并返回用户
+  /// 选择」抽为 internal 类体方法，测试子类覆写注入决策（跨模块覆写要求
+  /// 方法声明在类体而非 extension，Swift 语言约束）；生产路径行为不变
+  /// （Rule 9：1 个方法而非抽象层；无依赖注入框架）。
+  func presentRecoveryAlert(count: Int) -> Int {
+    let alert = NSAlert()
+    alert.messageText = "检测到异常退出"
+    alert.informativeText =
+      "上次会话未正常退出，发现 \(count) 个未提交文档。要恢复最近的一个吗？"
+      + "（未恢复的内容会登记为未决文档，退出时可一并保存或丢弃）"
+    alert.addButton(withTitle: "恢复")
+    alert.addButton(withTitle: "忽略")
+    return alert.runModal() == .alertFirstButtonReturn ? 1 : 0
   }
 
   @objc func showAbout(_ sender: Any?) {

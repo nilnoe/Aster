@@ -7,14 +7,15 @@
 - **代码：**
   - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
     selection / history / layout / theme / command / event / lua / store / bridge /
-    editor / document_manager / snapshot），`core/src` 共 2110 行，125 个测试全绿（含 7 个
+    editor / document_manager / snapshot），`core/src` 共 2110 行，127 个测试全绿（含 7 个
     属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（59 个 XCTest 全绿），源码 1945 行（Rule 12
+  - app/：AppKit 壳 + Metal 编辑视图（78 个 XCTest 全绿，T-050 起含五组 App
+    集成测试），源码 2100 行（Rule 12
     的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 DocumentManager Bridge 面、ADR-021 CI 基准告警、ADR-022
@@ -153,6 +154,12 @@
 
 | 日期 | 切片 | 问题 | 解法 |
 | --- | --- | --- | --- |
+| 2026-08-02 | T-050 | 测试子类覆写 AppDelegate 提示方法报 "does not override"：① 方法在 extension 里（Swift 不允许跨模块覆写 extension 方法，须声明在类体）；② 覆写返回类型 `Int?` 与基类 `Int` 不匹配（override 必须同返回类型）；③ AppDelegate 是 `final class`（测试不能子类化） | 两个 seam 方法（`presentPendingDocsAlert` / `presentRecoveryAlert`）抽为类体 internal 方法；返回类型统一 `Int?`（nil = 取消）；移除 `final`（编译期优化非架构约束，docs/testing.md 记录依据） |
+| 2026-08-02 | T-050 | swift-bridge 的 `Result<String, String>` 抛出的错误是 `RustString` 对象：`XCTAssertThrowsError` 里 `"\(error)".contains(...)` 拿不到消息文本 | 断言用 `(error as? RustString)?.toString().contains(...) == true`（ADR-014 桥接惯例延伸：错误消息也要 toString） |
+| 2026-08-02 | T-050 | 测试经独立 SQLite 连接播种，AppDelegate 连接读不到（跨连接可见性依赖提交时序） | 播种必须经被测对象持有的同一连接（`appDelegate.bufferStore`），或独立连接写完即释放再启动（恢复测试：launch 前无连接，独立连接落盘后释放） |
+| 2026-08-02 | T-050 | 集成测试启动即崩（Fatal error: nil）：`NSApp` 在测试进程为 nil | setUp 先 `_ = NSApplication.shared` 实例化共享应用（不启动 run loop）；真实 `applicationDidFinishLaunching` 才能执行 |
+| 2026-08-02 | T-050 | `@MainActor` 标注的 XCTestCase 里 override `setUp()/tearDown()` 报不同 actor 隔离（XCTest 基类非隔离） | 类级 `@MainActor` 已让成员隔离，不要再给 setUp/tearDown 单独加标注（冗余标注反而编译错） |
+| 2026-08-02 | T-050 | `typeText` 在光标处插入（默认光标 = 字节 0）："输入 + 默认内容"而不是"默认内容 + 输入"；`snapshotFiles` 断言没过滤 `buffer.sqlite` | 断言先推演光标语义：先 `move(.docEnd)` 再输入；目录断言只取 `aster-*.txt` 前缀（测试失败先怀疑测试，老教训再次应验） |
 | 2026-08-02 | T-002 | `expect(dead_code)` 在测试构建报 unfulfilled | `#[cfg_attr(not(test), expect(dead_code))]` |
 | 2026-08-02 | T-002 | clippy `new_without_default` | 实现 `Default` 并注释理由 |
 | 2026-08-02 | T-004 | 返回 push 后的 op 触发 E0382 | 栈存 clone，返回原值 |
