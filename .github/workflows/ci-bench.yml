@@ -31,6 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Run benchmarks (quick)
-        run: cd core && cargo bench --bench bench_editor --bench bench_pipeline -- --quick
+        # T-048：显式固定 target 目录——cargo 在 CI 上会把结果落到 workspace 根
+        # （Aster/target），导致对比脚本找不到 core/target/criterion。
+        # CARGO_TARGET_DIR=target（相对 core/）保证结果确定落在 core/target/。
+        run: cd core && CARGO_TARGET_DIR=target cargo bench --bench bench_editor --bench bench_pipeline -- --quick
       - name: Compare against committed baseline
         run: python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion

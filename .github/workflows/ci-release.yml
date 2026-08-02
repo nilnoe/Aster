@@ -92,8 +92,10 @@ jobs:
           exit $fail
       - name: Benchmark regression
         # T-039（I-008）：与 CI-Bench 对齐——发布必须跑基准回归告警。
+        # T-048：CARGO_TARGET_DIR 固定 target 目录（同 CI-Bench），保证
+        # criterion 结果落在 core/target/criterion。
         run: |
-          cd core && cargo bench --bench bench_editor --bench bench_pipeline -- --quick
+          cd core && CARGO_TARGET_DIR=target cargo bench --bench bench_editor --bench bench_pipeline -- --quick
           cd .. && python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion
 
   package:

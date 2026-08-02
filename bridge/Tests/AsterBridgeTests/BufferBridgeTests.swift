@@ -9,7 +9,14 @@ import XCTest
 
 final class BufferBridgeTests: XCTestCase {
   func testCoreVersionRoundTrip() {
-    XCTAssertEqual(core_version().toString(), "0.1.1")
+    // 版本号单一来源（core/Cargo.toml，经 Bridge 往返）。硬编码具体版本会在每次
+    // 发版时失效（T-048：0.1.1 → 0.1.2 时 CI-Swift 抓出）；改为格式断言，
+    // 版本与 tag 的一致性由 CI-Release 机械检查（Rule 15）。
+    let version = core_version().toString()
+    XCTAssertNotNil(
+      version.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression),
+      "版本号必须是 x.y.z：\(version)"
+    )
   }
 
   func testBufferCreateInsertTextRoundTrip() throws {
