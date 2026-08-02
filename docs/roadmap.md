@@ -31,21 +31,32 @@
 - [x] T-011 AppKit 壳：Window + Menu + 空白视图
 - [x] T-012 Metal 渲染管线：文本渲染 spike（CoreText + IME + CJK）
 - [x] T-013 编辑循环：键盘输入、光标、滚动、选择
-- [ ] T-014 系统集成：深浅色跟随、拖放、剪贴板、文档选择器
+- [ ] T-014 剪贴板：复制 / 剪切 / 粘贴 + Edit 菜单接线（系统 NSPasteboard；ADR-018）
+- [ ] T-015 拖放与文档选择器：文件拖入 Buffer、NSOpenPanel 打开（ADR-018）
 
-## Phase 3 — Overlay 生态
+> 深浅色跟随系统不在本阶段：固定深色启动态，主题可编程能力由 Lua 提供（ADR-018）。
 
-- [ ] T-015 Command Palette overlay
-- [ ] T-016 Search overlay
-- [ ] T-017 StatusBar overlay
-- [ ] T-018 Shell overlay（PTY + 模糊背景）
-- [ ] T-019 Scratch 工作流：`Cmd+N` → 自动保存 → Attach Path
+## Phase 3 — 渲染与编辑打磨（ADR-018 方向）
 
-## Phase 4 — 打磨与发布
+- [ ] T-016 渲染质量：sRGB + gamma 校正（抗锯齿边缘与系统渲染对齐）
+- [ ] T-017 光标：闪烁与可见性（BUG-002 修复随缺陷流程）
+- [ ] T-018 编辑细节：DeleteForward + 词级移动（Option+←/→）
+- [ ] T-019 选择打磨：双击选词 / 三击选行
+- [ ] T-020 滚动与 IME：平滑滚动 / 候选框定位精确化
+- [ ] T-021 性能基准体系：criterion + 稳定测量（穿插执行，不阻塞功能切片；ADR-006 存储决策的前置）
 
-- [ ] T-020 性能基准体系：冷启动 / 打开文档 / 渲染；基准数据驱动文本存储选择（ADR-006）
-- [ ] T-021 Crash Recovery 与 Session 恢复
-- [ ] T-022 首个正式版 V1.0.0（暂不排期，Beta 优先）
+## Phase 4 — Overlay 生态
+
+- [ ] T-022 Command Palette overlay
+- [ ] T-023 Search overlay
+- [ ] T-024 StatusBar overlay
+- [ ] T-025 Shell overlay（PTY + 模糊背景）
+- [ ] T-026 Scratch 工作流：`Cmd+N` → 自动保存 → Attach Path
+
+## Phase 5 — 稳定与发布
+
+- [ ] T-027 Crash Recovery 与 Session 恢复
+- [ ] T-028 首个正式版 V1.0.0（暂不排期，Beta 优先）
 
 ## Task 编号规则
 
@@ -57,7 +68,7 @@
 
 顺序仅供参考，具体切片可能因 Analysis 阶段的新证据调整；任何调整必须先反映在 ADR 中。
 
-当前下一步：**T-014 系统集成：深浅色跟随、拖放、剪贴板、文档选择器**。
+当前下一步：**T-017 光标（BUG-002 修复 + 闪烁）→ 随后 T-014 剪贴板**。
 
 ## 复审政策
 

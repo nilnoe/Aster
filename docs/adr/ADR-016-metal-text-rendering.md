@@ -81,7 +81,8 @@ Core 侧 `Layout::line_starts` 为 `pub(crate)` 访问器：仅 Bridge 使用，
 - **像素级栅格化（BUG-001 修订）：** 字形必须按像素尺寸栅格化——16pt 在 Retina（scale=2）
   下画成 32px 位图（`CTFontCreateCopyWithAttributes` 缩放），缓存键为
   font 名 + pixelSize + glyph；quad 位置吸附像素网格并配合 nearest 采样，保证 1:1 清晰。
-- **颜色：** v1 顶点携带前景色（固定色），Theme 模型（T-006）的接线推迟到 T-014。
+- **颜色：** v1 顶点携带前景色（固定深色启动态），Theme 模型（T-006）的接线由 Lua
+  主题切片提供（ADR-018：深浅色默认不跟随系统）。
 - **IME 边界：** 本切片只验证「组合文本渲染 + 提交写回 Core」闭环；光标移动、替换区间、
   选择编辑属 T-013 编辑循环。
 - **刷新模型：** `enableSetNeedsDisplay` + 文本变化置 `needsDisplay`，无轮询

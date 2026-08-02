@@ -18,6 +18,16 @@
 swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 目标环境：macOS 26.5.1 / Apple M4（ADR-002：仅支持最新 macOS）。
 
+### Changed — 2026-08-02（Beta V0.2 规划）
+
+- docs(roadmap)：基础功能完善方向重构（[ADR-018](../docs/adr/ADR-018-foundation-polish.md)）——
+  T-014 移除「深浅色跟随」（固定深色 + Lua 主题），新增 Phase 3 渲染与编辑打磨
+  （T-016 sRGB+gamma、T-017 光标、T-018 DeleteForward/词移动、T-019 双击/三击选词、
+  T-020 平滑滚动/IME 定位、T-021 criterion 基准体系）并重新编号；Overlay 与发布
+  任务顺延为 T-022 ~ T-028
+- [ADR-018](../docs/adr/ADR-018-foundation-polish.md) — 方向决策：深浅色不跟随系统
+  （Rule 9 论证）、渲染质量优先、光标为 T-013 验收缺口（BUG-002）、基准体系前置
+
 ### Fixed — 2026-08-02
 
 - fix(app)：Retina 下 Metal 文本渲染模糊（BUG-001，根因分类：Implementation Bug）——

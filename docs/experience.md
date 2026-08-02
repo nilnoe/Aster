@@ -2,14 +2,15 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-013 完成）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-013 完成，Beta V0.1.0 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，107 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（26 个 XCTest 全绿），源码 1226 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-017 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-014（系统集成：深浅色跟随、拖放、剪贴板、文档选择器）。
+- **下一任务：** T-017 光标（BUG-002 可见性修复 + 闪烁）→ T-014 剪贴板
+  （方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
 - **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
@@ -72,7 +73,8 @@
 | Lua 宿主 | mlua 0.12（lua54 + vendored） | 插件线程化时重估 Send/Sync（T-008 已评估） |
 | Bridge 构建 | swift-bridge 0.1.59 + `bridge/build.sh`；staticlib + lua/sqlite 传递依赖显式链接进 Swift 包 | swift-bridge 升级（major）另走 ADR（依赖政策） |
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
-| 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 增量失效 / 光标 / 滚动随 T-013 细化（ADR-016）；颜色接 Theme 在 T-014 |
+| 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 增量失效随 T-013 细化（ADR-016）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
+| 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-015；剪贴板 / 拖放 / 深浅色随 T-014 |
 
 ## 踩坑记录（可追加）
