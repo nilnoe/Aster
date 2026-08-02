@@ -7,7 +7,7 @@
       --criterion-root core/target/criterion
   CI / 本地对比（先 `cd core && cargo bench -- --quick`）：
     python3 scripts/bench-regression.py --baseline-dir bench-baseline \
-      --criterion-root core/target/criterion [--threshold 0.10]
+      --criterion-root core/target/criterion [--threshold 2.0]
 
 规则（ADR-021 v1.1）：
 - 只比较 mean.point_estimate（纳秒）；当前 > 基线 × (1 + threshold) 视为回归，
@@ -26,13 +26,20 @@ MEAN_NS_FLOOR = 100_000  # 100µs（T-048）：共享 runner 的 quick 模式噪
 # 数十 µs，10µs 下限仍会被噪声触发；低于 100µs 的基准跳过（跨机器噪声不可比）。
 
 
+def point_estimate(data: dict) -> float:
+    """取 median.point_estimate，缺失时回退 mean（T-049：median 抗离群，
+    quick 模式共享 runner 的 mean 更容易被单次卡顿拉高）。"""
+    est = data.get("median") or data.get("mean")
+    return float(est["point_estimate"])
+
+
 def collect_results(criterion_root: Path) -> dict[str, float]:
     """扫描 `<criterion>/<bench>/<sample>/new/estimates.json` → {相对路径: mean 纳秒}。"""
     results: dict[str, float] = {}
     for est in criterion_root.rglob("new/estimates.json"):
         rel = est.parent.parent.relative_to(criterion_root)
         data = json.loads(est.read_text(encoding="utf-8"))
-        results[str(rel)] = float(data["mean"]["point_estimate"])
+        results[str(rel)] = point_estimate(data)
     return results
 
 
@@ -65,7 +72,7 @@ def compare(criterion_root: Path, baseline_dir: Path, threshold: float) -> int:
             missing += 1
             print(f"  无基线（新基准，跳过）：{rel}")
             continue
-        base_ns = float(json.loads(base_file.read_text(encoding="utf-8"))["mean"]["point_estimate"])
+        base_ns = point_estimate(json.loads(base_file.read_text(encoding="utf-8")))
         if base_ns < MEAN_NS_FLOOR:
             skipped += 1
             continue

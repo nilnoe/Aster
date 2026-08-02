@@ -49,11 +49,11 @@
 - 必须使用 release 构建测量。
 - 必须记录机器型号、macOS 版本、硬件配置；不同环境的数据不可直接比较。
 - 每次记录附带关联切片与日期，可回溯到 Commit。
-- **基线文件（T-033，ADR-021 v1.1；v1.2 阈值调整，T-048）：** `bench-baseline/`
-  是本地 release 测量的 17 项均值基线（Apple M4 / macOS 26.5.1），随仓库提交；
-  `CI-Bench` 作业以 `--quick` 模式对比该基线，**回归超 100% 即红（100µs 以下
-  跳过；告警级，非精度门禁）**——共享 runner 的 quick 模式噪声 +26%~+120%，
-  精确回归以本地 release 全量测量为准（ADR-021 v1.2）。基线更新：本地
+- **基线文件（T-033，ADR-021 v1.3）：** `bench-baseline/` 是本地 release 测量的
+  17 项基线（Apple M4 / macOS 26.5.1），随仓库提交；`CI-Bench` 作业以 `--quick`
+  模式对比该基线，**median 对比 + 回归超 200% 即红（100µs 以下跳过；告警级，
+  非精度门禁）**——共享 runner 的 quick 模式噪声 +26%~+120%（偶发越过 100%），
+  精确回归以本地 release 全量测量为准（ADR-021 v1.3）。基线更新：本地
   `cargo bench`（`cd core && CARGO_TARGET_DIR=target cargo bench`）后执行
   `python3 scripts/bench-regression.py --save-baseline bench-baseline --criterion-root core/target/criterion`。
 - TBD 的目标值在首个基准切片中确定后，回写本表与 ADR。

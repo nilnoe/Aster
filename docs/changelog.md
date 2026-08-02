@@ -37,6 +37,13 @@ macOS 26.5.1 / Apple M4（ADR-002）。
   `testAppInfoVersionComesFromCore`）在 0.1.1 → 0.1.2 时被 CI 抓红 → 改格式断言，
   版本 / tag 一致性交给 CI-Release（Rule 15）
 
+### Changed — 2026-08-02（T-049 CI-Bench 稳定性，ADR-021 v1.3）
+
+- fix(ci)：对比改用 `median.point_estimate`（抗离群，回退 mean）+ 阈值 100% →
+  200%——第二轮实测 100% 阈值仍被噪声越过（buffer_insert +118.1%，同轮发布
+  流水线 bench 却通过 = 共享 runner 负载差异）；CI 只捕获「3 倍级恶化」，
+  精确回归以本地 release 全量测量为准（ADR-021 决策 4 不变）
+
 - docs(issues)：新建 [docs/issues.md](../docs/issues.md) 审查问题登记表——2026-08-02
   全仓审查的 8 条问题（I-001~I-008，含 P0 CJK 光标边界缺陷、P1 保存缺口 / 渲染每帧
   O(n)、P2 死 API / 文档漂移 / 审计形式化 / Release 门禁缺口）逐一编号、附证据与

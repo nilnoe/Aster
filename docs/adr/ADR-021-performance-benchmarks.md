@@ -2,9 +2,9 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.1
+- **Version:** 1.3
 - **新增 Public API:** 0（仅 dev-dependency 与 `benches/`，不影响公共接口）
-- **影响模块:** core（dev-dependencies、benches/）、docs/benchmarks.md、Roadmap T-023 / T-033、.github/workflows/ci-bench.yml（v1.1）
+- **影响模块:** core（dev-dependencies、benches/）、docs/benchmarks.md、Roadmap T-023 / T-033、.github/workflows/ci-bench.yml（v1.3）
 - **是否违反 Single Responsibility:** 否
 - **是否增加循环依赖:** 否
 
@@ -34,6 +34,12 @@
    噪声 +26%~+120%（全部基准同步偏移，本地对照 0 回归），10% 阈值必然误报。
    CI 定位回归为「数量级恶化粗告警」，精确回归仍以本地 release 全量测量为准
    （决策 4 不变）。阈值再误报时按备注 1 流程调整并记录。
+
+   v1.3（T-049）：**对比改用 `median.point_estimate`（抗离群，回退 mean）+
+   threshold 100% → 200%（下限 100µs 不变）**。原因（2026-08-02 第二轮实测）：
+   100% 阈值仍被单次越过（buffer_insert +118.1% 误报，同轮发布流水线的 bench
+   却通过——共享 runner 负载差异）。median 降低单次卡顿影响；200% 只捕获
+   「3 倍级恶化」；精确回归以本地 release 全量测量为准（决策 4 不变）。
 4. **对接 ADR-006**：文本存储（String / Gap / Rope / Piece Table）的决策数据来自编辑
    内核组基准；「打开成本」以 1MB 文档的载入 + Layout 构建计时近似；「内存」维度
    criterion 不测，本轮以峰值 RSS 手测记录补充，dhat / Instruments 在需要时另走 ADR

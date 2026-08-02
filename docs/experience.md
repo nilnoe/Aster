@@ -135,7 +135,7 @@
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
 | 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+像素尺寸+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 按需整帧重建（增量失效未做）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
 | CI 发布 | `CI-Release`：打 Beta-V* tag → 门禁 + 构建 + 打包 Aster.app zip + 附到 Release（ADR-020）；手动 dispatch 在 main 上只验证到 artifact 步骤 | 签名/公证在 V1.0.0 前按需评估 |
-| 基准体系 | 本地 release 全量测量（T-023，ADR-021）；`CI-Bench` 用 `--quick` + `bench-baseline/`（提交基线）做粗告警（v1.2：阈值 100% / 下限 100µs——共享 runner 噪声 +26%~+120%，10% 必误报；精确回归以本地为准） | 阈值再误报时调整并记录（ADR-021 v1.2 备注 1）；基线随机器 / macOS 变化重新生成提交；本地命令 `cd core && CARGO_TARGET_DIR=target cargo bench` |
+| 基准体系 | 本地 release 全量测量（T-023，ADR-021）；`CI-Bench` 用 `--quick` + `bench-baseline/`（提交基线）做粗告警（v1.3：median 对比 + 阈值 200% / 下限 100µs——共享 runner 噪声最高 +120%，100% 仍偶发误报；精确回归以本地为准） | 阈值再误报时调整并记录（ADR-021 v1.3 备注 1）；基线随机器 / macOS 变化重新生成提交；本地命令 `cd core && CARGO_TARGET_DIR=target cargo bench` |
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
