@@ -2,15 +2,15 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-017 完成；Beta V0.1.0 / V0.1.1 已发布）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013 + T-023 + T-032（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，113 个测试全绿（含 5 个属性测试，ADR-022）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+  - app/：AppKit 壳 + Metal 编辑视图（41 个 XCTest 全绿），源码 1483 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
-- **下一任务：** T-018 水平滚动（ADR-019 已定：v1 默认，scrollX + 光标横向可见性）
-  → 随后 T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
+- **下一任务：** T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供；
+  系统 NSPasteboard，Principle 4）→ 随后 T-015 拖放与文档选择器。
 - **版本：** Beta 阶段，当前 **Beta V0.1.1**（core `0.1.1` 单一来源，三处同步：
   Changelog / 应用版本（core_version）/ git tag）。模板 `Beta V0.0.0`（末位补丁 /
   中间位功能 / 首位恒 0）。**发布 = 打 `Beta-V*` tag 推送，CI-Release 自动门禁 +
@@ -68,7 +68,7 @@
 | 文本存储 | `String`（Buffer 内部实现细节） | 基准已建立（benchmarks.md，T-023 / ADR-021）；是否换 Rope/Gap 由 ADR-006 门禁 + 用户确认 |
 | 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-023 基准后），接口不变 |
 | 软换行 | 用户可选、默认关闭；默认按行渲染 + 水平滚动（ADR-019） | 配置系统（Lua/Config DSL）切片落地后经配置开启 |
-| 水平滚动 | v1 默认能力（ADR-019，T-018）：scrollX 点值平移 + 光标横向可见性 | 平滑滚动动画随 T-022 |
+| 水平滚动 | 已落地（T-018，ADR-019）：`Viewport` 持有 scrollX/scrollY + 钳制 + 光标可见性；触控板双指 / Shift+滚轮（macOS 事件层自动交换轴向）；内容宽度 = 可见行最大宽度 | 平滑滚动动画随 T-022 |
 | 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
 | Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-029（Crash Recovery） |
 | 多光标 / mmap | 未定 | T-023 基准后定 |
@@ -127,6 +127,11 @@
 | 2026-08-02 | 复审 | 文档漂移漏检：ADR 索引漏登 ADR-018（changelog/roadmap 却反复引用）；experience 现状速览行数/测试数过期 | 本次补索引、校正行数；长期靠 CI 文档完整性检查（已列入修复 TODO） |
 | 2026-08-02 | T-023 | criterion bench 二进制显示 running 0 tests（libtest 壳吞掉 criterion main）；闭包内 RefCell borrow 临时值悬垂（E0716） | `[[bench]]` 显式声明 `harness = false`；借用先 `let` 绑定再传 `&mut`；另 criterion 默认特性带 plotters/rayon/wasm 依赖，关默认特性只留 cargo_bench_support（同 rusqlite 瘦身教训） |
 | 2026-08-02 | T-032 | proptest 三坑：`prop::char::range` 是两个参数（不是 Range）；`prop_assert_eq!` 消息用字面量 + 参数（`{}` 捕获式 `{op:?}` 不展开）；Editor `undo/redo` 返回 `Result<bool>` 而非 Option；`proptest_config` 属性需要 `attr-macro` 特性（没开） | 分别改为双参数 / 字面量格式串 / `while undo() {}` / 去掉属性用默认用例数（避免额外 proc-macro 依赖）；测试失败先看宏与 API 签名（老教训再次应验） |
+| 2026-08-02 | T-018 | swift-format 自动换行把 TextRenderer 推到 303 行超 Rule 3 | 顶点生成抽为 `VertexBuilder`（与 MetalPipeline 拆分同一模式，ADR-016 备注）；格式化后必须复查 `wc -l`（"门禁通过"以格式化后为准） |
+| 2026-08-02 | T-018 | `NSEvent.scrollWheelEvent(...)` 在现代 SDK 不存在 | 用 `CGEvent(scrollWheelEvent2Source:units: .pixel, wheelCount: 2, wheel1:dy, wheel2:dx)` + `NSEvent(cgEvent:)`；像素单位下 `scrollingDeltaX/Y` 直接携带 wheel2/wheel1 值（实测探针验证） |
+| 2026-08-02 | T-018 | 滚轮测试断言受「自然滚动」偏好符号影响：正 delta 被钳回 0，误判为接线失效 | 断言只验量级与轴映射：先把视口平移到可视区中部（正负 delta 都不会被钳制）；方向语义交给系统偏好（Principle 4） |
+| 2026-08-02 | T-018 | 跨文件 extension 访问 `private` 成员报 inaccessible | 需要跨文件访问的成员提升为 internal（App 模块内封装，Rule 4 / 12 在模块边界内成立）；override 方法（keyDown / scrollWheel 等）不能进 extension，必须留在类体 |
+| 2026-08-02 | T-018 | ViewportTests 向上滚动期望 300 实际 200 | 又是测试 bug：`ensureCursorVisible` 把 scrollY 设到行顶后被内容上限钳制（既有行为）；先推演钳制再写断言（"测试失败先怀疑测试"再次应验） |
 
 ## 给下一个 agent 的提醒
 
@@ -146,14 +151,12 @@
   修复在测试自身；CI 只按路径触发（改 core 不跑 Swift，纯文档不触发）是设计行为。
 - **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
   给下一个 agent 的提醒，不要重读全部源码。
-- **会话结束未决项（2026-08-02）**：下一步切片三选一，用户尚未选定——
-  ① T-015 文件打开接线（DocumentManager 首次进产品，Rule 14 存量处置推进）；
-  ② T-018 前置的 MetalView / TextRenderer 拆分（298/292 行贴 300 红线）；
-  ③ T-033 fuzz + 基准回归告警（criterion 阈值能力未接 CI）。另外：audits.md
-  审计登记制度已生效，新切片必须留审计行；本会话 6 笔治理/基准/测试提交已推送。
+- **会话结束未决项（2026-08-02）**：T-018 已按 Roadmap 完成（含前置拆分）。
+  剩余未决二选一：① T-015 文件打开接线（DocumentManager 首次进产品，
+  Rule 14 存量处置推进）；② T-033 fuzz + 基准回归告警（criterion 阈值能力
+  未接 CI）。另外：audits.md 审计登记制度已生效，新切片必须留审计行。
 - **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-024（Command Palette，ADR-017 备注）。
-- **T-018 前置（ADR-019）**：水平滚动 = 视图层 `scrollX` 点值 + 触控板双指 / Shift+滚轮
-  平移 + 光标横向可见性（内容宽度按可见行最大宽度）；软换行默认关，开启后视觉折行
-  属 App 渲染层（Layout 逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经
-  Config DSL / Lua 开启。
+- **T-019 前置（ADR-019）**：软换行默认关，开启后视觉折行属 App 渲染层（Layout
+  逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经 Config DSL / Lua 开启；
+  水平滚动已在 T-018 完成（Viewport.scrollX + 光标横向可见性）。
 - **快速启动命令**：`cargo test`（core）；`./bridge/build.sh && cd bridge && swift test`；`cd app && swift test`；`cd app && swift run`（GUI，会开窗口）。

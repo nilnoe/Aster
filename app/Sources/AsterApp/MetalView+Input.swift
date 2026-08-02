@@ -1,0 +1,95 @@
+//! MetalView 的 IME 客户端实现（T-018 拆分，Rule 3）。
+//!
+//! 决策依据：
+//! - 系统输入管线（NSTextInputClient）与视图骨架（滚动 / 菜单 / 闪烁）分离，
+//!   保持单一职责并守住 300 行上限（宪法 Rule 3）。被访问成员从 private 提升为
+//!   internal 仅为跨文件扩展访问：仍在 App 模块内，不构成公共 API（Rule 4 /
+//!   Rule 12 的封装在模块边界内成立）。
+//! - `firstRect` 用真实光标 x（含 scrollX 补偿，T-018）：横向滚动后 IME 候选框
+//!   跟随光标列，不再用视口中央近似（ADR-019）。
+
+import AppKit
+
+@MainActor
+extension MetalView: @MainActor NSTextInputClient {
+  func insertText(_ string: Any, replacementRange: NSRange) {
+    guard let text = Self.text(from: string) else { return }
+    do {
+      try model.insertText(text, replacementUTF16: replacementRange)
+    } catch {
+      NSLog("insertText 写入 Core 失败：\(error)")
+    }
+    scrollCursorIntoView()
+    needsDisplay = true
+  }
+
+  func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+    model.setMarkedText(Self.text(from: string) ?? "")
+    needsDisplay = true
+  }
+
+  func unmarkText() {
+    model.unmarkText()
+    needsDisplay = true
+  }
+
+  func selectedRange() -> NSRange {
+    if model.hasMarkedText {
+      // 组合期间光标在组合文本之后（UTF-16）。
+      return NSRange(
+        location: model.markedUTF16Range.location + model.composition.utf16.count, length: 0)
+    }
+    return model.utf16Range(fromByteRange: model.selectionStartByte..<model.selectionEndByte)
+  }
+
+  func markedRange() -> NSRange {
+    model.markedUTF16Range
+  }
+
+  func hasMarkedText() -> Bool { model.hasMarkedText }
+
+  func attributedSubstring(forProposedRange range: NSRange, actualRange: NSRangePointer?)
+    -> NSAttributedString?
+  {
+    nil  // 无选区文本访问需求（T-013 选择渲染经 Core 选区，不读 attributed text）
+  }
+
+  func validAttributesForMarkedText() -> [NSAttributedString.Key] {
+    []
+  }
+
+  func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+    actualRange?.pointee = range
+    // 候选框跟随光标所在行的真实列（T-018 起含 scrollX 补偿；组合期间光标在
+    // 组合文本末尾，BUG-004 语义）。
+    let line = model.lineIndex(ofByteOffset: model.cursorByte)
+    let lineRange = model.lineByteRanges[line]
+    let layout = LineLayout(text: model.lines[line], font: renderer.font)
+    let caretByte = model.cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
+    let caretX =
+      renderer.leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound)
+      - viewport.scrollX
+    let lineTop = CGFloat(line) * renderer.lineHeightPts - viewport.scrollY
+    let caret = NSRect(
+      x: caretX,
+      y: bounds.maxY - lineTop - renderer.lineHeightPts * 0.5,
+      width: 2,
+      height: renderer.lineHeightPts * 0.8
+    )
+    return window?.convertToScreen(convert(caret, to: nil)) ?? caret
+  }
+
+  func characterIndex(for point: NSPoint) -> Int {
+    byteOffset(at: point)
+  }
+
+  private static func text(from value: Any) -> String? {
+    if let string = value as? String {
+      return string
+    }
+    if let attributed = value as? NSAttributedString {
+      return attributed.string
+    }
+    return nil
+  }
+}

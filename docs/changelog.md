@@ -12,6 +12,22 @@
 
 <!-- 尚未发布的变更维护在此；发布时归档到 [Beta V0.x.y]。 -->
 
+### Added — 2026-08-02（T-018 水平滚动）
+
+- feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——
+  新增 `Viewport` 视口状态（scrollX / scrollY、钳制、光标可见性、可视行窗口，
+  纯几何可单测）；触控板双指 / Shift+滚轮横向平移（macOS 在事件层已交换
+  Shift+滚轮轴向，视图直接读 scrollingDeltaX，不手写 Shift 分支）；光标移出
+  右边缘自动横向滚入视野（含组合文本末尾，BUG-004 语义）；内容宽度按可见行
+  最大宽度计算（不取全文档最宽行）；鼠标命中换算与 IME 候选框（firstRect）
+  跟随 scrollX
+- refactor(app)：MetalView / TextRenderer 拆分（宪法 Rule 3，T-018 前置）——
+  IME 客户端移到 `MetalView+Input.swift`（298 → 258 行），顶点生成抽为
+  `VertexBuilder`（292 → 130 + 200 行）；与 MetalPipeline 拆分同一模式（ADR-016）
+- test(app)：`ViewportTests` 7 项（钳制 / 光标可见性 / 可视行窗口）；渲染器
+  离屏质心位移像素测试（scrollX 6pt @2x → 质心左移 12px）；MetalView 滚轮
+  轴映射测试（CGEvent 构造，量级断言不依赖「自然滚动」偏好方向）
+
 ### Changed — 2026-08-02（Beta V0.2 规划）
 
 - ci：新增 `CI-Release` 发布流水线（[ADR-020](../docs/adr/ADR-020-ci-release-pipeline.md)）——
