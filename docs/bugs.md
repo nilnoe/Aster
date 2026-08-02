@@ -13,7 +13,7 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-006 | 横向滚动后行末光标消失 / 回车后左侧边距消失：`ensureCursorVisible` 无左右边缘留白——右缘光标 quad 整体出视口；左缘（回车到新行行首）scrollX 被设成 cursorX，12pt 左边距被滚出视口 | Fixed | Implementation Bug | — | 98cfb30 | 2026-08-02 |
 | BUG-007 | 拼音组合期间组合文本超出右缘不自动横向滚动：`setMarkedText` 只更新组合与重绘，未调用 `scrollCursorIntoView`（与 `insertText` 不一致），组合末尾光标超出视口 | Fixed | Implementation Bug | — | 1d7dfe7 | 2026-08-02 |
 | BUG-008 | 光标从 ASCII 行 ↓ 进入 CJK 行后落在字符内部（非 UTF-8 边界）：`move_cursor` 字节列目标未钳制到字符边界，后续 type_text / delete_backward 全部报 InvalidCharBoundary、按键静默丢失（违反 ADR-005 底线；属性测试差分排除 Up/Down，无覆盖） | Fixed | Implementation Bug | — | 29bdf9d | 2026-08-02 |
-| BUG-009 | 启动默认 Buffer 无 dirty「●」与退出保护：`onChange` 只在 open() 接线，makeMainWindow 创建的默认文档未接线，编辑不置脏、退出不提示（T-041 修复） | Fixed | Implementation Bug | — | 本切片（T-041） | 2026-08-02 |
+| BUG-009 | 启动默认 Buffer 无 dirty「●」与退出保护：`onChange` 只在 open() 接线，makeMainWindow 创建的默认文档未接线，编辑不置脏、退出不提示（T-041 修复） | Fixed | Implementation Bug | — | c4b4710 | 2026-08-02 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则

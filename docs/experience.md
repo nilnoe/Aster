@@ -35,7 +35,7 @@
   - T-040 保存改为 SQLite 快照（d28cb9b，ADR-023 v1.2）：用户确认反转 T-037 磁盘
     写回——Cmd+S 每次保存新建「日期+序号」文件（单日多版本，Store::open_next /
     open_latest）；撤销 save_text（Rule 14）
-  - T-041 缓冲 + 快照保存模型（进行中，ADR-023 v1.3）：Cmd+N 建快照 / 内容变更
+  - T-041 缓冲 + 快照保存模型（c4b4710，ADR-023 v1.3）：Cmd+N 建快照 / 内容变更
     自动写 buffer.sqlite（崩溃保护）/ Cmd+S 合并缓冲 → 当前快照；修复 BUG-009
     （默认 Buffer onChange 未接线 → 无 dirty ● / 退出保护）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
