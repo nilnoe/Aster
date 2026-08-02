@@ -204,9 +204,9 @@ final class MetalView: MTKView {
   func byteOffset(at point: NSPoint) -> Int {
     let lineHeight = renderer.lineHeightPts
     let contentY = viewport.scrollY + (bounds.height - point.y)
-    let lineIndex = min(max(0, Int(contentY / lineHeight)), model.lines.count - 1)
+    let lineIndex = min(max(0, Int(contentY / lineHeight)), model.lineCount - 1)
     let lineStart = model.lineByteRanges[lineIndex].lowerBound
-    let layout = LineLayout(text: model.lines[lineIndex], font: renderer.font)
+    let layout = LineLayout(text: model.lineText(lineIndex), font: renderer.font)
     // T-018：渲染 x = 内容 x - scrollX，鼠标命中换算反向补偿。
     let x = point.x - renderer.leftPadPts + viewport.scrollX
     return lineStart + layout.byteOffset(atX: max(0, x))
@@ -216,9 +216,9 @@ final class MetalView: MTKView {
   /// （ADR-019 决策 1，不取全文档最宽行；右留白随 BUG-006：否则行末光标
   /// 滚到最右时被 clamp 吃掉留白，光标仍会贴边消失）。
   private func contentSize() -> CGSize {
-    let height = CGFloat(model.lines.count) * renderer.lineHeightPts
+    let height = CGFloat(model.lineCount) * renderer.lineHeightPts
     let lineWindow = viewport.visibleLineRange(
-      lineCount: model.lines.count,
+      lineCount: model.lineCount,
       viewportHeightPts: bounds.height,
       lineHeightPts: renderer.lineHeightPts
     )
@@ -226,7 +226,7 @@ final class MetalView: MTKView {
     for lineIndex in lineWindow {
       width = max(
         width,
-        renderer.leftPadPts + LineLayout(text: model.lines[lineIndex], font: renderer.font).width
+        renderer.leftPadPts + LineLayout(text: model.lineText(lineIndex), font: renderer.font).width
       )
     }
     return CGSize(width: width + renderer.rightPadPts, height: height)
@@ -236,7 +236,7 @@ final class MetalView: MTKView {
   func scrollCursorIntoView() {
     let line = model.lineIndex(ofByteOffset: model.cursorByte)
     let lineRange = model.lineByteRanges[line]
-    let layout = LineLayout(text: model.lines[line], font: renderer.font)
+    let layout = LineLayout(text: model.lineText(line), font: renderer.font)
     // BUG-004：组合期间光标在组合文本末尾（显示文本内联），横向可见性用同一位置。
     let caretByte = model.cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
     let cursorX =

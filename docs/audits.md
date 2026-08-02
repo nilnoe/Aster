@@ -5,6 +5,7 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 | 切片 / 事项 | Commit | 审计项 | 结论 | 违规与处置 | 日期 |
 | --- | --- | --- | --- | --- | --- |
+| T-038 渲染数据路径重构 | 本切片 | 行为证据：3 个新测试 + 既有 49 项全绿（渲染 / 像素测试行为不变）；基准记录：每帧 O(n) → O(可见行)（全文 Bridge 往返与 split 只在失效后一次），帧时间全量基线随 T-016 建立；Rule 9 三问（缓存 2 字段 + 1 行切分 API + 二分，0 抽象层 / 0 依赖）/ Rule 12（EditorModel 249、VertexBuilder 202 ≤300；App 1775 < 5,000）/ Rule 3（EditorModel 单一职责未变） | Pass | 无 | 2026-08-02 |
 | T-037 Disk 保存（ADR-023） | 本切片 | 行为证据：Core 5 + Bridge 2 + App 2 测试全绿（保存往返 / 失败可见 / 菜单 / onChange）；ADR-023 Accepted 且入索引（Rule 13 闭环）；Rule 4（1 方法 + 2 错误变体 + 1 FFI 先 ADR）/ Rule 9 三问（0 抽象层 / 0 依赖，App 薄胶水 ~96 行）/ Rule 12（AppDelegate 177、EditorModel 198、AppMenu 109 ≤300；App 总量 1711 < 5,000）/ Rule 14（onChange 是 App 模块内回调，非公共 API） | Pass | 无 | 2026-08-02 |
 | T-035 Up/Down 边界修复（BUG-008） | 本切片 | 行为证据：4 个手写回归 + Up/Down 纳入属性差分 + 边界不变量显式断言（`PROPTEST_CASES=3000` 通过）；ADR-017 v1.1 备注（字节列须 floor 到边界，ADR-005 优先）；Rule 9 三问（1 行钳制 + 模型镜像算法，0 抽象层 / 0 依赖）/ Rule 12（property.rs 超 300 行 → 拆 support（119）/ property（162）/ property_fuzz（91），全部 ≤300；editor.rs 238 ≤300） | Pass | 无 | 2026-08-02 |
 | T-034 审查问题登记 | 440c75b | Rule 15（issues.md 入 README 索引）/ Rule 3（issues.md 单一职责）/ Rule 9 三问（0 抽象层 / 0 依赖 / 0 公共 API，纯文档） | Pass（自审） | 无 | 2026-08-02 |

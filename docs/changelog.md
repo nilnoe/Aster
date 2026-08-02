@@ -55,6 +55,16 @@
   IsADirectory）+ Bridge 2 项（保存往返、未知 id throws）+ App 2 项（菜单 ⌘S、
   onChange 语义）
 
+### Changed — 2026-08-02（T-038 渲染数据路径重构，I-003）
+
+- refactor(app)：消除渲染每帧 O(n)（I-003）——`EditorModel` 显示文本与行区间
+  改为按编辑 / 组合失效缓存（渲染帧内多次读取零成本，不再每帧经 Bridge 全文
+  往返 + 全量 split）；`lineText(_:)` 只切可见行；`lineIndex` 手写二分替代线性
+  扫描（O(log n)）；`VertexBuilder` 每个可见行每帧只 shaping 一次（选区 / 字形 /
+  光标三处复用原两次 `LineLayout`）
+- test(app)：3 项——lineIndex 行边界 / 空文本语义、显示缓存随编辑 / 组合 / 移动
+  失效、lineText 反映最新内容；既有 47 项渲染 / 像素测试全部保持绿（行为不变）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

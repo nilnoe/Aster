@@ -34,10 +34,9 @@ struct VertexBuilder {
     let lineHeightPx = lineHeightPts * scale
     let scrollX = viewport.scrollX
 
-    let lines = model.lines
     let ranges = model.lineByteRanges
     let lineWindow = viewport.visibleLineRange(
-      lineCount: lines.count,
+      lineCount: model.lineCount,
       viewportHeightPts: viewSize.height / scale,
       lineHeightPts: lineHeightPts
     )
@@ -47,14 +46,17 @@ struct VertexBuilder {
     let selStart = model.selectionStartByte
     let selEnd = model.selectionEndByte
     let cursorByte = model.cursorByte
+    // T-038（I-003）：每个可见行只 shaping 一次，选区 / 字形 / 光标三处复用；
+    // 原来选区循环与字形循环各建一次 LineLayout（每行每帧两次 shaping）。
+    let layouts = lineWindow.map { LineLayout(text: model.lineText($0), font: font) }
 
     // 1) 选区高亮（字形之下）
-    for lineIndex in lineWindow where selStart < selEnd {
+    for (offset, lineIndex) in lineWindow.enumerated() where selStart < selEnd {
       let lineRange = ranges[lineIndex]
       let a = max(selStart, lineRange.lowerBound)
       let b = min(selEnd, lineRange.upperBound)
       guard a < b else { continue }
-      let layout = LineLayout(text: lines[lineIndex], font: font)
+      let layout = layouts[offset]
       let x0 =
         (leftPadPts + layout.xOffset(atByteOffset: a - lineRange.lowerBound) - scrollX)
         * scale
@@ -74,8 +76,8 @@ struct VertexBuilder {
     }
 
     // 2) 字形
-    for lineIndex in lineWindow {
-      let layout = LineLayout(text: lines[lineIndex], font: font)
+    for (offset, lineIndex) in lineWindow.enumerated() {
+      let layout = layouts[offset]
       let top = CGFloat(lineIndex) * lineHeightPx - scrollRemainderPx
       let baseline = viewSize.height - top - ascent * scale
       for glyph in layout.glyphs() {
@@ -104,7 +106,7 @@ struct VertexBuilder {
     let cursorLine = model.lineIndex(ofByteOffset: cursorByte)
     if lineWindow.contains(cursorLine) {
       let lineRange = ranges[cursorLine]
-      let layout = LineLayout(text: lines[cursorLine], font: font)
+      let layout = layouts[cursorLine - firstLine]
       let top = CGFloat(cursorLine) * lineHeightPx - scrollRemainderPx
       if selStart == selEnd && caretVisible {
         // BUG-004：组合期间光标跟随到组合文本末尾（组合在 displayText 中内联于

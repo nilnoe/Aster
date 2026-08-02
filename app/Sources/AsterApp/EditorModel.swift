@@ -7,6 +7,8 @@
 //! - IME 组合文本不再作为独立尾行：插入 displayText 光标处，标记区间由渲染层
 //!   画下划线；提交 = 在光标处输入（组合区间不在 Buffer 里，无需替换）。
 //! - 光标移动 / 退格 / 撤销等全部经 Bridge 进 Core，UI 不做编辑决策（薄 UI）。
+//! - T-038（I-003）：显示文本与行结构按编辑失效缓存——渲染帧不再做全文切分 /
+//!   Bridge 全串往返（原每帧 O(n)），行结构只随内容 / 组合变化重建一次。
 
 import AsterBridge
 import Foundation
@@ -20,6 +22,10 @@ final class EditorModel {
 
   private let editor: Editor
   private(set) var composition = ""
+  /// 显示文本缓存（T-038）：内容或组合变化时失效；渲染帧内多次读取零成本。
+  private var displayTextCache: String?
+  /// 行字节区间缓存（T-038）：由 displayText 派生，同一次失效周期只建一次。
+  private var lineRangesCache: [Range<Int>]?
 
   init(buffer: Buffer) {
     self.editor = editor_new(buffer)
@@ -40,9 +46,16 @@ final class EditorModel {
 
   /// 显示文本 = Buffer 文本 + 光标处内联的组合文本（ADR-017 内联组合模型）。
   var displayText: String {
-    guard !composition.isEmpty else { return bufferText }
-    let idx = bufferText.utf8.index(bufferText.utf8.startIndex, offsetBy: cursorByte)
-    return String(bufferText[..<idx]) + composition + String(bufferText[idx...])
+    if let cached = displayTextCache { return cached }
+    let text =
+      composition.isEmpty
+      ? bufferText
+      : {
+        let idx = bufferText.utf8.index(bufferText.utf8.startIndex, offsetBy: cursorByte)
+        return String(bufferText[..<idx]) + composition + String(bufferText[idx...])
+      }()
+    displayTextCache = text
+    return text
   }
 
   /// 组合文本在显示文本中的字节区间（渲染下划线）。
@@ -66,16 +79,49 @@ final class EditorModel {
 
   var lines: [String] { Self.splitLines(displayText) }
 
+  /// 行数（渲染高度 / 视口窗口计算；T-038 起不再依赖全文 lines）。
+  var lineCount: Int { lineByteRanges.count }
+
   /// 显示文本每行的字节区间（光标 / 选区 / 标记映射到行内坐标）。
-  var lineByteRanges: [Range<Int>] { Self.lineRanges(of: displayText) }
+  ///
+  /// 决策依据（T-038）：由 displayText 缓存派生，整份切分只在失效后首次访问时
+  /// 发生一次；渲染帧复用同一缓存（I-003：消除每帧 O(n)）。
+  var lineByteRanges: [Range<Int>] {
+    if let cached = lineRangesCache { return cached }
+    let ranges = Self.lineRanges(of: displayText)
+    lineRangesCache = ranges
+    return ranges
+  }
+
+  /// 按行号取单行文本（渲染 / 命中换算用；T-038：只切可见行，不整份 split）。
+  ///
+  /// 决策依据：行区间来自缓存，每次调用只复制一行子串；渲染帧内每可见行一次
+  /// shaping 建一行文本，替代原来每帧对全文 split 后逐行取用。
+  func lineText(_ index: Int) -> String {
+    let ranges = lineByteRanges
+    guard ranges.indices.contains(index) else { return "" }
+    return Self.slice(displayText, ranges[index])
+  }
 
   /// 字节偏移 → 行号（滚动与光标定位）。
+  ///
+  /// 决策依据（T-038）：行起点有序，二分定位替代线性扫描，万行文档下由
+  /// O(n)/帧 降为 O(log n)（partitioningIndex 在当前 SDK 不可用，手写二分，
+  /// Rule 11：这是标准二分而非自研算法）。
   func lineIndex(ofByteOffset offset: Int) -> Int {
-    var index = 0
-    for (i, range) in lineByteRanges.enumerated() where range.lowerBound <= offset {
-      index = i
+    let ranges = lineByteRanges
+    var low = 0
+    var high = ranges.count
+    while low < high {
+      let mid = (low + high) / 2
+      if ranges[mid].lowerBound <= offset {
+        low = mid + 1
+      } else {
+        high = mid
+      }
     }
-    return index
+    let firstBeyond = low
+    return max(0, firstBeyond - 1)
   }
 
   // MARK: - 编辑操作（Bridge → Core，ADR-017）
@@ -85,6 +131,7 @@ final class EditorModel {
       composition = ""
     }
     _ = try editor_type_text(editor, text)
+    invalidateDisplayCache()
     onChange?()
   }
 
@@ -107,12 +154,14 @@ final class EditorModel {
       composition = ""
     }
     _ = try editor_delete_backward(editor)
+    invalidateDisplayCache()
     onChange?()
   }
 
   func move(_ movement: Movement, extend: Bool) {
     if hasMarkedText {
       composition = ""  // 移动取消组合（系统惯例）
+      invalidateDisplayCache()
     }
     switch movement {
     case .left: editor_move_left(editor, extend)
@@ -128,20 +177,33 @@ final class EditorModel {
 
   func setMarkedText(_ text: String) {
     composition = text
+    invalidateDisplayCache()
   }
 
   func unmarkText() {
-    composition = ""
+    if !composition.isEmpty {
+      composition = ""
+      invalidateDisplayCache()
+    }
   }
 
   func undo() throws {
     _ = try editor_undo(editor)
+    invalidateDisplayCache()
     onChange?()
   }
 
   func redo() throws {
     _ = try editor_redo(editor)
+    invalidateDisplayCache()
     onChange?()
+  }
+
+  /// 显示文本 / 行区间缓存失效（T-038）：内容或组合文本变化后调用；
+  /// 失效只是置空缓存，下次访问时按需重建一次。
+  private func invalidateDisplayCache() {
+    displayTextCache = nil
+    lineRangesCache = nil
   }
 
   func selectAll() {

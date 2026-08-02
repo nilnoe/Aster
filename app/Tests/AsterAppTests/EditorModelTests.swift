@@ -125,4 +125,46 @@ final class EditorModelTests: XCTestCase {
     try model.redo()
     XCTAssertEqual(dirtyCount, 4, "redo 触发")
   }
+
+  /// T-038（I-003）：lineIndex 二分定位在行边界 / 空文本下的语义与线性扫描一致。
+  func testLineIndexBinarySearchOnMultilineText() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(41)))
+    try model.typeText("ab\n你好\n")
+
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 0), 0, "行首")
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 2), 0, "\\n 前（行尾）")
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 3), 1, "换行后下一行首")
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 9), 1, "CJK 行内")
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 10), 2, "末行（空行）")
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 11), 2, "越界钳制到末行")
+  }
+
+  func testLineIndexOnEmptyText() {
+    let model = EditorModel(buffer: Buffer(BufferId(42)))
+    XCTAssertEqual(model.lineIndex(ofByteOffset: 0), 0, "空文本只有一个空行")
+  }
+
+  /// T-038（I-003）：显示缓存随编辑 / 组合变化失效，lineText 反映最新内容。
+  func testDisplayCacheTracksEditsAndComposition() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(43)))
+    try model.typeText("a\nb")
+
+    XCTAssertEqual(model.lineText(0), "a")
+    XCTAssertEqual(model.lineText(1), "b")
+    XCTAssertEqual(model.lineCount, 2)
+
+    model.setMarkedText("中")
+    XCTAssertEqual(model.displayText, "a\nb中", "组合内联在光标处")
+    XCTAssertEqual(model.lineText(1), "b中")
+    XCTAssertEqual(model.lineCount, 2)
+
+    model.move(.docStart, extend: false)
+    XCTAssertEqual(model.displayText, "a\nb", "移动取消组合后缓存必须反映最新显示文本")
+    XCTAssertEqual(model.lineText(0), "a")
+
+    try model.typeText("X")
+    XCTAssertEqual(model.displayText, "Xa\nb")
+    XCTAssertEqual(model.lineText(0), "Xa")
+    XCTAssertEqual(model.lineByteRanges.count, 2)
+  }
 }

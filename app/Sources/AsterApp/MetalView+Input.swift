@@ -68,7 +68,7 @@ extension MetalView: @MainActor NSTextInputClient {
     // 组合文本末尾，BUG-004 语义）。
     let line = model.lineIndex(ofByteOffset: model.cursorByte)
     let lineRange = model.lineByteRanges[line]
-    let layout = LineLayout(text: model.lines[line], font: renderer.font)
+    let layout = LineLayout(text: model.lineText(line), font: renderer.font)
     let caretByte = model.cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
     let caretX =
       renderer.leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound)
