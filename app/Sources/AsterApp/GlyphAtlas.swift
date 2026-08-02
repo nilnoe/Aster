@@ -8,6 +8,8 @@
 //!   图集矩形 (x, y, w, h) 对应默认用户空间 y ∈ [H-y-h, H-y)，上传行与纹理行一致，
 //!   无需翻转（推导见 ADR-016 备注的像素坐标映射）。
 //! - 图集满 → 整表重建（spike 文本远小于 2048²；增量失效随 T-013 细化）。
+//! - BUG-001 修复：字形必须按「像素尺寸」栅格化（16pt × scale=2 → 32px 位图），
+//!   否则 quad 放大采样导致模糊；缓存键含 pixelSize，1× / 2× 分开缓存。
 
 import CoreGraphics
 import CoreText
@@ -21,67 +23,78 @@ final class GlyphAtlas {
   private let device: MTLDevice
   private var context: CGContext
   private var packer = AtlasPacker(width: size, height: size)
-  private var entries: [GlyphKey: CGRect] = [:]
-  /// 已栅格化字形的字体保持存活：图集键存字体指针，指针必须指向存活对象。
-  private var fonts: [CTFont] = []
+  private var entries: [GlyphKey: GlyphPlacement] = [:]
   /// 纯白 1×1 区域，供下划线等纯色 quad 采样（UV 指向此处）。
   private let whiteRect: CGRect
 
-  /// 图集键：字体实例 + 字形 id（字形编码依赖具体字体，CJK fallback 逐 run 字体不同）。
+  /// 字形放置信息：图集矩形（纹理坐标，像素）+ 字形 bbox（像素，原点在基线）。
+  struct GlyphPlacement {
+    let atlasRect: CGRect
+    let bounds: CGRect
+  }
+
+  /// 图集键：字体名 + 像素尺寸 + 字形 id。
+  ///
+  /// 决策依据（BUG-001）：字形编码依赖具体字体面（CJK fallback 逐 run 字体不同），
+  /// 位图尺寸依赖像素尺寸；用字符串键避免持有 CTFont 指针的生命周期问题。
   struct GlyphKey: Hashable {
-    let font: UnsafeRawPointer
+    let fontName: String
+    let pixelSize: Int
     let glyph: CGGlyph
   }
 
   init(device: MTLDevice) {
     self.device = device
-    self.texture = GlyphAtlas.makeTexture(device: device)
-    self.context = GlyphAtlas.makeContext()
-    // 预留 (0,0) 白像素：pixelFormat RGBA8、premultipliedLast，画纯白即得到
-    // RGB=alpha 的预乘纹理，着色器用顶点色乘纹理色（ADR-016 备注）。
+    self.texture = Self.makeTexture(device: device)
+    self.context = Self.makeContext()
     let white = CGRect(x: 0, y: 0, width: 1, height: 1)
     self.whiteRect = white
+    // 白像素必须经 packer 预留，否则首个字形会分配到 (0,0) 覆盖它（BUG-001 顺带修复）。
+    _ = packer.allocate(width: 1, height: 1)
     fillWhite(in: white)
   }
 
-  /// 返回字形的图集矩形（纹理坐标）；无轮廓字形（如空格）返回 `.zero`。
-  func rect(for font: CTFont, glyph: CGGlyph) -> CGRect {
-    let key = GlyphKey(font: Unmanaged.passUnretained(font).toOpaque(), glyph: glyph)
+  /// 返回字形的图集矩形与像素 bbox；无轮廓字形（如空格）返回 `nil`。
+  func placement(for font: CTFont, glyph: CGGlyph, scale: CGFloat) -> GlyphPlacement? {
+    let pixelSize = Int((CTFontGetSize(font) * scale).rounded())
+    guard pixelSize > 0 else { return nil }
+    let key = GlyphKey(fontName: fontName(of: font), pixelSize: pixelSize, glyph: glyph)
     if let cached = entries[key] {
       return cached
     }
+
+    // BUG-001 根因修复：以像素尺寸复制字体再取 bbox 与栅格化；字形 id 属于字体面，
+    // 尺寸变化不影响 id，可直接用 run 的字形。
+    let pixelFont = CTFontCreateCopyWithAttributes(font, CTFontGetSize(font) * scale, nil, nil)
     var bounds = CGRect.zero
-    CTFontGetBoundingRectsForGlyphs(font, .horizontal, [glyph] as [CGGlyph], &bounds, 1)
-    // 空字形（空格等）无可见轮廓，不占图集。
+    CTFontGetBoundingRectsForGlyphs(pixelFont, .horizontal, [glyph] as [CGGlyph], &bounds, 1)
     let w = Int(ceil(bounds.width)) + 2
     let h = Int(ceil(bounds.height)) + 2
-    guard w > 2, h > 2 else {
-      entries[key] = .zero
-      return .zero
-    }
+    guard w > 2, h > 2 else { return nil }  // 空字形（空格等）无可见轮廓，不占图集
+
     guard let rect = packer.allocate(width: w, height: h) else {
       // 图集满：整表重建后重试一次（ADR-016：spike 规模下整表重建可接受）。
       reset()
-      guard let retried = packer.allocate(width: w, height: h) else {
-        entries[key] = .zero
-        return .zero
-      }
-      rasterize(font: font, glyph: glyph, bounds: bounds, rect: retried)
-      entries[key] = retried
-      return retried
+      guard let retried = packer.allocate(width: w, height: h) else { return nil }
+      rasterize(font: pixelFont, glyph: glyph, bounds: bounds, rect: retried)
+      let placement = GlyphPlacement(atlasRect: retried, bounds: bounds)
+      entries[key] = placement
+      return placement
     }
-    rasterize(font: font, glyph: glyph, bounds: bounds, rect: rect)
-    entries[key] = rect
-    return rect
+    rasterize(font: pixelFont, glyph: glyph, bounds: bounds, rect: rect)
+    let placement = GlyphPlacement(atlasRect: rect, bounds: bounds)
+    entries[key] = placement
+    return placement
   }
 
   /// 纯白像素矩形（UV 采样用）。
   var solidRect: CGRect { whiteRect }
 
+  private func fontName(of font: CTFont) -> String {
+    CTFontCopyPostScriptName(font) as String
+  }
+
   private func rasterize(font: CTFont, glyph: CGGlyph, bounds: CGRect, rect: CGRect) {
-    if !fonts.contains(where: { $0 === font }) {
-      fonts.append(font)
-    }
     // 字形 bbox（字形空间，原点在基线）放进图集矩形：默认用户空间 y 向上，
     // 基线位于 `H - rect.maxY - bounds.minY`（推导见文件头注释）。
     context.saveGState()
@@ -113,7 +126,7 @@ final class GlyphAtlas {
     context = Self.makeContext()
     packer.reset()
     entries.removeAll(keepingCapacity: false)
-    fonts.removeAll(keepingCapacity: false)
+    _ = packer.allocate(width: 1, height: 1)
     fillWhite(in: whiteRect)
   }
 

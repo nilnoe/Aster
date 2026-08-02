@@ -78,6 +78,9 @@ Core 侧 `Layout::line_starts` 为 `pub(crate)` 访问器：仅 Bridge 使用，
 
 - **失效边界：** v1 图集按需增长，Buffer 文本变化即整体失效（`needsDisplay`），增量失效与
   Layout 重建一起在 T-013 细化；图集写满时整表重建（spike 文本规模远小于 2048² 图集）。
+- **像素级栅格化（BUG-001 修订）：** 字形必须按像素尺寸栅格化——16pt 在 Retina（scale=2）
+  下画成 32px 位图（`CTFontCreateCopyWithAttributes` 缩放），缓存键为
+  font 名 + pixelSize + glyph；quad 位置吸附像素网格并配合 nearest 采样，保证 1:1 清晰。
 - **颜色：** v1 顶点携带前景色（固定色），Theme 模型（T-006）的接线推迟到 T-014。
 - **IME 边界：** 本切片只验证「组合文本渲染 + 提交写回 Core」闭环；光标移动、替换区间、
   选择编辑属 T-013 编辑循环。

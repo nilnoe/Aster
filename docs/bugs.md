@@ -5,6 +5,7 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 状态：`Open` / `Reproducing` / `Fixing` / `Fixed` / `Won't Fix` / `Duplicate`
 
 | Bug ID | 标题 / 现象 | 状态 | 根因分类 | 上游引用 | 修复 Commit | 报告日期 |
+| BUG-001 | T-012 文本渲染模糊：Retina（scale=2）下字形被放大采样，边缘发糊 | Fixed | Implementation Bug | — | 见 changelog（fix commit 引用本 ID） | 2026-08-02 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则

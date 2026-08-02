@@ -10,6 +10,13 @@
 
 ## [Unreleased]
 
+### Fixed — 2026-08-02
+
+- fix(app)：Retina 下 Metal 文本渲染模糊（BUG-001，根因分类：Implementation Bug）——
+  字形图集原按点（pt）尺寸栅格化而 quad 按像素绘制，2× 缩放 + 线性采样导致发糊；
+  改为按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），缓存键含
+  pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形大于 1×
+
 ### Added — 2026-08-02
 
 - feat(app)：Metal 文本渲染管线 spike（T-012，ADR-016）——空白视图替换为 MTKView；

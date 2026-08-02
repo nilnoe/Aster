@@ -127,17 +127,19 @@ final class TextRenderer: NSObject, MTKViewDelegate {
       let runFont = attributes[kCTFontAttributeName] as! CTFont
 
       for i in 0..<count {
-        let atlasRect = atlas.rect(for: runFont, glyph: glyphs[i])
-        guard atlasRect.width > 0, atlasRect.height > 0 else { continue }
-        var bounds = CGRect.zero
-        CTFontGetBoundingRectsForGlyphs(runFont, .horizontal, [glyphs[i]] as [CGGlyph], &bounds, 1)
-        let x = leftPad + positions[i].x * scale + bounds.minX * scale
-        let y = baseline + bounds.minY * scale
+        guard let placement = atlas.placement(for: runFont, glyph: glyphs[i], scale: scale) else {
+          continue
+        }
+        let bounds = placement.bounds
+        // BUG-001 修复：图集按像素尺寸栅格化，bbox 已是像素；quad 位置吸附像素网格，
+        // 配合 nearest 采样保证 1:1 清晰。
+        let x = (leftPad + positions[i].x * scale + bounds.minX).rounded()
+        let y = (baseline + bounds.minY).rounded()
         appendQuad(
           x: x, y: y,
-          width: bounds.width * scale,
-          height: bounds.height * scale,
-          uv: atlasRect,
+          width: bounds.width,
+          height: bounds.height,
+          uv: placement.atlasRect,
           color: white,
           viewSize: viewSize,
           vertices: &vertices
@@ -271,8 +273,9 @@ final class TextRenderer: NSObject, MTKViewDelegate {
 
   private static func makeSampler(device: MTLDevice) -> MTLSamplerState? {
     let descriptor = MTLSamplerDescriptor()
-    descriptor.minFilter = .linear
-    descriptor.magFilter = .linear
+    // BUG-001：字形位图与 quad 像素 1:1，nearest 采样避免线性插值发糊。
+    descriptor.minFilter = .nearest
+    descriptor.magFilter = .nearest
     descriptor.sAddressMode = .clampToEdge
     descriptor.tAddressMode = .clampToEdge
     return device.makeSamplerState(descriptor: descriptor)

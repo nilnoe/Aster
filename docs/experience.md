@@ -97,6 +97,7 @@
 | 2026-08-02 | T-012 | `XCTAssertEqual(len, text.utf8.count)`（UInt vs Int）触发编译器 "failed to produce diagnostic" | 显式 `UInt(text.utf8.count)`；bridge 返回的 usize 一律当 UInt 处理 |
 | 2026-08-02 | T-012 | CGBitmapContext 内存行序与 Metal 纹理行序的坐标映射 | 默认上下文 y 向上：纹理行 r ↔ 用户 y = H - r；字形放进图集矩形 (x,y,w,h) 后基线 y = H - y - h - bounds.minY；用像素测试（读回纹理）验证，别凭直觉 |
 | 2026-08-02 | T-012 | app 测试 target 直接写 `AsterBridge` 依赖名报 not found | 跨包产品必须 `.product(name: "AsterBridge", package: "bridge")`；裸名只对同包 target 有效 |
+| 2026-08-02 | BUG-001 | Retina 下文本渲染模糊：图集按 pt 栅格化而 quad 按 px 绘制，2× 线性放大 | 图集按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），键含 pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形 > 1× |
 
 ## 给下一个 agent 的提醒
 
