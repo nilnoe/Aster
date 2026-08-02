@@ -40,7 +40,7 @@
     （默认 Buffer onChange 未接线 → 无 dirty ● / 退出保护）
   - T-042 快照改为纯文本（b8cd54b，ADR-023 v1.4）：快照 = `.txt` 文本文件（Buffer
     可打开），SQLite 仅作缓冲；新增 snapshot 模块
-  - T-043 崩溃恢复 v1（进行中，ADR-013 v1.1）：clean_exit 哨兵 + 启动检测 +
+  - T-043 崩溃恢复 v1（cab4045，ADR-013 v1.1）：clean_exit 哨兵 + 启动检测 +
     恢复提示（载回缓冲文档）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
