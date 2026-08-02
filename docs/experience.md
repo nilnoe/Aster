@@ -133,6 +133,7 @@
 | 2026-08-02 | T-018 | 跨文件 extension 访问 `private` 成员报 inaccessible | 需要跨文件访问的成员提升为 internal（App 模块内封装，Rule 4 / 12 在模块边界内成立）；override 方法（keyDown / scrollWheel 等）不能进 extension，必须留在类体 |
 | 2026-08-02 | T-018 | ViewportTests 向上滚动期望 300 实际 200 | 又是测试 bug：`ensureCursorVisible` 把 scrollY 设到行顶后被内容上限钳制（既有行为）；先推演钳制再写断言（"测试失败先怀疑测试"再次应验） |
 | 2026-08-02 | BUG-006 | 光标可见性把光标滚到「恰好贴边」：右缘 2pt 宽光标整体出视口（行末光标消失）；左缘回车到行首时 scrollX=cursorX，12pt 左边距被滚出视口 | 边缘可见性必须带留白：左右各 12pt（与 leftPad 对称）；且内容宽度必须计入右留白，否则滚动到最右时 clamp 吃掉留白、光标仍贴边。回归先写 Viewport 单测 + MetalView 接线 + 离屏像素三层 |
+| 2026-08-02 | BUG-007 | IME 组合期间不横向滚动：`setMarkedText` 缺 `scrollCursorIntoView`（只有 `insertText` 提交路径有） | IME 两条回调（组合更新 / 提交）都必须维护光标可见性；组合末尾光标用 BUG-004 的「光标 + 组合长度」语义，`scrollCursorIntoView` 已支持，缺的只是调用 |
 
 ## 给下一个 agent 的提醒
 

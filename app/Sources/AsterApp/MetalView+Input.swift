@@ -25,6 +25,10 @@ extension MetalView: @MainActor NSTextInputClient {
 
   func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
     model.setMarkedText(Self.text(from: string) ?? "")
+    // BUG-007：组合文本延伸（拼音逐字增长）必须同步滚动，组合末尾光标
+    // （BUG-004 语义：光标 + 组合长度）保持在右缘留白内；此前只有提交
+    // （insertText）滚动，组合期间超出右缘不自动横向滚动。
+    scrollCursorIntoView()
     needsDisplay = true
   }
 

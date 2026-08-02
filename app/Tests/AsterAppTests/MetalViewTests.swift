@@ -152,4 +152,35 @@ final class MetalViewTests: XCTestCase {
       "行首光标必须停在左留白 12pt 处"
     )
   }
+
+  /// BUG-007 回归：拼音组合期间组合文本超出右缘必须自动横向滚动（组合末尾
+  /// 光标 = BUG-004 语义，必须在右缘留白内）。
+  func testMarkedTextScrollsCompositionIntoView() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(35)))
+    try model.typeText(String(repeating: "abcdefghijklmnopqrstuvwxyz", count: 3))
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300), model: model)
+    model.move(.docEnd, extend: false)
+    view.scrollCursorIntoView()
+    let scrollXBefore = view.viewport.scrollX
+
+    view.setMarkedText(
+      "nihao" as NSString,
+      selectedRange: NSRange(location: 0, length: 0),
+      replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
+
+    XCTAssertGreaterThan(
+      view.viewport.scrollX, scrollXBefore, "组合文本延伸必须触发横向滚动（BUG-007）"
+    )
+    // 组合末尾光标（displayText 行尾）必须仍在右缘 12pt 留白内。
+    let layout = LineLayout(text: model.lines[0], font: view.renderer.font)
+    let caretX = view.renderer.leftPadPts + layout.width - view.viewport.scrollX
+    XCTAssertLessThanOrEqual(
+      caretX, view.bounds.width - view.renderer.rightPadPts + 0.5,
+      "组合末尾光标必须停在右缘留白内（BUG-007）"
+    )
+  }
 }
