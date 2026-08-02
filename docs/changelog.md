@@ -10,6 +10,14 @@
 
 ## [Unreleased]
 
+<!-- 尚未发布的变更维护在此；发布时归档到 [Beta V0.x.y]。 -->
+
+## [Beta V0.1.0] — 2026-08-02
+
+**首个功能版本：** T-001 ~ T-013 全部落地——文档体系、Rust Core 编辑内核、
+swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
+目标环境：macOS 26.5.1 / Apple M4（ADR-002：仅支持最新 macOS）。
+
 ### Fixed — 2026-08-02
 
 - fix(app)：Retina 下 Metal 文本渲染模糊（BUG-001，根因分类：Implementation Bug）——
