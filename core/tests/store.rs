@@ -127,6 +127,37 @@ fn open_buffer_creates_buffer_file_and_roundtrip() {
     );
 }
 
+// T-043（ADR-013 v1.1）：崩溃恢复原语——clean_exit 哨兵 + 缓冲文档枚举。
+
+#[test]
+fn clean_exit_marker_defaults_false_and_roundtrips() {
+    let mut store = Store::in_memory().unwrap();
+    // 缺省 = 异常退出（哨兵缺失即视为崩溃，ADR-013 v1.1）。
+    assert!(!store.is_clean_exit().unwrap(), "初始必须是异常退出语义");
+    store.set_clean_exit(true).unwrap();
+    assert!(store.is_clean_exit().unwrap());
+    store.set_clean_exit(false).unwrap();
+    assert!(!store.is_clean_exit().unwrap(), "启动时清哨兵后不得为干净");
+}
+
+#[test]
+fn list_scratch_enumerates_buffered_documents() {
+    let mut store = Store::in_memory().unwrap();
+    assert!(store.list_scratch().unwrap().is_empty(), "无缓冲文档");
+    store.save_scratch(3, "doc 3").unwrap();
+    store.save_scratch(1, "doc 1").unwrap();
+    store.save_scratch(2, "doc 2").unwrap();
+    // 按 id 升序返回（恢复时取最新 = 最大 id）。
+    assert_eq!(
+        store.list_scratch().unwrap(),
+        vec![
+            (1, "doc 1".to_string()),
+            (2, "doc 2".to_string()),
+            (3, "doc 3".to_string())
+        ]
+    );
+}
+
 fn temp_dir(label: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!(
         "aster-store-{}-{}-{}",

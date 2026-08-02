@@ -5,16 +5,16 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015/T-033 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-042（buffer /
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
     selection / history / layout / theme / command / event / lua / store / bridge /
-    editor / document_manager / snapshot），`core/src` 共 2039 行，123 个测试全绿（含 7 个
+    editor / document_manager / snapshot），`core/src` 共 2110 行，125 个测试全绿（含 7 个
     属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
-  - bridge/：swift-bridge 绑定 Swift Package（17 个 XCTest 全绿；生成代码与 .a
+  - bridge/：swift-bridge 绑定 Swift Package（18 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（56 个 XCTest 全绿），源码 1882 行（Rule 12
+  - app/：AppKit 壳 + Metal 编辑视图（59 个 XCTest 全绿），源码 1945 行（Rule 12
     的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 DocumentManager Bridge 面、ADR-021 CI 基准告警、ADR-022
@@ -40,6 +40,8 @@
     （默认 Buffer onChange 未接线 → 无 dirty ● / 退出保护）
   - T-042 快照改为纯文本（b8cd54b，ADR-023 v1.4）：快照 = `.txt` 文本文件（Buffer
     可打开），SQLite 仅作缓冲；新增 snapshot 模块
+  - T-043 崩溃恢复 v1（进行中，ADR-013 v1.1）：clean_exit 哨兵 + 启动检测 +
+    恢复提示（载回缓冲文档）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
@@ -129,6 +131,7 @@
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
 | 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty「●」= 缓冲 ≠ 快照；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
+| 崩溃恢复 | v1（T-043，ADR-013 v1.1）：缓冲 `meta.clean_exit` 哨兵（正常退出 true / 启动清 false）；启动时哨兵非干净且有缓冲文档 → 「恢复最近一个」提示；恢复载回缓冲内容并置脏，Cmd+S 合并进新快照 | 多文档会话 / 窗口状态完整恢复在 T-029（剩余部分）；恢复内容未合并前仍在缓冲（崩溃不丢） |
 
 ## 踩坑记录（可追加）
 
@@ -201,6 +204,7 @@
 | 2026-08-02 | T-041 | 默认 Buffer 无 dirty「●」/ 退出保护：onChange 只在 open() 接线（BUG-009） | 统一走 makeModel 接线；「启动默认文档」与「打开的文件」必须同一条初始化路径，否则默认路径的行为永远游离在测试之外 |
 | 2026-08-02 | T-042 | 快照做成 .sqlite 数据库，用户反馈「保存为 .sqlite 无法在 buffer 打开」 | 提交产物必须是**可打开的文本文件**（文档 = 文本，Buffer 第一公民）；SQLite 只做内部缓冲；设计存储前先确认「产物格式谁能消费」，别把数据库当文档 |
 | 2026-08-02 | T-042 | 新增模块从 store 拆快照职责 | Store = SQLite（ADR-013 SRP），快照 = 纯文本 → 独立 snapshot 模块（Rule 3）；删掉 Store 里失去消费者的 SQLite 快照 API（Rule 12/14） |
+| 2026-08-02 | T-043 | 「崩溃后如何恢复」——缓冲只保护数据，恢复流程缺失（无哨兵、无提示） | 哨兵模式：正常退出写 clean_exit=true，启动读后立即清 false；崩溃不执行终止回调 → 下次启动检测到异常退出；恢复决策抽纯函数（shouldOfferRecovery）便于单测 |
 
 ## 给下一个 agent 的提醒
 

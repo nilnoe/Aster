@@ -1,5 +1,10 @@
 # ADR-013 — SQLite 存储层（Store）
 
+  v1.1 备注（T-043）：新增崩溃恢复原语——`meta` 表存放 `clean_exit` 哨兵
+  （干净退出 = "1"，启动时清空；崩溃后为缺省值），`list_scratch` 枚举缓冲文档；
+  恢复流程 = App 启动检测哨兵 + 缓冲内容 → 提示恢复（消费方 = AppDelegate，
+  T-043）。Session 多文档完整恢复仍在 T-029。
+
 - **Status:** Accepted
 - **Date:** 2026-08-02
 - **Version:** 1.0

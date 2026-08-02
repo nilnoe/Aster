@@ -102,6 +102,50 @@ impl Store {
         Ok(changed > 0)
     }
 
+    /// 设置干净退出哨兵（T-043，ADR-013 v1.1）。
+    ///
+    /// 决策依据：App 正常退出写 `true`，启动时写 `false`；哨兵缺失 / 为 `false`
+    /// 即视为上次会话异常退出（崩溃），触发恢复提示。写缓冲 = 崩溃检测的最小
+    /// 可靠信号（SQLite journal 不保证可观测）。
+    pub fn set_clean_exit(&mut self, clean: bool) -> Result<(), StoreError> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO meta (key, value) VALUES ('clean_exit', ?1)",
+                params![if clean { "1" } else { "0" }],
+            )
+            .map_err(StoreError::Sqlite)?;
+        Ok(())
+    }
+
+    /// 读取干净退出哨兵；无记录视为异常退出（缺省 false）。
+    pub fn is_clean_exit(&self) -> Result<bool, StoreError> {
+        let value: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM meta WHERE key = 'clean_exit'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(StoreError::Sqlite)?;
+        Ok(value.as_deref() == Some("1"))
+    }
+
+    /// 枚举缓冲文档 (id, content)，按 id 升序（恢复时取最大 id = 最新）。
+    pub fn list_scratch(&self) -> Result<Vec<(u64, String)>, StoreError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, content FROM scratch ORDER BY id")
+            .map_err(StoreError::Sqlite)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, i64>(0)? as u64, row.get::<_, String>(1)?))
+            })
+            .map_err(StoreError::Sqlite)?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(StoreError::Sqlite)
+    }
+
     /// 整表替换会话记录。
     ///
     /// 决策依据：单事务保证原子性——写入失败时旧会话保持完整，
@@ -201,6 +245,10 @@ fn init_schema(conn: &Connection) -> Result<(), StoreError> {
              position INTEGER PRIMARY KEY,
              id INTEGER NOT NULL,
              path TEXT
+         );
+         CREATE TABLE IF NOT EXISTS meta (
+             key TEXT PRIMARY KEY,
+             value TEXT NOT NULL
          );",
     )
     .map_err(StoreError::Sqlite)

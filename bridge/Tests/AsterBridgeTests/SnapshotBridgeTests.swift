@@ -54,4 +54,22 @@ final class SnapshotBridgeTests: XCTestCase {
       "缓冲文件必须固定为 buffer.sqlite"
     )
   }
+
+  /// T-043（ADR-013 v1.1）：崩溃恢复原语跨语言可用——哨兵 + 缓冲文档枚举。
+  func testCrashRecoveryPrimitives() throws {
+    let dir = makeTempDir("recovery")
+    var buffer = try store_open_buffer(dir)
+
+    // 缺省 = 异常退出（崩溃语义）。
+    XCTAssertFalse(try store_is_clean_exit(buffer))
+    try store_save_scratch(buffer, 5, "崩溃前的编辑")
+
+    XCTAssertEqual(Array(store_scratch_ids(buffer)), [5], "缓冲文档可枚举")
+    try store_set_clean_exit(buffer, true)
+    XCTAssertTrue(try store_is_clean_exit(buffer), "干净退出哨兵")
+    XCTAssertEqual(
+      try store_load_scratch(buffer, 5).toString(), "崩溃前的编辑",
+      "恢复入口可读回内容"
+    )
+  }
 }

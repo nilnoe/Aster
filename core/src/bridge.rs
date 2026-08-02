@@ -143,6 +143,24 @@ pub fn store_load_scratch(store: &Store, id: usize) -> Result<String, String> {
         .map_err(|e| format!("{e:?}"))?
         .ok_or_else(|| format!("scratch {id} not found"))
 }
+
+/// 设置干净退出哨兵（T-043，ADR-013 v1.1：正常退出 true / 启动清 false）。
+pub fn store_set_clean_exit(store: &mut Store, clean: bool) -> Result<(), String> {
+    store.set_clean_exit(clean).map_err(|e| format!("{e:?}"))
+}
+
+/// 读取干净退出哨兵（崩溃检测）。
+pub fn store_is_clean_exit(store: &Store) -> Result<bool, String> {
+    store.is_clean_exit().map_err(|e| format!("{e:?}"))
+}
+
+/// 缓冲文档 id 列表（恢复时取最大 id = 最新文档）。
+pub fn store_scratch_ids(store: &Store) -> Vec<usize> {
+    store
+        .list_scratch()
+        .map(|rows| rows.into_iter().map(|(id, _)| id as usize).collect())
+        .unwrap_or_default()
+}
 // --- Editor 桥接面（T-013，ADR-017） ---
 //
 // 决策依据：
@@ -253,6 +271,9 @@ mod ffi {
         fn store_open_buffer(dir: String) -> Result<Store, String>;
         fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>;
         fn store_load_scratch(store: &Store, id: usize) -> Result<String, String>;
+        fn store_set_clean_exit(store: &mut Store, clean: bool) -> Result<(), String>;
+        fn store_is_clean_exit(store: &Store) -> Result<bool, String>;
+        fn store_scratch_ids(store: &Store) -> Vec<usize>;
         fn snapshot_new(dir: String) -> Snapshot;
         fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String>;
         fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String>;

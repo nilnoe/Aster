@@ -26,13 +26,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var currentFileName: String?
   /// 未提交编辑标记（ADR-023 v1.3：缓冲 ≠ 快照；内容变更置脏，Cmd+S 合并后清除）。
   private var isDirty = false
+  /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
+  private var needsRecoveryPrompt = false
   private var mainWindow: NSWindow?
+
+  /// 崩溃恢复决策（T-043，ADR-013 v1.1）：纯函数便于单测。
+  ///
+  /// 决策依据：哨兵缺失 / 为 false 视为异常退出；缓冲有文档才有内容可恢复。
+  nonisolated static func shouldOfferRecovery(cleanExit: Bool, bufferedDocCount: Int) -> Bool {
+    !cleanExit && bufferedDocCount > 0
+  }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.mainMenu = AppMenu.build(aboutTarget: self)
     setupStorage()
     makeMainWindow()
+    presentRecoveryIfNeeded()
     NSApp.activate(ignoringOtherApps: true)
+  }
+
+  /// 正常退出写干净哨兵（T-043）：崩溃路径不执行本回调 → 下次启动提示恢复。
+  ///
+  /// 决策依据：AppKit 在正常终止（Cmd+Q / 关最后窗口，且未被取消）时调用本方法；
+  /// kill / 崩溃不调用，哨兵保持非干净。
+  func applicationWillTerminate(_ notification: Notification) {
+    guard let store = bufferStore else { return }
+    try? store_set_clean_exit(store, true)
   }
 
   /// 启动存储：打开缓冲文件 + 创建当日第一个快照（隐式新文档）。
@@ -42,10 +61,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func setupStorage() {
     do {
       let dir = StorePaths.defaultDirectory()
-      bufferStore = try store_open_buffer(dir)
+      let store = try store_open_buffer(dir)
+      bufferStore = store
       currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
+      // T-043：先读哨兵（上次是否异常退出），随即清哨兵（本次运行期间的崩溃
+      // 检测基准）；再枚举缓冲文档决定是否提示恢复。
+      let cleanExit = try store_is_clean_exit(store)
+      try store_set_clean_exit(store, false)
+      needsRecoveryPrompt = Self.shouldOfferRecovery(
+        cleanExit: cleanExit,
+        bufferedDocCount: store_scratch_ids(store).count
+      )
     } catch {
       NSLog("存储初始化失败：\(error)")
+    }
+  }
+
+  /// 崩溃恢复提示（T-043，ADR-013 v1.1）：恢复最近一个缓冲文档，忽略则保留在缓冲。
+  ///
+  /// 决策依据：缓冲是崩溃保护的连续工作副本（ADR-023 v1.4）；恢复 = 载入最新
+  /// 内容并置脏（用户经 Cmd+S 合并进新快照）；其余缓冲文档随 T-029 会话完整恢复。
+  private func presentRecoveryIfNeeded() {
+    guard needsRecoveryPrompt, let store = bufferStore else { return }
+    let ids = store_scratch_ids(store)
+    guard let latest = ids.max() else { return }
+    let alert = NSAlert()
+    alert.messageText = "检测到异常退出"
+    alert.informativeText =
+      "上次会话未正常退出，发现 \(ids.count) 个未提交文档。要恢复最近的一个吗？"
+      + "（未恢复的内容仍保留在缓冲中）"
+    alert.addButton(withTitle: "恢复")
+    alert.addButton(withTitle: "忽略")
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    do {
+      let text = try store_load_scratch(store, latest).toString()
+      let id = try document_manager_open_scratch(documentManager)
+      let buffer = Buffer(BufferId(UInt64(id)))
+      _ = try buffer_insert(buffer, 0, text)
+      let model = makeModel(buffer)
+      if let view = mainWindow?.contentView as? MetalView {
+        view.load(model)
+      }
+      currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
+      currentFileName = nil
+      isDirty = true
+      updateWindowTitle()
+    } catch {
+      NSLog("恢复文档失败：\(error)")
+      presentSaveError("\(error)")
     }
   }
 

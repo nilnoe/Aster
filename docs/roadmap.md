@@ -57,7 +57,8 @@
 
 ## Phase 5 — 稳定与发布
 
-- [ ] T-029 Crash Recovery 与 Session 恢复；接线 Store session（ADR-013）
+- [x] T-043 崩溃恢复 v1（ADR-013 v1.1）：缓冲哨兵（clean_exit）+ 启动检测 + 恢复提示；缓冲文档载回编辑器
+- [ ] T-029 Crash Recovery 与 Session 恢复（T-043 已交付缓冲恢复 v1；剩余：多文档会话完整恢复、窗口状态，接线 Store session）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）
 - [x] T-032 测试与审计加固：proptest 属性测试（Buffer / Editor / Layout 不变量）+ 审计记录制度（docs/audits.md，ADR-022）

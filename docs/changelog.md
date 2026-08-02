@@ -130,6 +130,17 @@
 - test：Core 4 项（snapshot 模块：序号递增 / 缺号 / 纯文本往返 / latest）+ Bridge
   3 项（快照往返、.txt 断言、缓冲往返）
 
+### Added — 2026-08-02（T-043 崩溃恢复 v1，ADR-013 v1.1）
+
+- feat(core)：Store 崩溃恢复原语——`meta` 表 `clean_exit` 哨兵（正常退出写 true /
+  启动清 false，缺失 = 异常退出）、`list_scratch` 枚举缓冲文档（按 id 升序）；
+  Bridge FFI 3 项（store_set_clean_exit / store_is_clean_exit / store_scratch_ids）
+- feat(app)：启动检测哨兵 + 缓冲文档 → 「检测到异常退出，恢复最近一个？」提示；
+  恢复 = 载入最新缓冲内容并置脏（Cmd+S 合并进新快照），忽略则保留在缓冲；
+  `applicationWillTerminate` 写干净哨兵（崩溃路径不执行 → 下次启动可检测）
+- test：Core 2 项（哨兵缺省/往返、缓冲枚举排序）+ Bridge 1 项（恢复原语跨语言）+
+  App 3 项（shouldOfferRecovery 决策纯函数）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——
