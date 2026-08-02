@@ -13,6 +13,18 @@
 - `WORKFLOW.md` — 开发管线，所有任务的强制执行流程。
 - `docs/roadmap.md` — 开发路线 TODO：每个任务从这里选取，完成时更新其状态。
 - `docs/changelog.md` — 版本变迁记录：每个切片完成时更新。
+- `ARCHITECTURE.md` — 架构总览：分层、数据流、垂直切片的插入点。
+- `docs/adr/README.md` — ADR 索引与模板。
+- `docs/glossary.md` — 术语表：领域词汇的权威定义。
+- `docs/benchmarks.md` — 性能基线记录。
+- `docs/bug-workflow.md` — 缺陷处理流程：Bug 必须按此管线修复。
+- `docs/bugs.md` — 缺陷登记表：Bug 报告必须在此登记编号。
+- `DEVELOPING.md` — 构建与运行；目标环境仅最新 macOS（ADR-002）。
+- `docs/testing.md` — 分层测试策略。
+- `docs/release.md` — 发布流程。
+- `docs/dependencies.md` — 依赖维护政策。
+- `SECURITY.md` — 信任模型与漏洞报告。
+- `.github/workflows/` — CI 机械门禁（Rust / Swift 双作业，按路径触发）。
 - `README.md` — 文档体系索引。
 
 核心约束（来自 ADR）：
@@ -38,6 +50,12 @@ Task → Analysis → Architecture → Test Design → Implementation → Format
 - **Quality Gates：** `cargo fmt`、`cargo clippy`、`cargo test` 必须全部通过，才能进入 Architecture Audit。
 - **Constitution 优先：** `docs/constitution.md` 的规则不可违反；任何 Commit 前必须通过宪法 Rule 6 的全部质量门禁（含 `swift-format`、`swift test`）。
 - **复杂度预算：** 每个 PR 必须回答宪法 Rule 9 三问（新增复杂度、是否永久、更简单方案）；Audit 阶段拒绝为小功能堆叠抽象层 / 模块 / 公共接口。
+- **注释：** 宪法 Rule 10——注释必须详尽且有决策依据，回答"为什么"，禁止为注释而注释；有宪法 / ADR 依据的必须引用编号。
+- **复用优先：** 宪法 Rule 11——禁止重复造轮子；标准库 / 系统能力 > 成熟开源 > 自研；自研必须有证明。
+- **宪法不可自行修改：** Agent 不得直接修改 `docs/constitution.md`；需要修订时先向用户提出建议，获得确认后执行。
+- **CI 强制：** PR 必须通过 GitHub Actions 全部作业（宪法 Rule 6 的机械执行）。
+- **平台与安全约束：** 仅支持最新 macOS（ADR-002）；插件默认信任（ADR-003）；默认无遥测，崩溃上报需显式开启（ADR-004）。
+- **版本：** 现阶段 Beta，模板 `Beta V0.0.0`——补丁递增末位、功能递增中间位、首位恒为 0；首个正式版为 `V1.0.0`（见 docs/release.md）。
 - **Benchmark 是常态：** 每个切片至少建立或刷新一次性能基线，涉及 ADR Performance Goals 的切片必须给出量化对比。
 - **Docs 是 Commit 的一部分：** 未更新文档的切片不算完成（含 Roadmap 状态与 Changelog）。
 - **违反 ADR 即停止：** 如果任务要求的行为违背 ADR 已接受的决策，先停下并向用户说明，不要擅自实现。

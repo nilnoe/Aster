@@ -3,7 +3,7 @@
 - **Version:** 1.0
 - **Status:** Accepted
 
-本文件为项目级总纲。逐条新增决策记录于 `docs/adr/`（当前：ADR-001 DocumentManager）。
+本文件为项目级总纲。逐条新增决策记录于 `docs/adr/`，索引与模板见 `docs/adr/README.md` 与 `docs/adr/_template.md`。
 
 ---
 

@@ -4,6 +4,8 @@
 
 一个切片必须从 Task 贯穿到 Commit，不允许停在中间某个水平层。
 
+缺陷处理使用独立流程：[docs/bug-workflow.md](docs/bug-workflow.md)。
+
 ## Pipeline
 
 1. **Task** — 确定一个具体、有边界、可验收的垂直切片。明确验收标准与 Definition of Done。
@@ -32,6 +34,13 @@
 - 复杂度预算三问已回答并记录（宪法 Rule 9）
 - Benchmark 已记录
 - 文档已更新（含 Roadmap 状态与 Changelog）
+
+## Commit Message 约定
+
+- 使用 Conventional Commits：`type(scope): summary`。
+- type：`feat` / `fix` / `docs` / `refactor` / `perf` / `test` / `chore`。
+- 必须引用对应 Task（编号见 [docs/roadmap.md](docs/roadmap.md)）与 ADR 编号，例如：`feat(core): Buffer 最小模型 (T-001, ADR-005)`。
+- 正文解释"为什么"，而非复述改动（宪法 Rule 10）。
 
 ## Rules
 
