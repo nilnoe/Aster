@@ -2,16 +2,19 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-013 完成，Beta V0.1.0 已发布）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-017 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，107 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（26 个 XCTest 全绿），源码 1226 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
-- **决策：** ADR-001 ~ ADR-017 全部 Accepted（索引见 `docs/adr/README.md`）。
+  - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+- **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）。
 - **下一任务：** T-018 水平滚动（ADR-019 已定：v1 默认，scrollX + 光标横向可见性）
   → 随后 T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供）。
-- **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
+- **版本：** Beta 阶段，当前 **Beta V0.1.1**（core `0.1.1` 单一来源，三处同步：
+  Changelog / 应用版本（core_version）/ git tag）。模板 `Beta V0.0.0`（末位补丁 /
+  中间位功能 / 首位恒 0）。**发布 = 打 `Beta-V*` tag 推送，CI-Release 自动门禁 +
+  打包 Aster.app zip + 附到 Release（ADR-020）**。
 - **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
 - **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
 
@@ -61,23 +64,23 @@
 
 | 主题 | 现状 | 替换 / 决策触发点 |
 | --- | --- | --- |
-| 文本存储 | `String`（Buffer 内部实现细节） | T-020 基准证明不达标时换 Rope/Gap（ADR-006） |
-| 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-020），接口不变 |
+| 文本存储 | `String`（Buffer 内部实现细节） | T-023 基准证明不达标时换 Rope/Gap（ADR-006） |
+| 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-023），接口不变 |
 | 软换行 | 用户可选、默认关闭；默认按行渲染 + 水平滚动（ADR-019） | 配置系统（Lua/Config DSL）切片落地后经配置开启 |
 | 水平滚动 | v1 默认能力（ADR-019，T-018）：scrollX 点值平移 + 光标横向可见性 | 平滑滚动动画随 T-022 |
 | 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
-| Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-021 |
-| 多光标 / mmap | 未定 | T-020 基准后定 |
+| Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-029（Crash Recovery） |
+| 多光标 / mmap | 未定 | T-023 基准后定 |
 | 插件信任 | 默认信任，不沙箱 | 引入插件市场时重估（ADR-003） |
 | macOS | 仅最新版，零兼容负担 | 永久（ADR-002） |
 | 遥测 | 默认无，显式开启 | 永久（ADR-004） |
 | Lua 宿主 | mlua 0.12（lua54 + vendored） | 插件线程化时重估 Send/Sync（T-008 已评估） |
 | Bridge 构建 | swift-bridge 0.1.59 + `bridge/build.sh`；staticlib + lua/sqlite 传递依赖显式链接进 Swift 包 | swift-bridge 升级（major）另走 ADR（依赖政策） |
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
-| 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 增量失效随 T-013 细化（ADR-016）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
+| 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+像素尺寸+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 按需整帧重建（增量失效未做）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
 | CI 发布 | `CI-Release`：打 Beta-V* tag → 门禁 + 构建 + 打包 Aster.app zip + 附到 Release（ADR-020）；手动 dispatch 在 main 上只验证到 artifact 步骤 | 签名/公证在 V1.0.0 前按需评估 |
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
-| 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-015；剪贴板 / 拖放 / 深浅色随 T-014 |
+| 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 
 ## 踩坑记录（可追加）
 
@@ -119,15 +122,26 @@
 | 2026-08-02 | BUG-004 | 组合期间光标画在组合起点，不跟随拼音 | 组合内联于光标处，光标应画在 cursor + composition 长度处（同一行，无换行） |
 | 2026-08-02 | T-013/IME | "拼音按回车得到英文字母" 是 macOS 系统输入法固有行为（回车提交原始拼音，空格/数字确认汉字），TextEdit 同样如此，非我方 bug | 不要"修复"它（改 = 重实现 IME，违反 Principle 4）；如需回车确认候选，用户侧换第三方输入法（如 Rime） |
 | 2026-08-02 | T-017 | 渲染像素测试崩溃 SIGTRAP：`r + 100`（UInt8 255+100）算术溢出 | 像素比较先转 Int；又是测试自身的问题（"测试失败先怀疑测试"） |
+| 2026-08-02 | BUG-005 | 文本区鼠标指针是箭头而非 I 型 | `resetCursorRects` + `addCursorRect(bounds, .iBeam)`（系统能力，Principle 4） |
 
 ## 给下一个 agent 的提醒
 
-- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、ADR-014/015（Bridge/App 构建链）、WORKFLOW、本文件。
+- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、
+  ADR-014/015（Bridge/App 构建链）、ADR-016~020（渲染/编辑/方向/滚动/发布）、
+  WORKFLOW、本文件。
 - 新 Public API 必须有 ADR；未确定项进入实现前必须先更新 ADR。
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
 - 每次切片遇到新问题，把解法追加到上面的踩坑记录。
-- **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-015（ADR-017 备注）。
+- **发布**：版本号三处同步（core/Cargo.toml → 应用版本；Changelog 归档；tag）。
+  打 `Beta-V*` tag 推送即自动发布（CI-Release，ADR-020）；本地等价：`./bridge/build.sh`
+  + `cd app && swift build -c release` + 手工组装 Aster.app + zip。release 产物未公证，
+  首次打开需右键 → 打开。
+- **CI 历史教训**：CI-Swift 曾因渲染像素测试的 UInt8 溢出（SIGTRAP）连续两轮红，
+  修复在测试自身；CI 只按路径触发（改 core 不跑 Swift，纯文档不触发）是设计行为。
+- **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
+  给下一个 agent 的提醒，不要重读全部源码。
+- **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-024（Command Palette，ADR-017 备注）。
 - **T-018 前置（ADR-019）**：水平滚动 = 视图层 `scrollX` 点值 + 触控板双指 / Shift+滚轮
   平移 + 光标横向可见性（内容宽度按可见行最大宽度）；软换行默认关，开启后视觉折行
   属 App 渲染层（Layout 逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经
