@@ -103,4 +103,26 @@ final class EditorModelTests: XCTestCase {
     XCTAssertEqual(EditorModel.splitLines(text), ["ab", "你好", ""])
     XCTAssertEqual(EditorModel.lineRanges(of: text), [0..<2, 3..<9, 10..<10])
   }
+
+  /// T-037（ADR-023 决策 4）：内容变更（type / delete / undo / redo）触发
+  /// onChange；光标移动与选区不触发（不置脏）。
+  func testOnChangeFiresOnContentMutationOnly() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(40)))
+    var dirtyCount = 0
+    model.onChange = { dirtyCount += 1 }
+
+    try model.typeText("abc")
+    XCTAssertEqual(dirtyCount, 1, "输入触发")
+    model.move(.right, extend: false)
+    model.move(.lineStart, extend: false)
+    model.setSelection(anchor: 1, head: 2)
+    model.selectAll()
+    XCTAssertEqual(dirtyCount, 1, "移动 / 选区不触发")
+    try model.deleteBackward()
+    XCTAssertEqual(dirtyCount, 2, "退格触发")
+    try model.undo()
+    XCTAssertEqual(dirtyCount, 3, "undo 触发")
+    try model.redo()
+    XCTAssertEqual(dirtyCount, 4, "redo 触发")
+  }
 }

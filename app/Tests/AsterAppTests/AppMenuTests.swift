@@ -38,4 +38,15 @@ final class AppMenuTests: XCTestCase {
     XCTAssertTrue(selectors.contains(Selector(("selectAll:"))))
     XCTAssertTrue(selectors.contains(Selector(("paste:"))))
   }
+
+  /// T-037（ADR-023）：File 菜单必须提供「保存」⌘S，指向 AppDelegate。
+  func testFileMenuHasSaveShortcut() {
+    let menu = AppMenu.build(aboutTarget: NSObject())
+
+    let fileItem = menu.items.first { $0.title == "文件" }
+    let saveItem = fileItem?.submenu?.items.first { $0.title == "保存" }
+
+    XCTAssertEqual(saveItem?.keyEquivalent, "s")
+    XCTAssertEqual(saveItem?.action, #selector(AppDelegate.saveDocument(_:)))
+  }
 }

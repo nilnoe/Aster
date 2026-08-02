@@ -73,6 +73,21 @@ pub fn document_manager_open_disk(dm: &mut DocumentManager, path: String) -> Res
 pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
     dm.text(BufferId::new(id as u64)).unwrap_or("").to_string()
 }
+
+/// 把编辑文本写回文档绑定的磁盘路径（T-037，ADR-023）；成功返回 id。
+///
+/// 决策依据：App 持有 Editor 会话文本（ADR-017），保存经本函数交给
+/// DocumentManager（路径唯一所有者，ADR-001）；id 以 usize 透传（ADR-014
+/// 惯例）；错误映射为消息字符串（ADR-014 惯例，ADR-004 失败可见）。
+pub fn document_manager_save_text(
+    dm: &mut DocumentManager,
+    id: usize,
+    text: String,
+) -> Result<usize, String> {
+    dm.save_text(BufferId::new(id as u64), &text)
+        .map(|_| id)
+        .map_err(|e| format!("{e:?}"))
+}
 // --- Editor 桥接面（T-013，ADR-017） ---
 //
 // 决策依据：
@@ -160,6 +175,11 @@ mod ffi {
             path: String,
         ) -> Result<usize, String>;
         fn document_manager_text(dm: &DocumentManager, id: usize) -> String;
+        fn document_manager_save_text(
+            dm: &mut DocumentManager,
+            id: usize,
+            text: String,
+        ) -> Result<usize, String>;
         fn editor_new(buffer: Buffer) -> Editor;
         fn editor_text(editor: &Editor) -> &str;
         fn editor_selection_start(editor: &Editor) -> usize;

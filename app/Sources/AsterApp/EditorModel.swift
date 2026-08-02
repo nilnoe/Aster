@@ -58,6 +58,12 @@ final class EditorModel {
     return NSRange(location: location, length: composition.utf16.count)
   }
 
+  /// 内容变更回调（T-037，ADR-023）：AppDelegate 维护 dirty 状态用。
+  ///
+  /// 决策依据：仅内容变更（type / delete / undo / redo）触发；光标移动与选区
+  /// 不置脏（ADR-023 决策 4）。回调而非协议（Rule 2：无多实现方）。
+  var onChange: (() -> Void)?
+
   var lines: [String] { Self.splitLines(displayText) }
 
   /// 显示文本每行的字节区间（光标 / 选区 / 标记映射到行内坐标）。
@@ -79,6 +85,7 @@ final class EditorModel {
       composition = ""
     }
     _ = try editor_type_text(editor, text)
+    onChange?()
   }
 
   /// 系统输入回调：`replacementUTF16` 为 IME / 选区替换区间（UTF-16）。
@@ -100,6 +107,7 @@ final class EditorModel {
       composition = ""
     }
     _ = try editor_delete_backward(editor)
+    onChange?()
   }
 
   func move(_ movement: Movement, extend: Bool) {
@@ -128,10 +136,12 @@ final class EditorModel {
 
   func undo() throws {
     _ = try editor_undo(editor)
+    onChange?()
   }
 
   func redo() throws {
     _ = try editor_redo(editor)
+    onChange?()
   }
 
   func selectAll() {

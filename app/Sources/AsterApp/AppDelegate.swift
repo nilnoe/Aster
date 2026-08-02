@@ -13,6 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
   /// 所有打开路径统一经它，ADR-001）。
   private let documentManager = document_manager_new()
+  /// 当前文档注册 id（T-037，ADR-023）：初始演示 Buffer 无注册 id，保存不可用。
+  private var currentDocumentId: UInt?
+  /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
+  private var currentFileName: String?
+  /// 未保存编辑标记（T-037，ADR-023 决策 4：内容变更才置脏）。
+  private var isDirty = false
   private var mainWindow: NSWindow?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -24,6 +30,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     // 决策依据：壳只提供单个空白窗口，关闭即退出；不后台驻留。
     true
+  }
+
+  /// 退出前未保存保护（T-037，ADR-023 决策 4）：不静默丢编辑（I-002 主诉）。
+  ///
+  /// 决策依据：系统关闭流程（关闭最后窗口 / Cmd+Q）都会经此；「保存」失败必须
+  /// 阻止退出（ADR-004：失败可见），让用户自己决定。
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard isDirty else { return .terminateNow }
+    let alert = NSAlert()
+    alert.messageText = "有未保存的更改"
+    alert.informativeText = "要保存对“\(currentFileName ?? AppInfo.name)”的更改吗？"
+    alert.addButton(withTitle: "保存")
+    alert.addButton(withTitle: "不保存")
+    alert.addButton(withTitle: "取消")
+    switch alert.runModal() {
+    case .alertFirstButtonReturn:
+      return saveCurrentDocument() ? .terminateNow : .terminateCancel
+    case .alertSecondButtonReturn:
+      return .terminateNow
+    default:
+      return .terminateCancel
+    }
   }
 
   @objc func showAbout(_ sender: Any?) {
@@ -55,14 +83,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let buffer = Buffer(BufferId(UInt64(id)))
       _ = try buffer_insert(buffer, 0, text)
       let model = EditorModel(buffer: buffer)
+      model.onChange = { [weak self] in self?.markDirty() }
       if let view = mainWindow?.contentView as? MetalView {
         view.load(model)
       }
-      mainWindow?.title = url.lastPathComponent
+      currentDocumentId = UInt(id)
+      currentFileName = url.lastPathComponent
+      isDirty = false
+      updateWindowTitle()
     } catch {
       NSLog("打开文档失败：\(error)")
       presentOpenError(error)
     }
+  }
+
+  /// 保存当前文档（⌘S / 退出保护共用）：成功返回 true。
+  ///
+  /// 决策依据：文本来自 Editor 会话（ADR-017），经 Bridge 写回注册路径
+  /// （ADR-023 决策 1）；无文档或失败必须可见（ADR-004）。
+  @objc func saveDocument(_ sender: Any?) {
+    _ = saveCurrentDocument()
+  }
+
+  @discardableResult
+  private func saveCurrentDocument() -> Bool {
+    guard let id = currentDocumentId,
+      let view = mainWindow?.contentView as? MetalView
+    else {
+      presentSaveError("当前没有可保存的文档")
+      return false
+    }
+    do {
+      _ = try document_manager_save_text(documentManager, id, view.model.bufferText)
+      isDirty = false
+      updateWindowTitle()
+      return true
+    } catch {
+      NSLog("保存文档失败：\(error)")
+      presentSaveError("\(error)")
+      return false
+    }
+  }
+
+  /// 内容变更后置脏并更新标题（EditorModel.onChange）。
+  private func markDirty() {
+    isDirty = true
+    updateWindowTitle()
+  }
+
+  /// 标题 = [● ] + 文件名（初始演示 Buffer 显示 App 名）。
+  private func updateWindowTitle() {
+    let base = currentFileName ?? AppInfo.name
+    mainWindow?.title = isDirty ? "● \(base)" : base
+  }
+
+  private func presentSaveError(_ message: String) {
+    let alert = NSAlert()
+    alert.messageText = "无法保存文档"
+    alert.informativeText = message
+    alert.alertStyle = .warning
+    alert.runModal()
   }
 
   private func makeMainWindow() {

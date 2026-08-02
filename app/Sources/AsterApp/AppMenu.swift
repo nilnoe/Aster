@@ -79,6 +79,12 @@ enum AppMenu {
       action: #selector(AppDelegate.openDocument(_:)),
       keyEquivalent: "o"
     )
+    // 保存（T-037，ADR-023）：写回当前文档绑定路径；target 同 AppDelegate。
+    menu.addItem(
+      withTitle: "保存",
+      action: #selector(AppDelegate.saveDocument(_:)),
+      keyEquivalent: "s"
+    )
     let item = NSMenuItem(title: "文件", action: nil, keyEquivalent: "")
     item.submenu = menu
     return item

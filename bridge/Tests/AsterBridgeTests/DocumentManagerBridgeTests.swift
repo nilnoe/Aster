@@ -32,4 +32,26 @@ final class DocumentManagerBridgeTests: XCTestCase {
       try document_manager_open_disk(dm, "/nonexistent/aster-\(UUID().uuidString).txt")
     )
   }
+
+  /// T-037（ADR-023）：保存写回绑定路径，注册表读路径返回最新文本。
+  func testSaveTextWritesBackToDiskAndRegistry() throws {
+    let path = try makeTempFile("old")
+    let dm = document_manager_new()
+    let id = try document_manager_open_disk(dm, path)
+
+    let savedId = try document_manager_save_text(dm, id, "new 你好")
+
+    XCTAssertEqual(savedId, id, "成功返回同一 id（usize 透传惯例，ADR-014）")
+    XCTAssertEqual(document_manager_text(dm, id).toString(), "new 你好")
+    XCTAssertEqual(
+      try String(contentsOfFile: path, encoding: .utf8), "new 你好",
+      "磁盘文件必须被写回（ADR-023 决策 1）"
+    )
+  }
+
+  /// T-037（ADR-023）：未知 id 保存必须失败可见。
+  func testSaveTextUnknownIdFailsVisible() {
+    let dm = document_manager_new()
+    XCTAssertThrowsError(try document_manager_save_text(dm, 999, "x"))
+  }
 }

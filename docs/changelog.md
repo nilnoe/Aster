@@ -42,6 +42,19 @@
   `git log` 双重核验为空），.gitignore 早已覆盖，仅清理工作树残留；审查登记表
   标记「误报撤销」并记录核验方法（Rule 15：证据优先，find 输出不区分跟踪状态）
 
+### Added — 2026-08-02（T-037 Disk 保存，I-002，ADR-023）
+
+- feat(core)：`DocumentManager::save_text`（写回绑定路径 + 同步注册表副本；
+  错误可见：UnknownBuffer / 新增 NoPath / SaveFailed）——Disk 保存最小语义
+- feat(bridge)：`document_manager_save_text` FFI 1 项（成功返回 id，usize 透传）
+- feat(app)：File 菜单「保存」⌘S（AppDelegate.saveDocument）；dirty 状态经
+  `EditorModel.onChange`（type / delete / undo / redo 才置脏，移动与选区不触发），
+  窗口标题「●」指示；关闭 / 退出未保存 → NSAlert 三选（保存 / 不保存 / 取消），
+  保存失败阻止退出（ADR-004：失败可见）
+- test：Core 5 项（写回 + 注册副本同步 + 未知 id + Scratch NoPath + 写失败
+  IsADirectory）+ Bridge 2 项（保存往返、未知 id throws）+ App 2 项（菜单 ⌘S、
+  onChange 语义）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——
