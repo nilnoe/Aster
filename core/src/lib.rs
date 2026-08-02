@@ -7,16 +7,20 @@
 //! `BufferError` 精确表达失败原因。
 
 mod buffer;
+mod command;
 mod document_manager;
 mod error;
+mod event;
 mod history;
 mod layout;
 mod selection;
 mod theme;
 
 pub use buffer::{Buffer, BufferId};
+pub use command::{CommandContext, CommandError, CommandRegistry};
 pub use document_manager::{DocumentManager, DocumentManagerError, DocumentSource};
 pub use error::BufferError;
+pub use event::{Event, EventBus, SubscriptionId};
 pub use history::{EditOp, History};
 pub use layout::Layout;
 pub use selection::Selection;

@@ -62,3 +62,6 @@
   - [WORKFLOW.md](../WORKFLOW.md) — 新增 Commit Message 约定（Conventional Commits）
 - [ADR-010](../docs/adr/ADR-010-theme-model.md) — Theme 模型与 Theme DSL（固定四角色 + `rgba()` 语法，Accepted）
 - feat(core)：Theme 模型与 Theme DSL 解析（T-006，ADR-010）——`Color` / `Theme` / `ThemeError`；`Theme::parse` 行级解析；12 个契约测试
+- [ADR-011](../docs/adr/ADR-011-command-event.md) — Command 系统与 Event 总线（std `Fn` 注册表 + 订阅 id 总线，Accepted）
+- [ADR-006](../docs/adr/ADR-006-data-structures.md) — 「命令表 / 事件总线结构」从未确定改为已确定（ADR-011 决策）
+- feat(core)：Command 系统与 Event 总线（T-007，ADR-011）——`CommandRegistry` / `CommandContext` / `EventBus` / `Event::BufferEdited`；9 个契约测试

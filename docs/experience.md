@@ -4,9 +4,9 @@
 
 ## 项目现状速览（截至 2026-08-02）
 
-- **代码：** Rust Core 已完成 T-001 ~ T-006，`core/src` 共 753 行，69 个测试全绿。
-- **决策：** ADR-001 ~ ADR-010 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-007（Command 系统 + Event 总线）。
+- **代码：** Rust Core 已完成 T-001 ~ T-007，`core/src` 共 931 行，78 个测试全绿。
+- **决策：** ADR-001 ~ ADR-011 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-008（Lua Runtime（mlua）接入 + Plugin API）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
 
@@ -31,6 +31,7 @@
 7. **集成测试只能看公共 API**：私有状态验证放 crate 内单元测试。当前策略：公共契约走 `core/tests/`，内部状态走 `#[cfg(test)] mod tests`。
 8. **有序向量二分**：用 `Vec::partition_point`（Layout::line_at 的解法）。
 9. **CI 按语言拆分**：Rust 与 Swift 门禁放在两个 workflow，用 `paths` 过滤——避免只改 core 时 Swift 作业误红（代码没落地前尤其重要）。
+10. **`Box<dyn Fn>` 字段触发 clippy type_complexity**：`HashMap<String, Box<dyn Fn(...)>>` 或订阅表这类存储直接报"very complex type"。解法：**私有类型别名**（`type CommandHandler = Box<dyn Fn(...)>`）——不公开就不构成公共 API（Rule 4），无需 ADR（T-007 踩过）。
 
 ## 架构决策速查（勿重新讨论，除非出现新数据）
 
@@ -59,7 +60,7 @@
 
 ## 给下一个 agent 的提醒
 
-- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、WORKFLOW、本文件。
+- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、WORKFLOW、本文件。
 - 新 Public API 必须有 ADR；未确定项进入实现前必须先更新 ADR。
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。

@@ -21,7 +21,7 @@
 - [x] T-004 Undo / Redo（inverse-operation 栈 + 相邻 Insert 合并，ADR-008）
 - [x] T-005 Layout：逻辑行模型（行号 ↔ 字节区间 ↔ 偏移，ADR-009）
 - [x] T-006 Theme：主题模型 + Theme DSL
-- [ ] T-007 Command 系统 + Event 总线
+- [x] T-007 Command 系统 + Event 总线
 - [ ] T-008 Lua Runtime（mlua）接入 + Plugin API
 - [ ] T-009 SQLite 存储：Scratch / Session / Crash Recovery
 
@@ -57,7 +57,7 @@
 
 顺序仅供参考，具体切片可能因 Analysis 阶段的新证据调整；任何调整必须先反映在 ADR 中。
 
-当前下一步：**T-007 Command 系统 + Event 总线**。
+当前下一步：**T-008 Lua Runtime（mlua）接入 + Plugin API**。
 
 ## 复审政策
 
