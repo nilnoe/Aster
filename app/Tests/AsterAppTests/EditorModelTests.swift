@@ -167,4 +167,10 @@ final class EditorModelTests: XCTestCase {
     XCTAssertEqual(model.lineText(0), "Xa")
     XCTAssertEqual(model.lineByteRanges.count, 2)
   }
+
+  /// T-040（ADR-023 v1.2）：bufferId 是 Cmd+S 的保存键，与初始 Buffer 一致。
+  func testBufferIdExposesInitialBufferIdentity() {
+    let model = EditorModel(buffer: Buffer(BufferId(9)))
+    XCTAssertEqual(model.bufferIdValue, 9)
+  }
 }

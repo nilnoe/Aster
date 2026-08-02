@@ -21,6 +21,7 @@ use crate::buffer::{Buffer, BufferId};
 use crate::document_manager::{DocumentManager, DocumentSource};
 use crate::editor::{Editor, Movement};
 use crate::layout::Layout;
+use crate::store::Store;
 
 /// 核心版本号（验证 String 往返；内容来自 Cargo.toml）。
 pub fn core_version() -> String {
@@ -74,19 +75,39 @@ pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
     dm.text(BufferId::new(id as u64)).unwrap_or("").to_string()
 }
 
-/// 把编辑文本写回文档绑定的磁盘路径（T-037，ADR-023）；成功返回 id。
-///
-/// 决策依据：App 持有 Editor 会话文本（ADR-017），保存经本函数交给
-/// DocumentManager（路径唯一所有者，ADR-001）；id 以 usize 透传（ADR-014
-/// 惯例）；错误映射为消息字符串（ADR-014 惯例，ADR-004 失败可见）。
-pub fn document_manager_save_text(
-    dm: &mut DocumentManager,
-    id: usize,
-    text: String,
-) -> Result<usize, String> {
-    dm.save_text(BufferId::new(id as u64), &text)
-        .map(|_| id)
+// --- Store 桥接面（T-040，ADR-023 v1.1） ---
+//
+// 决策依据：
+// - Cmd+S 自动保存到 SQLite（按日期轮转）是本版本的保存目标；磁盘写回（用户指定
+//   路径）Deferred 到未来文件系统切片（ADR-023 v1.1 决策 1）。
+// - id 以 usize 透传（ADR-014 惯例）；错误映射为消息字符串（ADR-014 惯例）。
+
+/// 创建当日下一个序号快照文件（T-040，ADR-023 v1.2 决策 2）：Cmd+S 每次保存
+/// 一个新文件（同日多版本）。
+pub fn store_open_next(dir: String) -> Result<Store, String> {
+    Store::open_next(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
+}
+
+/// 打开当日最高序号快照（读取 / 继续；无文件报错——测试与 T-028 用）。
+pub fn store_open_latest(dir: String) -> Result<Store, String> {
+    Store::open_latest(std::path::Path::new(&dir))
+        .map_err(|e| format!("{e:?}"))?
+        .ok_or_else(|| "当日还没有保存快照".to_string())
+}
+
+/// Cmd+S 保存点：把 Buffer 文本 upsert 进 scratch 表（ADR-023 v1.1 决策 6）。
+pub fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String> {
+    store
+        .save_scratch(id as u64, &content)
         .map_err(|e| format!("{e:?}"))
+}
+
+/// 读取已保存内容（测试 / T-028 Scratch 接线用）；不存在返回错误。
+pub fn store_load_scratch(store: &Store, id: usize) -> Result<String, String> {
+    store
+        .load_scratch(id as u64)
+        .map_err(|e| format!("{e:?}"))?
+        .ok_or_else(|| format!("scratch {id} not found"))
 }
 // --- Editor 桥接面（T-013，ADR-017） ---
 //
@@ -175,11 +196,6 @@ mod ffi {
             path: String,
         ) -> Result<usize, String>;
         fn document_manager_text(dm: &DocumentManager, id: usize) -> String;
-        fn document_manager_save_text(
-            dm: &mut DocumentManager,
-            id: usize,
-            text: String,
-        ) -> Result<usize, String>;
         fn editor_new(buffer: Buffer) -> Editor;
         fn editor_text(editor: &Editor) -> &str;
         fn editor_selection_start(editor: &Editor) -> usize;
@@ -199,10 +215,15 @@ mod ffi {
         fn editor_move_line_end(editor: &mut Editor, extend: bool);
         fn editor_move_doc_start(editor: &mut Editor, extend: bool);
         fn editor_move_doc_end(editor: &mut Editor, extend: bool);
+        fn store_open_next(dir: String) -> Result<Store, String>;
+        fn store_open_latest(dir: String) -> Result<Store, String>;
+        fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>;
+        fn store_load_scratch(store: &Store, id: usize) -> Result<String, String>;
 
         type BufferId;
         type DocumentManager;
         type Editor;
+        type Store;
         #[swift_bridge(init)]
         fn new(id: u64) -> BufferId;
         fn as_u64(self: &BufferId) -> u64;

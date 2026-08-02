@@ -22,12 +22,15 @@ final class EditorModel {
 
   private let editor: Editor
   private(set) var composition = ""
+  /// Buffer 注册 id（T-040，ADR-023 v1.2：Cmd+S 保存键；App 模块内）。
+  private let bufferId: UInt64
   /// 显示文本缓存（T-038）：内容或组合变化时失效；渲染帧内多次读取零成本。
   private var displayTextCache: String?
   /// 行字节区间缓存（T-038）：由 displayText 派生，同一次失效周期只建一次。
   private var lineRangesCache: [Range<Int>]?
 
   init(buffer: Buffer) {
+    self.bufferId = buffer.id().as_u64()
     self.editor = editor_new(buffer)
   }
 
@@ -43,6 +46,9 @@ final class EditorModel {
   var selectionEndByte: Int { Int(editor_selection_end(editor)) }
 
   var hasMarkedText: Bool { !composition.isEmpty }
+
+  /// 保存键（T-040：初始演示 Buffer 也可保存，无「必须打开过磁盘文件」前置）。
+  var bufferIdValue: UInt64 { bufferId }
 
   /// 显示文本 = Buffer 文本 + 光标处内联的组合文本（ADR-017 内联组合模型）。
   var displayText: String {

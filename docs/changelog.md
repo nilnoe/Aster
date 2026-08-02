@@ -77,6 +77,26 @@
   回填 T-035~T-038 审计 commit（29bdf9d / 6ceb0fe / 135f44a / 7220747）
 - docs(pr)：PR 模板审计区增加行为证据与审计行必填项（T-039）
 
+### Changed — 2026-08-02（T-040 保存目标改为 SQLite 快照，ADR-023 v1.2，用户确认）
+
+- **反转（用户确认）**：T-037 的「Cmd+S 写回磁盘绑定路径」提前实现了未来文件系统
+  切片的能力；按用户指示改为 **Cmd+S 自动保存到 SQLite**（ADR 总纲 §5/§6 既定方向：
+  SQLite 承担 Scratch / 内部状态，无需用户指定路径）
+- feat(core)：`Store::open_next` / `open_latest`——按「日期+序号」轮转
+  （`aster-YYYY-MM-DD-<seq>.sqlite`），**单日内可写入多个文件**（用户指示：
+  每次保存一个新快照文件，同日保存历史 = 多版本；seq = 当日最大序号 + 1，
+  容忍缺号；latest = 最高序号）；civil date 用标准算法（不引 chrono，Rule 7）
+- feat(bridge)：Store FFI 4 项（store_open_next / store_open_latest /
+  store_save_scratch / store_load_scratch）；撤销 document_manager_save_text
+- feat(app)：Cmd+S 每次经 Store 新建快照文件（保存键 = BufferId，演示 Buffer 也可
+  保存）；默认目录 `~/Library/Application Support/Aster`，`ASTER_STORE_DIR` 覆盖
+  （StorePaths，纯函数可单测）；dirty 标题与关闭保护保留
+- refactor(core)：撤销 `DocumentManager::save_text` + `NoPath` / `SaveFailed`
+  （Rule 14：无消费者；未来文件系统切片重新引入，ADR-023 v1.2 Deferred）
+- test：Core 6 项（序号递增 / 缺号跳序 / 目录自动创建 / latest 往返 / 无文件 None /
+  civil date 已知 epoch）+ Bridge 2 项（保存读回闭环、双快照 latest 胜出）+ App 2 项
+  （StorePaths 默认目录与环境变量覆盖、bufferId 保存键）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

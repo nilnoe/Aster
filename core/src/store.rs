@@ -27,6 +27,8 @@ pub struct SessionDocument {
 pub enum StoreError {
     /// SQLite 操作失败（打开、写入、查询）。
     Sqlite(rusqlite::Error),
+    /// 非 SQLite 的 IO 失败（T-040，ADR-023 v1.1：轮转目录创建失败）。
+    Io(std::io::Error),
 }
 
 /// SQLite 存储层：Scratch 内容与会话记录（ADR-013）。
@@ -49,6 +51,37 @@ impl Store {
         let conn = Connection::open(path).map_err(StoreError::Sqlite)?;
         init_schema(&conn)?;
         Ok(Self { conn })
+    }
+
+    /// 创建当日下一个序号快照文件：`<dir>/aster-YYYY-MM-DD-<seq>.sqlite`
+    /// （T-040，ADR-023 v1.2）。
+    ///
+    /// 决策依据：
+    /// - 单日内可写入多个文件（用户指示 2026-08-02）：每次 Cmd+S 一个新快照文件，
+    ///   同日保存历史 = 多个版本文件；seq = 当日最大序号 + 1（容忍中间缺号，
+    ///   ADR-023 v1.2 决策 2）。
+    /// - 目录不存在则创建（默认路径 `~/Library/Application Support/Aster` 可能
+    ///   首次启动尚不存在；失败经 `StoreError::Io` 可见，ADR-004）。
+    /// - 日期用 UTC（纯 Rust 标准库可算，跨时区确定、可测试）；本地时区午夜轮转
+    ///   随配置系统细化（ADR-023 v1.2 备注）。
+    /// - civil date 换算用 Howard Hinnant days-from-civil 标准算法，不引入 chrono
+    ///   （Rule 7：标准库可解决；新依赖需 ADR）。
+    pub fn open_next(dir: &Path) -> Result<Self, StoreError> {
+        std::fs::create_dir_all(dir).map_err(StoreError::Io)?;
+        let next = daily_seq_paths(dir).last().map_or(0, |(seq, _)| *seq) + 1;
+        let path = dir.join(format!("aster-{}-{next:03}.sqlite", today_iso()));
+        Self::open(&path)
+    }
+
+    /// 打开当日最高序号快照文件（读取 / 继续；T-040，ADR-023 v1.2 决策 2）。
+    ///
+    /// 决策依据：无文件返回 `None`（调用方显式处理，ADR-004）；序号按数值排序，
+    /// 不依赖零填充的宽度（缺号 / 超 999 都正确）。
+    pub fn open_latest(dir: &Path) -> Result<Option<Self>, StoreError> {
+        let Some((_, path)) = daily_seq_paths(dir).last().cloned() else {
+            return Ok(None);
+        };
+        Self::open(&path).map(Some)
     }
 
     /// 内存数据库（测试 / 临时会话）。
@@ -126,6 +159,80 @@ impl Store {
             .map_err(StoreError::Sqlite)?;
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(StoreError::Sqlite)
+    }
+}
+
+/// 今日日期 `YYYY-MM-DD`（UTC，T-040，ADR-023 v1.1）。
+///
+/// 决策依据：`pub(crate)` 不构成公共 API（Rule 12）；单元测试直接校验
+/// `civil_from_days` 的已知 epoch 值，避免"用实现验证实现"。
+pub(crate) fn today_iso() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let days = secs.div_euclid(86_400);
+    let (y, m, d) = civil_from_days(days);
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+/// 当日 `aster-YYYY-MM-DD-<seq>.sqlite` 文件列表，按 seq 数值升序。
+///
+/// 决策依据：序号以数值排序而非词法序（零填充 3 位在 >999 时词法序会错）；
+/// 非当日 / 非本命名规范的文件（如用户放入的其他文件）一律忽略。
+fn daily_seq_paths(dir: &Path) -> Vec<(i64, std::path::PathBuf)> {
+    let prefix = format!("aster-{}-", today_iso());
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut files = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            if !name.starts_with(&prefix) || !name.ends_with(".sqlite") {
+                return None;
+            }
+            let seq: i64 = name[prefix.len()..name.len() - ".sqlite".len()]
+                .parse()
+                .ok()?;
+            Some((seq, entry.path()))
+        })
+        .collect::<Vec<_>>();
+    files.sort_by_key(|(seq, _)| *seq);
+    files
+}
+
+/// 天数（自 1970-01-01）→ (年, 月, 日)，UTC。
+///
+/// Howard Hinnant 的 civil_from_days 标准算法（与 days_from_civil 互逆），
+/// 广泛验证过的民用历法换算；Rule 11 注释：这是标准算法而非自研轮子。
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::civil_from_days;
+
+    /// 已知 epoch 天数 → 日期（数值来自 UTC 历法，2026-08-02 = 20667 等）。
+    #[test]
+    fn civil_from_days_known_epochs() {
+        assert_eq!(civil_from_days(0), (1970, 1, 1));
+        assert_eq!(civil_from_days(20_667), (2026, 8, 2));
+        assert_eq!(civil_from_days(19_782), (2024, 2, 29), "闰年 2/29");
+        assert_eq!(civil_from_days(19_783), (2024, 3, 1));
+        assert_eq!(civil_from_days(11_016), (2000, 2, 29), "400 年闰 2000");
+        assert_eq!(civil_from_days(-25_509), (1900, 2, 28), "100 年不闰 1900");
     }
 }
 

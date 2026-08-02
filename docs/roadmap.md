@@ -70,9 +70,10 @@
 - [ ] T-034 审查问题登记：新建 docs/issues.md 并同步索引 / Roadmap / Changelog（I-001~I-008）
 - [x] T-035 Up/Down 光标 UTF-8 边界修复（I-001，BUG-008，ADR-005 底线）+ Up/Down 纳入属性测试差分
 - [x] T-036 存量清理：删除无消费者 `Selection::clamp`（I-004）、校正文档计数漂移与 T-032 审计回填（I-005）、核验 .DS_Store 未入库并清理工作树残留（I-006 误报纠正）
-- [x] T-037 Disk 保存切片：File「保存」Cmd+S 写回绑定路径（I-002，ADR-023；dirty 标题指示 + 关闭保护）
+- [x] T-037 保存切片（v1 磁盘写回方向，后被 T-040 修正）：File「保存」Cmd+S + dirty 标题 + 关闭保护（I-002，ADR-023）
 - [x] T-038 渲染数据路径重构：缓存行结构、每帧单次 shaping、视口切行，消除每帧 O(n)（I-003）
 - [x] T-039 审计与门禁加固：审计留痕机械检查（Rule 15 扩展）+ CI-Release 与日常 CI 门禁对齐（I-007 / I-008）
+- [x] T-040 Cmd+S 自动保存到 SQLite（ADR-023 v1.2，用户确认反转 T-037 磁盘写回）：每次保存新建「日期+序号」快照文件（单日多版本），默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 可覆盖）；磁盘写回（用户指定路径）显式 Deferred 到未来文件系统切片
 
 ## Task 编号规则
 

@@ -13,8 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
   /// 所有打开路径统一经它，ADR-001）。
   private let documentManager = document_manager_new()
-  /// 当前文档注册 id（T-037，ADR-023）：初始演示 Buffer 无注册 id，保存不可用。
-  private var currentDocumentId: UInt?
   /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
   private var currentFileName: String?
   /// 未保存编辑标记（T-037，ADR-023 决策 4：内容变更才置脏）。
@@ -87,7 +85,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       if let view = mainWindow?.contentView as? MetalView {
         view.load(model)
       }
-      currentDocumentId = UInt(id)
       currentFileName = url.lastPathComponent
       isDirty = false
       updateWindowTitle()
@@ -99,22 +96,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   /// 保存当前文档（⌘S / 退出保护共用）：成功返回 true。
   ///
-  /// 决策依据：文本来自 Editor 会话（ADR-017），经 Bridge 写回注册路径
-  /// （ADR-023 决策 1）；无文档或失败必须可见（ADR-004）。
+  /// 决策依据（T-040，ADR-023 v1.2）：文本来自 Editor 会话（ADR-017），每次保存
+  /// 经 Bridge 新建当日「日期+序号」SQLite 快照文件（同日多版本，无需用户指定
+  /// 路径）；失败必须可见（ADR-004）。
   @objc func saveDocument(_ sender: Any?) {
     _ = saveCurrentDocument()
   }
 
   @discardableResult
   private func saveCurrentDocument() -> Bool {
-    guard let id = currentDocumentId,
-      let view = mainWindow?.contentView as? MetalView
+    guard let view = mainWindow?.contentView as? MetalView
     else {
-      presentSaveError("当前没有可保存的文档")
+      presentSaveError("没有可保存的视图")
       return false
     }
     do {
-      _ = try document_manager_save_text(documentManager, id, view.model.bufferText)
+      let store = try store_open_next(StorePaths.defaultDirectory())
+      try store_save_scratch(store, UInt(view.model.bufferIdValue), view.model.bufferText)
       isDirty = false
       updateWindowTitle()
       return true

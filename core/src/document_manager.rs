@@ -32,17 +32,14 @@ pub enum DocumentManagerError {
     UnknownBuffer(BufferId),
     /// 磁盘文件读取失败（不存在、无权限或非 UTF-8）。
     ReadFailed { path: PathBuf, kind: io::ErrorKind },
-    /// 文档没有绑定路径（Scratch），无法写回磁盘（T-037，ADR-023 决策 2）。
-    NoPath(BufferId),
-    /// 磁盘文件写入失败（T-037，ADR-023 决策 2）。
-    SaveFailed { path: PathBuf, kind: io::ErrorKind },
 }
 
 /// 注册表条目：Buffer 与存储目标。
 ///
-/// 决策依据：`buffer` / `path` 是 ADR-001 定义的注册状态；T-015 起 `buffer` 经
-/// `text()` 被 Bridge 读取，T-037 起 `path` / `buffer` 被 `save_text` 写回使用，
-/// 产品路径全部有消费者，不再需要 expect。
+/// 决策依据：字段当前仅由单元测试读取；`path` 与内容是 ADR-001 定义的注册状态，
+/// 未来文件系统切片（ADR-023 v1.1 Deferred）消费 `path` 时移除 expect。
+// 决策依据：非测试构建中字段暂无读取方；测试构建中单元测试会读取，故仅对非测试构建声明预期。
+#[cfg_attr(not(test), expect(dead_code))]
 #[derive(Debug)]
 struct Document {
     buffer: Buffer,
@@ -106,34 +103,6 @@ impl DocumentManager {
         if self.documents.remove(&id).is_none() {
             return Err(DocumentManagerError::UnknownBuffer(id));
         }
-        Ok(())
-    }
-
-    /// 把编辑文本写回文档绑定的磁盘路径，并同步注册表副本（T-037，ADR-023）。
-    ///
-    /// 决策依据：
-    /// - 调用方（App）持有 Editor 会话文本（ADR-017），本方法只负责「存储目标写回」
-    ///   （ADR 总纲第 7 节：File 是 Buffer 的存储目标）；激活文档统一随 T-024。
-    /// - 失败全部可见（ADR-004）：未知 id / 无路径（Scratch）/ 写失败分别对应
-    ///   三个错误变体，UI 可呈现可操作信息。
-    /// - 注册表副本在保存点同步：`buffer` 全文替换（delete 0..len 后 insert 0 必然
-    ///   成功——空 buffer 的偏移 0 是合法边界，与 `open` 同款结构性不变量）。
-    pub fn save_text(&mut self, id: BufferId, content: &str) -> Result<(), DocumentManagerError> {
-        let doc = self
-            .documents
-            .get_mut(&id)
-            .ok_or(DocumentManagerError::UnknownBuffer(id))?;
-        let path = doc.path.clone().ok_or(DocumentManagerError::NoPath(id))?;
-        std::fs::write(&path, content).map_err(|e| DocumentManagerError::SaveFailed {
-            path: path.clone(),
-            kind: e.kind(),
-        })?;
-        doc.buffer
-            .delete(0, doc.buffer.len())
-            .expect("0 与 len 恒为字符边界，结构性不变量成立");
-        doc.buffer
-            .insert(0, content)
-            .expect("空 buffer 的偏移 0 必然合法，结构性不变量成立");
         Ok(())
     }
 
@@ -235,16 +204,5 @@ mod tests {
         let id = dm.open(DocumentSource::Disk(path)).unwrap();
         assert_eq!(dm.text(id), Some("你好，世界"));
         assert_eq!(dm.text(BufferId::new(999)), None, "未知 id 必须返回 None");
-    }
-
-    #[test]
-    fn save_text_updates_registry_copy() {
-        let mut dm = DocumentManager::new();
-        let path = temp_file("old");
-        let id = dm.open(DocumentSource::Disk(path)).unwrap();
-        dm.save_text(id, "new").unwrap();
-        // 保存点后注册表副本必须与会话文本一致（ADR-023 决策 1），
-        // 否则 Bridge 读路径会拿到过期内容。
-        assert_eq!(dm.text(id), Some("new"));
     }
 }
