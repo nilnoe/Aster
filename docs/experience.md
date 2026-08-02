@@ -109,6 +109,9 @@
 | 2026-08-02 | T-013 | swift-bridge 枚举桥接（Movement）有 already_declared 手写 FFI 风险 | 桥接面拆成 8 个方向函数（`editor_move_left` 等），Core 保留 Movement 枚举供 Rust/测试使用 |
 | 2026-08-02 | T-013 | TextRenderer 达 303 行超 Rule 3 | 拆出 `MetalPipeline.swift`（shader/管线/采样器）；渲染顶点生成与管线资源分离 |
 | 2026-08-02 | T-013 | 方向键用 selector 名（moveLeft: 等）脆弱，且 doCommand 只收到部分 | keyDown 按 keyCode（123-126/51/36/53）+ modifierFlags 直连，普通字符与 IME 仍走 interpretKeyEvents |
+| 2026-08-02 | BUG-002 | 光标 / 选区 / IME 下划线不可见：白像素画在用户 y=0，落在纹理**最后**一行，UV 采样纹理行 0 全是透明 | CGBitmapContext 默认 y 向上：纹理行 r ↔ 用户 y = H - r；纯色像素必须画在用户 y = H-1..H（`fillWhite` 用 `H - rect.maxY` 换算用户坐标） |
+| 2026-08-02 | T-017 | 离屏渲染读回为脏数据 / 全零 | ① 离屏纹理格式必须与管线 color attachment 一致（bgra8Unorm，否则整帧被丢）；② `renderOffscreen` 提交后必须 `waitUntilCompleted` 再 `getBytes` |
+| 2026-08-02 | T-017 | 渲染像素测试假阳性：扫描区与文本字形重叠，把字形像素当光标 | 光标用"贯穿行高的竖直线"判据（>20 行白色），字形墨迹仅 ~11 行；断言前先算坐标 |
 
 ## 给下一个 agent 的提醒
 

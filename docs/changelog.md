@@ -30,12 +30,20 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 
 ### Fixed — 2026-08-02
 
+- fix(app)：光标 / 选区高亮 / IME 下划线不可见（BUG-002，根因分类：Implementation Bug）——
+  图集纯白像素画在了用户坐标 y=0（对应纹理最后一行），而纯色 quad 的 UV 采样纹理
+  行 0 → 全部透明。修复：白像素画到用户 y = H-1..H（纹理行 0）；新增离屏渲染像素
+  回归测试（TextRenderer 与 on-screen 共享顶点构建与编码，`waitUntilCompleted` 后读回）
+
 - fix(app)：Retina 下 Metal 文本渲染模糊（BUG-001，根因分类：Implementation Bug）——
   字形图集原按点（pt）尺寸栅格化而 quad 按像素绘制，2× 缩放 + 线性采样导致发糊；
   改为按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），缓存键含
   pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形大于 1×
 
 ### Added — 2026-08-02（续 T-013）
+
+- feat(app)：光标闪烁（T-017，ADR-018）——MetalView 0.5s 计时器翻转相位，
+  渲染层按相位画光标；离屏渲染路径（`renderOffscreen`）供像素回归测试使用
 
 - feat(core)：编辑循环（T-013，ADR-017）——新增 `Editor` 模块（Buffer + Selection +
   History 协调者）：`type_text`（选区替换，`EditOp::Replace` 一次 undo 撤销）、

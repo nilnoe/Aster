@@ -42,6 +42,24 @@ final class GlyphAtlasTests: XCTestCase {
     XCTAssertGreaterThan(ink, 0, "字形区域必须包含非空像素")
   }
 
+  /// 回归（BUG-002）：纯色 quad（光标 / 选区高亮 / IME 下划线）采样纹理 (0,0)，
+  /// 该像素必须是不透明白色，否则所有纯色覆盖层不可见。
+  func testWhitePixelReservedAtTextureOrigin() throws {
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过像素验证）")
+    }
+    let atlas = GlyphAtlas(device: device)
+    var pixel = [UInt8](repeating: 0, count: 4)
+    atlas.texture.getBytes(
+      &pixel,
+      bytesPerRow: 4,
+      from: MTLRegionMake2D(0, 0, 1, 1),
+      mipmapLevel: 0
+    )
+    XCTAssertGreaterThan(pixel[3], 0, "纹理 (0,0) 必须是纯白像素（BUG-002）")
+    XCTAssertGreaterThan(pixel[0], 200)
+  }
+
   /// 回归测试（BUG-001）：Retina（scale=2）下字形必须以像素尺寸栅格化——
   /// 2× 的图集矩形与 bbox 必须明显大于 1×，否则 quad 放大采样导致模糊。
   func testAtlasRasterizesAtPixelScale() throws {

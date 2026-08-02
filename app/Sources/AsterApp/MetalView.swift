@@ -19,6 +19,11 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
   private let renderer: TextRenderer
   private var scrollY: CGFloat = 0
   private var mouseAnchorByte = 0
+  /// 光标闪烁相位（T-017）：Timer 每 0.5s 翻转，渲染层按相位决定是否画光标。
+  private var caretVisible = true
+  /// 仅 deinit 停表使用；实际读写都在主 RunLoop（nonisolated(unsafe) 规避 Swift 6
+  /// deinit 的主 actor 隔离限制，引用不跨线程逃逸）。
+  nonisolated(unsafe) private var blinkTimer: Timer?
 
   init(frame: NSRect, model: EditorModel) {
     guard let device = MTLCreateSystemDefaultDevice() else {
@@ -31,6 +36,7 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
     enableSetNeedsDisplay = true
     isPaused = true
     delegate = self
+    startCaretBlink()
   }
 
   @available(*, unavailable)
@@ -237,6 +243,32 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
     }
     return nil
   }
+
+  // MARK: - 光标闪烁（T-017，ADR-018）
+
+  deinit {
+    blinkTimer?.invalidate()
+  }
+
+  private func startCaretBlink() {
+    // target/selector 走 ObjC 派发，避免 Timer block 的 @Sendable 捕获问题；
+    // 计时器必然运行在主 RunLoop（Swift 6 主 actor 安全）。视图生命周期即窗口
+    // 生命周期（关闭最后窗口即退出，ADR-015），deinit 停表。
+    let timer = Timer(
+      timeInterval: 0.5,
+      target: self,
+      selector: #selector(blinkTick),
+      userInfo: nil,
+      repeats: true
+    )
+    RunLoop.main.add(timer, forMode: .common)
+    blinkTimer = timer
+  }
+
+  @objc private func blinkTick() {
+    caretVisible.toggle()
+    needsDisplay = true
+  }
 }
 
 // MARK: - MTKViewDelegate（自绘：事件驱动，仅变化后重绘）
@@ -245,6 +277,6 @@ extension MetalView: MTKViewDelegate {
   func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
   func draw(in view: MTKView) {
-    renderer.render(in: view, model: model, scrollY: scrollY)
+    renderer.render(in: view, model: model, scrollY: scrollY, caretVisible: caretVisible)
   }
 }

@@ -1,11 +1,14 @@
-//! Metal 文本渲染器（T-012 ADR-016 + T-013 ADR-017 扩展）。
+//! Metal 文本渲染器（T-012 ADR-016 + T-013 ADR-017 扩展 + T-017 光标）。
 //!
 //! 决策依据：
 //! - 管线不变：CoreText shaping → 字形图集 → 每字形 6 顶点 quad（32B/顶点，
 //!   位置 + UV + 前景色，ADR-016）。T-013 增加：可视行窗口（滚动）、选区高亮、
 //!   光标、组合文本下划线——全部复用同一顶点流（前景色走顶点，ADR-016 预留）。
 //! - 绘制顺序 = 画家算法：选区高亮在字形之下，光标 / 下划线在字形之上。
-//! - 事件驱动：只在文本变化 / 滚动 / 选区变化后由视图置 `needsDisplay`（无轮询）。
+//! - 事件驱动：只在文本变化 / 滚动 / 选区变化 / 光标相位变化后由视图置
+//!   `needsDisplay`（无轮询）。
+//! - `renderOffscreen` 与 `render(in:)` 共享同一套顶点构建 + 编码：测试可离屏
+//!   读回像素（T-017 回归：光标 / 选区高亮必须真实渲染）。
 
 import AppKit
 import CoreText
@@ -48,23 +51,76 @@ final class TextRenderer {
   }
 
   /// 渲染一帧：可视行窗口内画字形 + 选区 / 光标 / 组合标记。
-  func render(in view: MTKView, model: EditorModel, scrollY: CGFloat) {
+  func render(in view: MTKView, model: EditorModel, scrollY: CGFloat, caretVisible: Bool) {
     guard let drawable = view.currentDrawable,
       let pass = view.currentRenderPassDescriptor,
       view.bounds.width > 0, view.bounds.height > 0
     else { return }
 
     let scale = view.drawableSize.width / view.bounds.width
-    let viewSize = view.drawableSize
+    let vertices = buildVertices(
+      model: model,
+      scrollY: scrollY,
+      caretVisible: caretVisible,
+      viewSize: view.drawableSize,
+      scale: scale
+    )
+    guard !vertices.isEmpty else { return }
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    encode(vertices: vertices, pass: pass, commandBuffer: commandBuffer)
+    commandBuffer.present(drawable)
+    commandBuffer.commit()
+  }
+
+  /// 离屏渲染（测试 / 基准用）：与 `render(in:)` 共享顶点构建与编码（T-017）。
+  func renderOffscreen(
+    model: EditorModel,
+    scrollY: CGFloat,
+    caretVisible: Bool,
+    into texture: MTLTexture,
+    viewSize: CGSize,
+    scale: CGFloat
+  ) {
+    let vertices = buildVertices(
+      model: model,
+      scrollY: scrollY,
+      caretVisible: caretVisible,
+      viewSize: viewSize,
+      scale: scale
+    )
+    guard !vertices.isEmpty else { return }
+    let pass = MTLRenderPassDescriptor()
+    pass.colorAttachments[0].texture = texture
+    pass.colorAttachments[0].loadAction = .clear
+    pass.colorAttachments[0].storeAction = .store
+    pass.colorAttachments[0].clearColor = MTLClearColor(
+      red: 0.13, green: 0.13, blue: 0.15, alpha: 1
+    )
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    encode(vertices: vertices, pass: pass, commandBuffer: commandBuffer)
+    commandBuffer.commit()
+    // 离屏路径用于测试读回：必须等 GPU 完成，否则 getBytes 读到未初始化数据。
+    commandBuffer.waitUntilCompleted()
+  }
+
+  /// 构建全部顶点（选区高亮 → 字形 → 光标 / 下划线，画家算法）。
+  private func buildVertices(
+    model: EditorModel,
+    scrollY: CGFloat,
+    caretVisible: Bool,
+    viewSize: CGSize,
+    scale: CGFloat
+  ) -> [Float] {
+    var vertices: [Float] = []
     let ascent = CTFontGetAscent(font)
     let lineHeightPx = lineHeightPts * scale
-    var vertices: [Float] = []
 
     let lines = model.lines
     let ranges = model.lineByteRanges
-    guard let lastLine = ranges.indices.last else { return }
+    guard let lastLine = ranges.indices.last else { return [] }
     let firstLine = min(max(0, Int(scrollY / lineHeightPts)), lastLine)
-    let visibleCount = Int(ceil(view.bounds.height / lineHeightPts)) + 1
+    let viewportHeightPts = viewSize.height / scale
+    let visibleCount = Int(ceil(viewportHeightPts / lineHeightPts)) + 1
     let lineWindow = firstLine...min(lastLine, firstLine + visibleCount)
     let scrollRemainderPx = (scrollY - CGFloat(firstLine) * lineHeightPts) * scale
     let selStart = model.selectionStartByte
@@ -119,13 +175,13 @@ final class TextRenderer {
       }
     }
 
-    // 3) 光标（折叠选区时）与组合文本下划线（字形之上）
+    // 3) 光标（折叠选区 + 闪烁相位）与组合文本下划线（字形之上）
     let cursorLine = model.lineIndex(ofByteOffset: cursorByte)
     if lineWindow.contains(cursorLine) {
       let lineRange = ranges[cursorLine]
       let layout = LineLayout(text: lines[cursorLine], font: font)
       let top = CGFloat(cursorLine) * lineHeightPx - scrollRemainderPx
-      if selStart == selEnd {
+      if selStart == selEnd && caretVisible {
         let x =
           (leftPadPts + layout.xOffset(atByteOffset: cursorByte - lineRange.lowerBound))
           * scale
@@ -162,12 +218,17 @@ final class TextRenderer {
         }
       }
     }
+    return vertices
+  }
 
-    guard !vertices.isEmpty else { return }
+  private func encode(
+    vertices: [Float],
+    pass: MTLRenderPassDescriptor,
+    commandBuffer: MTLCommandBuffer
+  ) {
     let vertexBuffer = vertices.withUnsafeBytes { bytes in
       device.makeBuffer(bytes: bytes.baseAddress!, length: bytes.count, options: [])
     }
-    let commandBuffer = commandQueue.makeCommandBuffer()!
     guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return }
     encoder.setRenderPipelineState(pipeline)
     encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
@@ -175,8 +236,6 @@ final class TextRenderer {
     encoder.setFragmentSamplerState(sampler, index: 0)
     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count / 8)
     encoder.endEncoding()
-    commandBuffer.present(drawable)
-    commandBuffer.commit()
   }
 
   private func appendSolidRect(
@@ -226,5 +285,4 @@ final class TextRenderer {
     vertices.append(color.z)
     vertices.append(color.w)
   }
-
 }

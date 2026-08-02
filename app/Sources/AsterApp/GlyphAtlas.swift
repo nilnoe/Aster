@@ -131,8 +131,17 @@ final class GlyphAtlas {
   }
 
   private func fillWhite(in rect: CGRect) {
+    // BUG-002 根因修复：CGBitmapContext 默认 y 向上，纹理行 r ↔ 用户 y = H - r；
+    // 纯色 quad 采样纹理行 0（rect=(0,0,1,1)），因此白色必须画在用户 y = H-1..H，
+    // 而不是用户 y=0（那会落在纹理最后一行，导致光标 / 选区高亮 / 下划线全不可见）。
+    let userRect = CGRect(
+      x: rect.minX,
+      y: CGFloat(Self.size) - rect.maxY,
+      width: rect.width,
+      height: rect.height
+    )
     context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-    context.fill(rect)
+    context.fill(userRect)
     upload(region: rect)
   }
 
