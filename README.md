@@ -28,6 +28,7 @@
 | 经验 | 项目记忆与踩坑记录 | [docs/experience.md](docs/experience.md) |
 | Bug 流程 | 缺陷处理管线 | [docs/bug-workflow.md](docs/bug-workflow.md) |
 | Bug 登记 | 缺陷编号与状态 | [docs/bugs.md](docs/bugs.md) |
+| 问题登记 | 审查问题编号与处置 | [docs/issues.md](docs/issues.md) |
 | 约定 | Agent 执行约定 | [AGENTS.md](AGENTS.md) |
 | 许可 | MIT | [LICENSE](LICENSE) |
 | 安全 | 漏洞报告与信任模型 | [SECURITY.md](SECURITY.md) |

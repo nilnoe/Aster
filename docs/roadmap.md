@@ -63,6 +63,17 @@
 - [x] T-032 测试与审计加固：proptest 属性测试（Buffer / Editor / Layout 不变量）+ 审计记录制度（docs/audits.md，ADR-022）
 - [x] T-033 fuzz 扩展 + 基准回归告警：属性空间扩展到 emoji / CJK / 换行 / 组合字符（CI `PROPTEST_CASES=3000` 专项运行）；criterion 基线提交 + CI 阈值对比作业（ADR-021 v1.1，反转「CI 不跑」经用户确认）
 
+## Phase 6 — 复审整改（2026-08-02 全仓审查，I-001 ~ I-008）
+
+> 审查结论与证据见 [docs/issues.md](issues.md)；按严重度顺序修复：P0 → P2 清理 → P1 功能 → 门禁加固。
+
+- [ ] T-034 审查问题登记：新建 docs/issues.md 并同步索引 / Roadmap / Changelog（I-001~I-008）
+- [ ] T-035 Up/Down 光标 UTF-8 边界修复（I-001，BUG-008，ADR-005 底线）+ Up/Down 纳入属性测试差分
+- [ ] T-036 存量清理：删除无消费者 `Selection::clamp`（I-004）、校正文档计数漂移与 T-032 审计回填（I-005）、移除 .github/.DS_Store（I-006）
+- [ ] T-037 Disk 保存切片：File「保存」Cmd+S 写回绑定路径（I-002，ADR-023；dirty 标题指示 + 关闭保护）
+- [ ] T-038 渲染数据路径重构：缓存行结构、每帧单次 shaping、视口切行，消除每帧 O(n)（I-003）
+- [ ] T-039 审计与门禁加固：审计留痕机械检查（Rule 15 扩展）+ CI-Release 与日常 CI 门禁对齐（I-007 / I-008）
+
 ## Task 编号规则
 
 - 每个切片一个编号：`T-XXX`，按 Phase 顺序递增，不重复使用。
