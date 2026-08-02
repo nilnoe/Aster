@@ -1,0 +1,81 @@
+name: CI-Release
+
+on:
+  push:
+    tags:
+      - "Beta-V*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  gates:
+    name: Release Gates
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install swift-format
+        run: brew install swift-format
+      - name: Rust gates
+        run: |
+          cargo fmt --manifest-path core/Cargo.toml --check
+          cargo clippy --manifest-path core/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path core/Cargo.toml
+      - name: Swift gates
+        run: |
+          ./bridge/build.sh
+          swift-format lint --recursive bridge/Tests app/Tests
+          (cd bridge && swift test)
+          (cd app && swift test)
+
+  package:
+    name: Package App
+    needs: gates
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: |
+          ./bridge/build.sh
+          (cd app && swift build -c release)
+      - name: Package .app
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml)
+          mkdir -p "Aster.app/Contents/MacOS"
+          cp "app/.build/release/AsterApp" "Aster.app/Contents/MacOS/AsterApp"
+          cat > "Aster.app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>AsterApp</string>
+            <key>CFBundleIdentifier</key><string>com.nilnoe.Aster</string>
+            <key>CFBundleName</key><string>Aster</string>
+            <key>CFBundleDisplayName</key><string>Aster</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key><string>26.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          codesign --force --deep -s - "Aster.app"
+          zip -rq "Aster-Beta-${VERSION}-macOS.zip" "Aster.app"
+          echo "ZIP=Aster-Beta-${VERSION}-macOS.zip" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aster-beta-zip
+          path: Aster-Beta-*.zip
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/Beta-V')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Aster-Beta-*.zip
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}

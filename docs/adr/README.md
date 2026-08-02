@@ -34,6 +34,7 @@ Proposed → Accepted
 | ADR-016 | Metal 文本渲染管线（spike） | Accepted | 2026-08-02 | 1 个 Bridge FFI | app/、core（bridge/layout） | [ADR-016-metal-text-rendering.md](ADR-016-metal-text-rendering.md) |
 | ADR-017 | 编辑循环（Editor 模块） | Accepted | 2026-08-02 | Core 8 API + Bridge 16 函数 | core（新增 editor）、bridge、app/ | [ADR-017-editor-loop.md](ADR-017-editor-loop.md) |
 | ADR-019 | 视口滚动与软换行 | Accepted | 2026-08-02 | 0（视图层状态） | roadmap、app/（core 不变） | [ADR-019-viewport-scroll-and-wrap.md](ADR-019-viewport-scroll-and-wrap.md) |
+| ADR-020 | CI 发布流水线 | Accepted | 2026-08-02 | 0（CI 基础设施） | .github/workflows/ci-release.yml、release.md | [ADR-020-ci-release-pipeline.md](ADR-020-ci-release-pipeline.md) |
 
 ## 触发规则
 

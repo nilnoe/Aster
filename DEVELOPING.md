@@ -65,3 +65,10 @@ app 依赖 bridge 的 AsterBridge 产品（本地包）；运行前先执行 `./
 ## 备注
 
 - 路径与命令以首个代码切片（Rust Core 骨架）落地为准，届时更新本文档。
+
+### 发布打包
+
+打 `Beta-V*` tag 后 `CI-Release` workflow 自动执行：五项门禁 → `swift build -c release`
+→ 打包 `Aster.app`（版本取自 core/Cargo.toml）→ zip 上传到 GitHub Release（ADR-020）。
+本地等价命令：`./bridge/build.sh` + `cd app && swift build -c release`，再手工组装
+`Aster.app/Contents`（MacOS/AsterApp + Info.plist）并 `zip`。

@@ -75,6 +75,7 @@
 | Bridge 构建 | swift-bridge 0.1.59 + `bridge/build.sh`；staticlib + lua/sqlite 传递依赖显式链接进 Swift 包 | swift-bridge 升级（major）另走 ADR（依赖政策） |
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
 | 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 增量失效随 T-013 细化（ADR-016）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
+| CI 发布 | `CI-Release`：打 Beta-V* tag → 门禁 + 构建 + 打包 Aster.app zip + 附到 Release（ADR-020）；手动 dispatch 在 main 上只验证到 artifact 步骤 | 签名/公证在 V1.0.0 前按需评估 |
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-015；剪贴板 / 拖放 / 深浅色随 T-014 |
 
@@ -114,6 +115,7 @@
 | 2026-08-02 | T-017 | 离屏渲染读回为脏数据 / 全零 | ① 离屏纹理格式必须与管线 color attachment 一致（bgra8Unorm，否则整帧被丢）；② `renderOffscreen` 提交后必须 `waitUntilCompleted` 再 `getBytes` |
 | 2026-08-02 | T-017 | 渲染像素测试假阳性：扫描区与文本字形重叠，把字形像素当光标 | 光标用"贯穿行高的竖直线"判据（>20 行白色），字形墨迹仅 ~11 行；断言前先算坐标 |
 | 2026-08-02 | BUG-003 | 拼音按回车不提交：keyDown 对 keyCode 36 无条件直连 typeText("\n")，组合被清空、IME 拿不到回车 | 组合激活期间所有按键交还 interpretKeyEvents（IME 拥有键盘，Principle 4）；数字键选词正常正是走默认分支的证据 |
+| 2026-08-02 | CI | Beta V0.1.0/V0.1.1 压缩包均为手动打包上传；CI 只有门禁无打包 job | ADR-020 流水线化：tag 触发 CI-Release（门禁 → 构建 → 打包 → 附 zip）；dispatch 模式可验证到 artifact 步骤 |
 | 2026-08-02 | BUG-004 | 组合期间光标画在组合起点，不跟随拼音 | 组合内联于光标处，光标应画在 cursor + composition 长度处（同一行，无换行） |
 | 2026-08-02 | T-013/IME | "拼音按回车得到英文字母" 是 macOS 系统输入法固有行为（回车提交原始拼音，空格/数字确认汉字），TextEdit 同样如此，非我方 bug | 不要"修复"它（改 = 重实现 IME，违反 Principle 4）；如需回车确认候选，用户侧换第三方输入法（如 Rime） |
 | 2026-08-02 | T-017 | 渲染像素测试崩溃 SIGTRAP：`r + 100`（UInt8 255+100）算术溢出 | 像素比较先转 Int；又是测试自身的问题（"测试失败先怀疑测试"） |

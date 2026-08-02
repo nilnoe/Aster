@@ -14,6 +14,10 @@
 
 ### Changed — 2026-08-02（Beta V0.2 规划）
 
+- ci：新增 `CI-Release` 发布流水线（[ADR-020](../docs/adr/ADR-020-ci-release-pipeline.md)）——
+  打 `Beta-V*` tag 自动跑门禁 → 构建 release → 打包 Aster.app zip → 附加到 GitHub
+  Release（版本取自 core/Cargo.toml 单一来源）；手动 dispatch 可验证到 artifact 步骤
+
 - docs(roadmap)：基础功能完善方向重构（[ADR-018](../docs/adr/ADR-018-foundation-polish.md)）——
   T-014 移除「深浅色跟随」（固定深色 + Lua 主题），新增 Phase 3 渲染与编辑打磨
   （sRGB+gamma、光标、DeleteForward/词移动、双击/三击选词、平滑滚动/IME 定位、

@@ -21,7 +21,9 @@ Trunk-based：`main` 永远可发布。功能走短生命周期分支 + PR（PR 
 2. **ADR**：本周期 `Proposed` → `Accepted` / `Rejected` / `Superseded`，更新索引。
 3. **门禁**：CI 全绿 + 本地五项（宪法 Rule 6）。
 4. **Benchmark**：确认基线无退化；有退化必须解释或回滚。
-5. **Tag**：`Beta-V0.x.y`，推送并发布说明。
+5. **Tag**：`Beta-V0.x.y`，推送后由 `CI-Release` workflow 自动跑门禁、
+   构建 release、打包 `Aster.app` zip 并附加到 GitHub Release（ADR-020）；
+   发布说明可直接在 Release 编辑。
 6. **记录**：注明当时的最新 macOS 版本（ADR-002）。
 
 ## 热修复
