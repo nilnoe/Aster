@@ -19,6 +19,7 @@
 - `docs/benchmarks.md` — 性能基线记录。
 - `docs/bug-workflow.md` — 缺陷处理流程：Bug 必须按此管线修复。
 - `docs/bugs.md` — 缺陷登记表：Bug 报告必须在此登记编号。
+- `docs/experience.md` — 经验沉淀：项目记忆、已踩过的坑与验证过的工作方式；每次任务开始前必读。
 - `DEVELOPING.md` — 构建与运行；目标环境仅最新 macOS（ADR-002）。
 - `docs/testing.md` — 分层测试策略。
 - `docs/release.md` — 发布流程。
@@ -57,6 +58,7 @@ Task → Analysis → Architecture → Test Design → Implementation → Format
 - **CI 强制：** PR 必须通过 GitHub Actions 全部作业（宪法 Rule 6 的机械执行）。
 - **平台与安全约束：** 仅支持最新 macOS（ADR-002）；插件默认信任（ADR-003）；默认无遥测，崩溃上报需显式开启（ADR-004）。
 - **规模预算：** 宪法 Rule 12——单文件 ≤ 300 行、禁上帝文件、逻辑模块 ≤ 1,200 行、Core ≤ 20k / Swift ≤ 5k；扩容需 ADR 与用户确认；重复出现三处必须提取或复用。
+- **经验沉淀：** 每次切片遇到的新问题 / 解法，追加到 `docs/experience.md` 的踩坑记录。
 - **版本：** 现阶段 Beta，模板 `Beta V0.0.0`——补丁递增末位、功能递增中间位、首位恒为 0；首个正式版为 `V1.0.0`（见 docs/release.md）。
 - **Benchmark 是常态：** 每个切片至少建立或刷新一次性能基线，涉及 ADR Performance Goals 的切片必须给出量化对比。
 - **Docs 是 Commit 的一部分：** 未更新文档的切片不算完成（含 Roadmap 状态与 Changelog）。

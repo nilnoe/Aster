@@ -1,0 +1,65 @@
+# Experience — 经验沉淀（Agent Memory）
+
+本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
+
+## 项目现状速览（截至 2026-08-02）
+
+- **代码：** Rust Core 已完成 T-001 ~ T-005，`core/src` 共 588 行，57 个测试全绿。
+- **决策：** ADR-001 ~ ADR-009 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-006（Theme 模型 + Theme DSL）。
+- **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
+- **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
+
+## 工作方式（验证有效，继续保持）
+
+- 每个切片严格走 WORKFLOW 11 步；**顺序不可跳**：ADR → 测试（Red）→ 实现 → 门禁 → 审计 → 文档。
+- 公共 API 必须先 ADR（宪法 Rule 4）；不建 Trait / 抽象层，除非有证明（Rule 1 / 2）。
+- 切片完成时一次性更新：Roadmap 状态、Changelog、ADR 索引、Benchmarks——这四件套是 DoD 的一部分，容易忘。
+- Commit 用 Conventional Commits 并引用 `T-XXX` 与 `ADR-XXX`；每个切片独立 commit + push。
+- 遇到"未确定项"直接进实现 = 违规：未确定项清单在 ADR-006，必须先更新 ADR。
+- 宪法（docs/constitution.md）不可由 agent 自行修改；修订需用户确认。
+- 沙箱环境：git 写 `.git` 需要提权（`require_escalated`）；cargo / rustfmt / clippy 本地可用，无需网络。
+
+## 技术经验（Rust / Clippy / 测试）
+
+1. **`#[expect(dead_code)]` 与测试构建冲突**：字段被单元测试读取时，`expect` 在 `cargo test` 下报"unfulfilled"。解法：`#[cfg_attr(not(test), expect(dead_code))]`（T-002 踩过）。
+2. **clippy `new_without_default`**：提供 `new()` 的公开类型会被 lint 要求补 `Default`。零成本惯例，直接实现并注释理由。
+3. **返回刚 push 的值触发 E0382**：undo/redo 把 op push 进栈又想返回它——栈 push `op.clone()`，返回原值；理由是"非热路径，不为零拷贝优化引入复杂度"（Rule 9 精神）。
+4. **跨模块类型从定义处导入**：`BufferError` 从 `crate::error` 导入，不要试图从 `crate::buffer` 转发导入（那只是私有 `use`，会报 E0603）。
+5. **合并规则会干扰 LIFO 测试**：History 的相邻 Insert 合并会让"连续 insert"测试意外合并成一步。用**前插**（`at: 0`）构造非相邻 op，LIFO 语义才能独立验证（T-004 踩过）。
+6. **测试失败先怀疑测试自身**：T-004 两个失败全是测试 bug（buffer 初始化误删、未意识到合并规则），不是实现 bug。断言前先检查前提。
+7. **集成测试只能看公共 API**：私有状态验证放 crate 内单元测试。当前策略：公共契约走 `core/tests/`，内部状态走 `#[cfg(test)] mod tests`。
+8. **有序向量二分**：用 `Vec::partition_point`（Layout::line_at 的解法）。
+9. **CI 按语言拆分**：Rust 与 Swift 门禁放在两个 workflow，用 `paths` 过滤——避免只改 core 时 Swift 作业误红（代码没落地前尤其重要）。
+
+## 架构决策速查（勿重新讨论，除非出现新数据）
+
+| 主题 | 现状 | 替换 / 决策触发点 |
+| --- | --- | --- |
+| 文本存储 | `String`（Buffer 内部实现细节） | T-020 基准证明不达标时换 Rope/Gap（ADR-006） |
+| 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-020），接口不变 |
+| 软换行 | v1 不做，按行渲染 + 水平滚动 | T-012 渲染切片另走 ADR |
+| 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
+| Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-021 |
+| 多光标 / mmap | 未定 | T-020 基准后定 |
+| 插件信任 | 默认信任，不沙箱 | 引入插件市场时重估（ADR-003） |
+| macOS | 仅最新版，零兼容负担 | 永久（ADR-002） |
+| 遥测 | 默认无，显式开启 | 永久（ADR-004） |
+
+## 踩坑记录（可追加）
+
+| 日期 | 切片 | 问题 | 解法 |
+| --- | --- | --- | --- |
+| 2026-08-02 | T-002 | `expect(dead_code)` 在测试构建报 unfulfilled | `#[cfg_attr(not(test), expect(dead_code))]` |
+| 2026-08-02 | T-002 | clippy `new_without_default` | 实现 `Default` 并注释理由 |
+| 2026-08-02 | T-004 | 返回 push 后的 op 触发 E0382 | 栈存 clone，返回原值 |
+| 2026-08-02 | T-004 | 连续 insert 测试被合并规则干扰 | 用前插构造非相邻 op |
+| 2026-08-02 | T-004 | 测试失败实为测试 bug | 先自查测试前提与合并语义 |
+
+## 给下一个 agent 的提醒
+
+- 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、WORKFLOW、本文件。
+- 新 Public API 必须有 ADR；未确定项进入实现前必须先更新 ADR。
+- 测试先红后绿；测试失败先自查测试。
+- 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
+- 每次切片遇到新问题，把解法追加到上面的踩坑记录。

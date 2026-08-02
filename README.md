@@ -25,6 +25,7 @@
 | 发布 | 版本与发布流程 | [docs/release.md](docs/release.md) |
 | 依赖 | 依赖维护政策 | [docs/dependencies.md](docs/dependencies.md) |
 | 规模 | 代码量预算与精简触发 | [docs/scale.md](docs/scale.md) |
+| 经验 | 项目记忆与踩坑记录 | [docs/experience.md](docs/experience.md) |
 | Bug 流程 | 缺陷处理管线 | [docs/bug-workflow.md](docs/bug-workflow.md) |
 | Bug 登记 | 缺陷编号与状态 | [docs/bugs.md](docs/bugs.md) |
 | 约定 | Agent 执行约定 | [AGENTS.md](AGENTS.md) |
