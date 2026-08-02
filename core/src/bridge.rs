@@ -60,6 +60,17 @@ pub fn document_manager_new() -> DocumentManager {
     DocumentManager::new()
 }
 
+/// Cmd+N 新建 Scratch 文档（T-041，ADR-001 v1.2）：注册表分配唯一 id，
+/// 作为缓冲 / 快照的保存键（ADR 总纲 §6：Scratch 自动保存、无需命名）。
+///
+/// 决策依据：Scratch 打开不涉及 IO，理论上不可失败；仍返回 Result 保持与
+/// Disk 打开同构的错误面（ADR-004 精神：统一失败语义）。
+pub fn document_manager_open_scratch(dm: &mut DocumentManager) -> Result<usize, String> {
+    dm.open(DocumentSource::Scratch)
+        .map(|id| id.as_u64() as usize)
+        .map_err(|e| format!("{e:?}"))
+}
+
 /// 打开磁盘文件（ADR-001 Disk 源），返回注册的 BufferId（u64）。
 pub fn document_manager_open_disk(dm: &mut DocumentManager, path: String) -> Result<usize, String> {
     dm.open(DocumentSource::Disk(path.into()))
@@ -82,10 +93,21 @@ pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
 //   路径）Deferred 到未来文件系统切片（ADR-023 v1.1 决策 1）。
 // - id 以 usize 透传（ADR-014 惯例）；错误映射为消息字符串（ADR-014 惯例）。
 
-/// 创建当日下一个序号快照文件（T-040，ADR-023 v1.2 决策 2）：Cmd+S 每次保存
-/// 一个新文件（同日多版本）。
-pub fn store_open_next(dir: String) -> Result<Store, String> {
-    Store::open_next(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
+/// Cmd+N：创建当日下一个序号快照文件并返回 seq（T-041，ADR-023 v1.3 决策 2）。
+pub fn store_next_snapshot(dir: String) -> Result<usize, String> {
+    Store::next_snapshot(std::path::Path::new(&dir))
+        .map(|seq| seq as usize)
+        .map_err(|e| format!("{e:?}"))
+}
+
+/// Cmd+S 合并目标：打开当前快照（App 记录 Cmd+N 返回的 seq）。
+pub fn store_open_snapshot(dir: String, seq: usize) -> Result<Store, String> {
+    Store::open_snapshot(std::path::Path::new(&dir), seq as i64).map_err(|e| format!("{e:?}"))
+}
+
+/// 自动保存缓冲文件（崩溃保护；App 启动时打开并保持连接）。
+pub fn store_open_buffer(dir: String) -> Result<Store, String> {
+    Store::open_buffer(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
 }
 
 /// 打开当日最高序号快照（读取 / 继续；无文件报错——测试与 T-028 用）。
@@ -191,6 +213,7 @@ mod ffi {
         fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize, String>;
         fn layout_line_starts(text: String) -> Vec<usize>;
         fn document_manager_new() -> DocumentManager;
+        fn document_manager_open_scratch(dm: &mut DocumentManager) -> Result<usize, String>;
         fn document_manager_open_disk(
             dm: &mut DocumentManager,
             path: String,
@@ -215,7 +238,9 @@ mod ffi {
         fn editor_move_line_end(editor: &mut Editor, extend: bool);
         fn editor_move_doc_start(editor: &mut Editor, extend: bool);
         fn editor_move_doc_end(editor: &mut Editor, extend: bool);
-        fn store_open_next(dir: String) -> Result<Store, String>;
+        fn store_next_snapshot(dir: String) -> Result<usize, String>;
+        fn store_open_snapshot(dir: String, seq: usize) -> Result<Store, String>;
+        fn store_open_buffer(dir: String) -> Result<Store, String>;
         fn store_open_latest(dir: String) -> Result<Store, String>;
         fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>;
         fn store_load_scratch(store: &Store, id: usize) -> Result<String, String>;

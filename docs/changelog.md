@@ -97,6 +97,23 @@
   civil date 已知 epoch）+ Bridge 2 项（保存读回闭环、双快照 latest 胜出）+ App 2 项
   （StorePaths 默认目录与环境变量覆盖、bufferId 保存键）
 
+### Changed — 2026-08-02（T-041 缓冲 + 快照保存模型，ADR-023 v1.3，用户指示）
+
+- **模型修正（用户指示 2026-08-02）**：Cmd+S 不再新建文件——**Cmd+N 创建新快照**
+  （`aster-YYYY-MM-DD-<seq>.sqlite`，日期+序号）；**编辑自动保存到缓冲文件**
+  `buffer.sqlite`（崩溃保护，无需按保存）；**Cmd+S = 合并缓冲 → 当前快照**（提交 /
+  固化）；dirty「●」= 缓冲 ≠ 快照（未提交编辑），退出保护基于此
+- feat(core)：`Store::next_snapshot`（创建并返回序号）/ `open_snapshot`（合并目标）/
+  `open_buffer`（自动保存工作区）；`open_latest` 保留（T-028 恢复）
+- feat(bridge)：Store FFI 6 项 + `document_manager_open_scratch`（ADR-001 v1.2：
+  Cmd+N 经 DM 分配唯一保存键）
+- feat(app)：File 菜单「新建」⌘N；内容变更自动写缓冲 + 置 dirty；Cmd+S 合并；
+  **修复 BUG-009**——onChange 统一在 makeModel 接线（启动默认 Buffer 也生效，
+  dirty「●」与退出保护恢复）
+- test：Core 6 项（快照序号 / 缺号 / open_snapshot 往返 / buffer 往返 / latest /
+  civil date）+ Bridge 3 项（合并读回、缓冲往返、scratch id 递增）+ App 1 项
+  （菜单 ⌘N）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

@@ -73,6 +73,12 @@ enum AppMenu {
 
   private static func fileMenuItem(aboutTarget: AnyObject) -> NSMenuItem {
     let menu = NSMenu(title: "文件")
+    // 新建（T-041，ADR-023 v1.3）：创建当日下一个快照 + 新 Scratch 文档。
+    menu.addItem(
+      withTitle: "新建",
+      action: #selector(AppDelegate.newDocument(_:)),
+      keyEquivalent: "n"
+    )
     // 打开…：target 为 AppDelegate（DocumentManager 持有者，T-015，ADR-001）。
     menu.addItem(
       withTitle: "打开…",

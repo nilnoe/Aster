@@ -18,6 +18,10 @@
 
 **激活状态（active buffer）不属于本切片**：由 T-013（编辑循环）决定管理归属，本 ADR 不锁定。
 
+  v1.2 备注（T-041）：Bridge FFI 新增 `document_manager_open_scratch`（Cmd+N
+  新建 Scratch 文档，ADR 总纲 §6；返回注册表唯一 id，作为缓冲 / 快照保存键；
+  真实调用方 = AppDelegate newDocument）。原 v1.1 的 3 项 FFI 不变。
+
 ## 原因
 
 1. **Buffer 是第一公民，但缺少统一所有者。** 文件、Scratch、Shell、Search 最终都以 Buffer 形态存在；目前没有任何模块负责 Buffer 的注册、生命周期与状态归属。

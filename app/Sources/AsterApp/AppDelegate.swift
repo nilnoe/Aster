@@ -4,6 +4,9 @@
 //! - 启动后只有一个空白窗口（项目哲学）；关闭最后窗口即退出（无后台驻留）。
 //! - 关于面板用系统 orderFrontStandardAboutPanel，版本号来自 Core
 //!   （App → Bridge → Core 单一路径，版本单一来源，ADR-015）。
+//! - 保存模型（T-041，ADR-023 v1.3）：Cmd+N 建快照（日期+序号文件）；内容变更
+//!   自动写入缓冲文件（崩溃保护）；Cmd+S 把缓冲合并进当前快照；dirty「●」与
+//!   退出保护基于「缓冲 ≠ 快照」的未提交编辑。
 
 import AppKit
 import AsterBridge
@@ -13,16 +16,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
   /// 所有打开路径统一经它，ADR-001）。
   private let documentManager = document_manager_new()
+  /// 自动保存缓冲 Store（启动时打开并保持连接，崩溃保护；ADR-023 v1.3 决策 2）。
+  private var bufferStore: Store?
+  /// 当前快照序号（Cmd+N 创建；Cmd+S 合并目标；ADR-023 v1.3 决策 2）。
+  private var currentSnapshotSeq: UInt?
   /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
   private var currentFileName: String?
-  /// 未保存编辑标记（T-037，ADR-023 决策 4：内容变更才置脏）。
+  /// 未提交编辑标记（ADR-023 v1.3：缓冲 ≠ 快照；内容变更置脏，Cmd+S 合并后清除）。
   private var isDirty = false
   private var mainWindow: NSWindow?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.mainMenu = AppMenu.build(aboutTarget: self)
+    setupStorage()
     makeMainWindow()
     NSApp.activate(ignoringOtherApps: true)
+  }
+
+  /// 启动存储：打开缓冲文件 + 创建当日第一个快照（隐式新文档）。
+  ///
+  /// 决策依据（ADR-023 v1.3）：缓冲连接保持整个会话；快照序号供 Cmd+S 合并。
+  /// 初始化失败必须可见（ADR-004），但不阻止启动（可继续编辑，保存时再报）。
+  private func setupStorage() {
+    do {
+      let dir = StorePaths.defaultDirectory()
+      bufferStore = try store_open_buffer(dir)
+      currentSnapshotSeq = UInt(try store_next_snapshot(dir))
+    } catch {
+      NSLog("存储初始化失败：\(error)")
+    }
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -30,14 +52,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     true
   }
 
-  /// 退出前未保存保护（T-037，ADR-023 决策 4）：不静默丢编辑（I-002 主诉）。
+  /// 退出前未提交保护（ADR-023 v1.3）：不静默丢编辑（I-002 主诉）。
   ///
   /// 决策依据：系统关闭流程（关闭最后窗口 / Cmd+Q）都会经此；「保存」失败必须
   /// 阻止退出（ADR-004：失败可见），让用户自己决定。
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     guard isDirty else { return .terminateNow }
     let alert = NSAlert()
-    alert.messageText = "有未保存的更改"
+    alert.messageText = "有未提交的更改"
     alert.informativeText = "要保存对“\(currentFileName ?? AppInfo.name)”的更改吗？"
     alert.addButton(withTitle: "保存")
     alert.addButton(withTitle: "不保存")
@@ -57,6 +79,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       .applicationName: AppInfo.name,
       .applicationVersion: AppInfo.version,
     ])
+  }
+
+  /// File 菜单「新建」（⌘N）：创建当日下一个快照文件 + 新的空白 Scratch 文档。
+  ///
+  /// 决策依据（T-041，ADR-001 v1.2 / ADR-023 v1.3）：新文档 = 新快照（日期+序号），
+  /// 缓冲内容按 id 隔离自动保存；旧文档未提交编辑仍在缓冲（崩溃保护），合并由
+  /// 用户回到对应会话时执行（激活文档随 T-024 统一）。
+  @objc func newDocument(_ sender: Any?) {
+    do {
+      let seq = UInt(try store_next_snapshot(StorePaths.defaultDirectory()))
+      let id = try document_manager_open_scratch(documentManager)
+      let buffer = Buffer(BufferId(UInt64(id)))
+      let model = makeModel(buffer)
+      if let view = mainWindow?.contentView as? MetalView {
+        view.load(model)
+      }
+      currentSnapshotSeq = seq
+      currentFileName = nil
+      isDirty = false
+      updateWindowTitle()
+    } catch {
+      NSLog("新建文档失败：\(error)")
+      presentSaveError("\(error)")
+    }
   }
 
   /// File 菜单「打开…」：NSOpenPanel 选文件（系统能力，Principle 4）。
@@ -80,8 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let text = document_manager_text(documentManager, id).toString()
       let buffer = Buffer(BufferId(UInt64(id)))
       _ = try buffer_insert(buffer, 0, text)
-      let model = EditorModel(buffer: buffer)
-      model.onChange = { [weak self] in self?.markDirty() }
+      let model = makeModel(buffer)
       if let view = mainWindow?.contentView as? MetalView {
         view.load(model)
       }
@@ -96,23 +141,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   /// 保存当前文档（⌘S / 退出保护共用）：成功返回 true。
   ///
-  /// 决策依据（T-040，ADR-023 v1.2）：文本来自 Editor 会话（ADR-017），每次保存
-  /// 经 Bridge 新建当日「日期+序号」SQLite 快照文件（同日多版本，无需用户指定
-  /// 路径）；失败必须可见（ADR-004）。
+  /// 决策依据（T-041，ADR-023 v1.3）：Cmd+S = 把缓冲内容合并进当前快照（提交 /
+  /// 固化），不是新建文件；合并成功后 dirty 清除；失败必须可见（ADR-004）。
   @objc func saveDocument(_ sender: Any?) {
     _ = saveCurrentDocument()
   }
 
   @discardableResult
   private func saveCurrentDocument() -> Bool {
-    guard let view = mainWindow?.contentView as? MetalView
+    guard let view = mainWindow?.contentView as? MetalView,
+      let seq = currentSnapshotSeq
     else {
-      presentSaveError("没有可保存的视图")
+      presentSaveError("当前没有快照可合并")
       return false
     }
     do {
-      let store = try store_open_next(StorePaths.defaultDirectory())
-      try store_save_scratch(store, UInt(view.model.bufferIdValue), view.model.bufferText)
+      let snapshot = try store_open_snapshot(StorePaths.defaultDirectory(), seq)
+      try store_save_scratch(snapshot, UInt(view.model.bufferIdValue), view.model.bufferText)
       isDirty = false
       updateWindowTitle()
       return true
@@ -123,10 +168,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  /// 内容变更后置脏并更新标题（EditorModel.onChange）。
-  private func markDirty() {
+  /// 内容变更：置脏 + 更新标题 + 自动写缓冲（ADR-023 v1.3）。
+  ///
+  /// 决策依据：EditorModel.onChange 在 makeModel 统一接线（修复启动默认 Buffer
+  /// 未接线导致无 dirty / 退出保护失效的 bug）；缓冲写失败不阻塞编辑（日志可见，
+  /// ADR-004 精神：失败不静默，但不打断输入流）。
+  private func onContentChanged() {
     isDirty = true
     updateWindowTitle()
+    autoSaveToBuffer()
+  }
+
+  /// 自动保存：当前编辑内容写入缓冲文件（崩溃保护）。
+  private func autoSaveToBuffer() {
+    guard let store = bufferStore,
+      let view = mainWindow?.contentView as? MetalView
+    else { return }
+    do {
+      try store_save_scratch(store, UInt(view.model.bufferIdValue), view.model.bufferText)
+    } catch {
+      NSLog("缓冲自动保存失败：\(error)")
+    }
+  }
+
+  /// 统一创建 EditorModel 并接线内容变更回调（onChange → onContentChanged）。
+  ///
+  /// 决策依据（T-041）：启动默认 Buffer 与打开的文件都走同一接线，杜绝此前
+  /// 只在 open() 接线导致的「默认文档无 dirty ● / 无退出保护」。
+  private func makeModel(_ buffer: Buffer) -> EditorModel {
+    let model = EditorModel(buffer: buffer)
+    model.onChange = { [weak self] in self?.onContentChanged() }
+    return model
   }
 
   /// 标题 = [● ] + 文件名（初始演示 Buffer 显示 App 名）。
@@ -151,11 +223,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       defer: false
     )
     window.title = AppInfo.name
-    // 样例 Buffer：验证 CJK + 多行渲染链路（T-012，ADR-016）；
-    // 真实文档 / Scratch 数据源随 T-013 / T-019 接线。
-    let buffer = Buffer(BufferId(1))
+    // 启动默认文档 = 首个 Scratch（DM 分配唯一 id，作保存键；ADR-001 v1.2）。
+    // Scratch 打开不可失败（无 IO）；兜底 id 1 仅为结构完整性（ADR-004 不静默）。
+    let id = (try? document_manager_open_scratch(documentManager)) ?? 1
+    // 样例内容验证 CJK + 多行渲染链路（T-012，ADR-016）。
+    let buffer = Buffer(BufferId(UInt64(id)))
     _ = try? buffer_insert(buffer, 0, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
-    let model = EditorModel(buffer: buffer)
+    let model = makeModel(buffer)
     let view = MetalView(frame: window.contentLayoutRect, model: model)
     view.onOpenFile = { [weak self] url in self?.open(url) }
     window.contentView = view

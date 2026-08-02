@@ -49,4 +49,15 @@ final class AppMenuTests: XCTestCase {
     XCTAssertEqual(saveItem?.keyEquivalent, "s")
     XCTAssertEqual(saveItem?.action, #selector(AppDelegate.saveDocument(_:)))
   }
+
+  /// T-041（ADR-023 v1.3）：File 菜单必须提供「新建」⌘N（新快照）。
+  func testFileMenuHasNewShortcut() {
+    let menu = AppMenu.build(aboutTarget: NSObject())
+
+    let fileItem = menu.items.first { $0.title == "文件" }
+    let newItem = fileItem?.submenu?.items.first { $0.title == "新建" }
+
+    XCTAssertEqual(newItem?.keyEquivalent, "n")
+    XCTAssertEqual(newItem?.action, #selector(AppDelegate.newDocument(_:)))
+  }
 }

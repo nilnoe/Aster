@@ -53,24 +53,42 @@ impl Store {
         Ok(Self { conn })
     }
 
-    /// 创建当日下一个序号快照文件：`<dir>/aster-YYYY-MM-DD-<seq>.sqlite`
-    /// （T-040，ADR-023 v1.2）。
+    /// Cmd+N：创建当日下一个序号快照文件并返回 seq（T-041，ADR-023 v1.3 决策 2）。
     ///
     /// 决策依据：
-    /// - 单日内可写入多个文件（用户指示 2026-08-02）：每次 Cmd+S 一个新快照文件，
-    ///   同日保存历史 = 多个版本文件；seq = 当日最大序号 + 1（容忍中间缺号，
-    ///   ADR-023 v1.2 决策 2）。
-    /// - 目录不存在则创建（默认路径 `~/Library/Application Support/Aster` 可能
-    ///   首次启动尚不存在；失败经 `StoreError::Io` 可见，ADR-004）。
+    /// - 快照文件 = 文档的提交版本；每次 Cmd+N 新文档 = 当日下一个序号文件
+    ///   （`aster-YYYY-MM-DD-<seq>.sqlite`），seq = 当日最大 + 1（容忍缺号）。
+    /// - 目录不存在则创建（默认路径首次启动可能不存在；失败经 `StoreError::Io`
+    ///   可见，ADR-004）。
     /// - 日期用 UTC（纯 Rust 标准库可算，跨时区确定、可测试）；本地时区午夜轮转
-    ///   随配置系统细化（ADR-023 v1.2 备注）。
+    ///   随配置系统细化（ADR-023 v1.3 备注）。
     /// - civil date 换算用 Howard Hinnant days-from-civil 标准算法，不引入 chrono
     ///   （Rule 7：标准库可解决；新依赖需 ADR）。
-    pub fn open_next(dir: &Path) -> Result<Self, StoreError> {
+    pub fn next_snapshot(dir: &Path) -> Result<i64, StoreError> {
         std::fs::create_dir_all(dir).map_err(StoreError::Io)?;
         let next = daily_seq_paths(dir).last().map_or(0, |(seq, _)| *seq) + 1;
         let path = dir.join(format!("aster-{}-{next:03}.sqlite", today_iso()));
+        Self::open(&path)?;
+        Ok(next)
+    }
+
+    /// Cmd+S 合并目标：打开指定序号快照文件（T-041，ADR-023 v1.3 决策 2）。
+    ///
+    /// 决策依据：合并 = 把缓冲内容 upsert 进当前快照（提交 / 固化），不是新建
+    /// 文件；序号由 App 在 Cmd+N 时记录。
+    pub fn open_snapshot(dir: &Path, seq: i64) -> Result<Self, StoreError> {
+        let path = dir.join(format!("aster-{}-{seq:03}.sqlite", today_iso()));
         Self::open(&path)
+    }
+
+    /// 自动保存缓冲文件 `<dir>/buffer.sqlite`（T-041，ADR-023 v1.3 决策 2）。
+    ///
+    /// 决策依据：缓冲 = 崩溃保护的连续工作副本（每次内容变更写入，无需用户
+    /// 按保存）；独立于快照文件，避免每次按键产生新快照。固定文件名不按日期
+    /// 轮转（缓冲是当前会话的临时工作区，跨天保留由 T-029 会话恢复编排）。
+    pub fn open_buffer(dir: &Path) -> Result<Self, StoreError> {
+        std::fs::create_dir_all(dir).map_err(StoreError::Io)?;
+        Self::open(&dir.join("buffer.sqlite"))
     }
 
     /// 打开当日最高序号快照文件（读取 / 继续；T-040，ADR-023 v1.2 决策 2）。

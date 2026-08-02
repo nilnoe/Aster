@@ -74,6 +74,7 @@
 - [x] T-038 渲染数据路径重构：缓存行结构、每帧单次 shaping、视口切行，消除每帧 O(n)（I-003）
 - [x] T-039 审计与门禁加固：审计留痕机械检查（Rule 15 扩展）+ CI-Release 与日常 CI 门禁对齐（I-007 / I-008）
 - [x] T-040 Cmd+S 自动保存到 SQLite（ADR-023 v1.2，用户确认反转 T-037 磁盘写回）：每次保存新建「日期+序号」快照文件（单日多版本），默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 可覆盖）；磁盘写回（用户指定路径）显式 Deferred 到未来文件系统切片
+- [x] T-041 缓冲 + 快照保存模型（ADR-023 v1.3，用户指示）：Cmd+N 创建「日期+序号」快照文件；内容变更自动写入缓冲文件 buffer.sqlite（崩溃保护）；Cmd+S 合并缓冲 → 当前快照；修复 BUG-009（默认文档 onChange 未接线 → 无 dirty「●」/ 退出保护）
 
 ## Task 编号规则
 

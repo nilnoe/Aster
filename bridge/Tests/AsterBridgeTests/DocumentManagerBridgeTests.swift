@@ -33,4 +33,13 @@ final class DocumentManagerBridgeTests: XCTestCase {
     )
   }
 
+  /// T-041（ADR-001 v1.2）：Cmd+N 的 Scratch 文档 id 唯一递增，作为保存键。
+  func testOpenScratchAllocatesDistinctIds() throws {
+    let dm = document_manager_new()
+    let a = try document_manager_open_scratch(dm)
+    let b = try document_manager_open_scratch(dm)
+    XCTAssertEqual(a, 1, "首个 Scratch id 从 1 开始（ADR-001）")
+    XCTAssertEqual(b, 2)
+    XCTAssertNotEqual(a, b)
+  }
 }

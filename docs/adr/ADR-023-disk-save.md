@@ -1,11 +1,12 @@
-# ADR-023 — 保存语义（SQLite 自动保存，按日期 + 序号轮转）
+# ADR-023 — 保存语义（SQLite 缓冲 + 快照，按日期 + 序号轮转）
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.2
-- **新增 Public API:** v1.2：`Store::open_next` / `Store::open_latest` 2 方法 +
-  `StoreError::Io` 变体 + Bridge FFI 4 项（store_open_next / store_open_latest /
-  store_save_scratch / store_load_scratch）
+- **Version:** 1.3
+- **新增 Public API:** v1.3：`Store::next_snapshot` / `open_snapshot` / `open_buffer` /
+  `open_latest` 4 方法 + `StoreError::Io` 变体 + Bridge FFI 6 项（store_next_snapshot /
+  store_open_snapshot / store_open_buffer / store_open_latest / store_save_scratch /
+  store_load_scratch）
 - **影响模块:** core（store、bridge）、app（AppDelegate、AppMenu、EditorModel）、docs
 - **是否违反 Single Responsibility:** 否
 - **是否增加循环依赖:** 否
@@ -20,24 +21,31 @@
    路径存储）是未来文件系统切片的能力，**本版本不实现**（见备注，Rule 13 显式
    Deferred）。反转经项目所有者确认（2026-08-02 用户指示：T-037 把未来路线
    提前实现，方向修正）。
-2. **按日期 + 序号轮转（v1.2）**：文件名 `aster-YYYY-MM-DD-<seq>.sqlite`——**单日内
-   可写入多个文件**（用户指示 2026-08-02），seq 从 1 递增（下一个 = 当日最大序号 + 1，
-   容忍中间缺号）。**每次 Cmd+S 写入一个新快照文件**（同一天的保存历史 = 多个版本文件）；
-   读取 / 继续 = 当日最高 seq（`Store::open_latest`）。日期为 UTC（本地时区午夜轮转随
-   配置系统细化）。旧日文件自然留存；**保留期 / 自动清理属未来配置切片，本版本不做
-   自动删除**（Rule 9）。
+2. **三文件模型（v1.3，用户指示 2026-08-02）**：
+   - **快照文件** `aster-YYYY-MM-DD-<seq>.sqlite`：**Cmd+N 创建**（每次新文档 =
+     当日下一个序号文件，seq = 当日最大 + 1，容忍缺号；单日内可写多个文件）；
+   - **缓冲文件** `buffer.sqlite`（同目录）：**编辑自动保存**（每次内容变更写
+     入，无需用户按保存）——程序意外崩溃时缓冲文件保住最新编辑；
+   - **Cmd+S = 合并缓冲 → 当前快照**：把缓冲内容写入当前快照文件（提交 /
+     固化），不是新建文件；dirty「●」= 缓冲与快照不一致（未提交编辑），退出时
+     提示保存。
+   - 读取 / 继续 = 当日最高 seq（`Store::open_latest`）。日期为 UTC（本地时区
+     午夜轮转随配置系统细化）。旧日文件自然留存；**保留期 / 自动清理属未来配置
+     切片，本版本不做自动删除**（Rule 9）。
 3. **默认路径可指定（v1.1）**：默认目录 = `~/Library/Application Support/Aster`；
    v1 经环境变量 `ASTER_STORE_DIR` 覆盖（最小实现，无配置系统），Config DSL / Lua
    配置切片落地后迁移为配置项。
 4. **错误全部可见（ADR-004）**：目录创建失败 → `StoreError::Io`；
    SQLite 操作失败 → `StoreError::Sqlite`（既有变体）；App 经 NSAlert 呈现，不静默吞掉。
-5. **App 侧最小可用集**：File 菜单「保存」（⌘S）；dirty 状态由 `EditorModel.onChange`
-   回调维护（type_text / delete_backward / undo / redo 成功才触发，光标移动与选区
-   不置脏），窗口标题加「●」；关闭 / 退出时存在未保存编辑 → NSAlert 三选（保存 /
-   不保存 / 取消）；保存键 = BufferId（初始演示 Buffer 也可保存，无"必须打开过磁盘
-   文件"的前置条件）。
-6. **保存数据模型**：复用 ADR-013 `Store.scratch` 表（id + content）；每个快照文件
-   承载一次保存的内容。会话 / 崩溃恢复编排仍在 T-028 / T-029，本切片不扩展 schema。
+5. **App 侧最小可用集（v1.3）**：File 菜单「新建」（⌘N，创建新快照）+「保存」
+   （⌘S，合并缓冲）；dirty 状态由 `EditorModel.onChange` 回调维护（type_text /
+   delete_backward / undo / redo 成功才触发，光标移动与选区不置脏），窗口标题加
+   「●」；关闭 / 退出时存在未提交编辑 → NSAlert 三选（保存 / 不保存 / 取消）；
+   保存键 = BufferId（启动默认 Buffer 也接线 onChange——修复此前未接线导致无
+   dirty / 退出保护失效的 bug）。
+6. **保存数据模型**：复用 ADR-013 `Store.scratch` 表（id + content，upsert）；
+   缓冲文件承载工作副本（每 id 一行，持续覆盖），快照文件承载合并后的提交内容。
+   会话 / 崩溃恢复编排仍在 T-028 / T-029，本切片不扩展 schema。
 7. **文本经 Bridge 传入 Store 而非让 Core 持有 Editor**：激活文档统一（注册表 ↔
    会话双向同步）随 T-024 落地；v1 最小接线避免把激活文档状态提前引入 Core（Rule 9，
    同 ADR-017 对激活文档的推迟理由）。
@@ -70,11 +78,15 @@ document_manager`；`app → bridge → core`。无反向。
 
 | API | 职责 |
 | --- | --- |
-| `Store::open_next(dir: &Path) -> Result<Self, StoreError>` | 创建当日下一个序号文件 `<dir>/aster-YYYY-MM-DD-<seq>.sqlite`（seq = 当日现有文件数 + 1） |
-| `Store::open_latest(dir: &Path) -> Result<Option<Self>, StoreError>` | 打开当日最高 seq 文件（无文件返回 None；读取 / 继续用） |
+| `Store::next_snapshot(dir: &Path) -> Result<i64, StoreError>` | Cmd+N：创建当日下一个序号快照文件并返回 seq |
+| `Store::open_snapshot(dir: &Path, seq: i64) -> Result<Self, StoreError>` | Cmd+S 合并目标：打开指定序号快照文件 |
+| `Store::open_buffer(dir: &Path) -> Result<Self, StoreError>` | 自动保存缓冲：打开 `<dir>/buffer.sqlite`（崩溃保护） |
+| `Store::open_latest(dir: &Path) -> Result<Option<Self>, StoreError>` | 打开当日最高 seq 快照（无文件返回 None；读取 / 恢复用） |
 | `StoreError::Io(std::io::Error)` | 目录创建失败等非 SQLite 错误 |
-| Bridge `store_open_next(dir: String) -> Result<Store, String>` | Cmd+S：新建当日下一个序号快照文件 |
-| Bridge `store_open_latest(dir: String) -> Result<Store, String>` | 打开当日最新快照（无文件报错；测试 / T-028 用） |
+| Bridge `store_next_snapshot(dir: String) -> Result<usize, String>` | Cmd+N：创建快照并返回 seq（usize 透传） |
+| Bridge `store_open_snapshot(dir: String, seq: usize) -> Result<Store, String>` | Cmd+S：打开当前快照准备合并 |
+| Bridge `store_open_buffer(dir: String) -> Result<Store, String>` | 启动时打开缓冲文件（自动保存用） |
+| Bridge `store_open_latest(dir: String) -> Result<Store, String>` | 打开当日最新快照（无文件报错；T-028 用） |
 | Bridge `store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>` | Cmd+S 保存点（id 以 usize 透传，ADR-014 惯例） |
 | Bridge `store_load_scratch(store: &Store, id: usize) -> Result<String, String>` | 读取保存内容（测试 / T-028 接线用） |
 
@@ -83,30 +95,31 @@ document_manager`；`app → bridge → core`。无反向。
 
 ## 影响模块
 
-- **core（store）**：新增 `open_next` / `open_latest`（日期 + 序号轮转）+ `StoreError::Io`；
-  当日文件列表按序号数值排序（不依赖词法序）；civil date 换算用标准算法
-  （Howard Hinnant days-from-civil），不引 chrono（Rule 7：标准库可解决，新依赖需 ADR）。
-- **core（bridge）**：新增 Store FFI 4 项；撤销 `document_manager_save_text`。
+- **core（store）**：新增 `next_snapshot` / `open_snapshot` / `open_buffer` /
+  `open_latest`（日期 + 序号轮转 + 缓冲）+ `StoreError::Io`；当日文件列表按序号
+  数值排序（不依赖词法序）；civil date 换算用标准算法（Howard Hinnant
+  days-from-civil），不引 chrono（Rule 7：标准库可解决，新依赖需 ADR）。
+- **core（bridge）**：新增 Store FFI 6 项；撤销 `document_manager_save_text`。
 - **core（document_manager）**：撤销 v1.0 的 save_text + 2 错误变体（Rule 14）；
   `Document.path` 回到仅测试读取，恢复 dead_code expect（未来文件系统切片消费）。
-- **app**：AppDelegate 启动建 Store（默认目录 / `ASTER_STORE_DIR` 覆盖），
-  saveDocument 写 Store；dirty 标题与关闭保护保留；AppMenu「保存」保留；
+- **app**：AppDelegate 启动打开缓冲 Store；Cmd+N 新建快照（重置编辑会话）；
+  内容变更自动写缓冲 + 置 dirty；Cmd+S 合并缓冲 → 当前快照；dirty 标题与退出
+  保护（默认 Buffer 也接线，修复未接线 bug）；AppMenu 增加「新建」；
   EditorModel 增加 bufferId 暴露（App 模块内）。
 - **docs**：changelog / roadmap / audits / benchmarks 同步。
 
 ## 复杂度预算（宪法 Rule 9）
 
-1. **增加了哪些复杂度？** Core `open_next` / `open_latest` + 序号解析 + civil date
-   换算（~60 行）+ 1 错误变体 + Store FFI 4 项；App 侧薄胶水（菜单项、dirty 标题、
-   关闭保护，约 50 行）；
+1. **增加了哪些复杂度？** Core `next_snapshot` / `open_snapshot` / `open_buffer` /
+   `open_latest` + 序号解析 + civil date 换算（~80 行）+ 1 错误变体 + Store FFI
+   6 项；App 侧薄胶水（新建 / 自动保存 / 合并 / dirty 标题 / 关闭保护，约 90 行）；
    0 抽象层、0 新依赖。
 2. **是否永久？** 是——保存是编辑器的永久能力；dirty 与关闭保护是"不静默丢数据"
    的最小产品语义。
-3. **有没有更简单方案？** 每天单文件（v1.1）——实现更简单但不符合"单日内可写入
-   多个文件、日期后加序号"的既定要求；每次保存新文件即同日多版本快照，天然保留
-   保存历史（未来版本浏览可直接复用）。只做保存、不做 dirty/关闭保护——会保留
-   I-002 的"关窗静默丢编辑"主诉。结论：当前是满足"能保存 + 日期+序号轮转 +
-   不静默丢数据"的最简集。
+3. **有没有更简单方案？** 只有快照没有缓冲——崩溃时最后一次自动保存前的编辑仍
+   会丢，违背"防止程序意外崩溃损失编辑"的硬要求；自动保存直接写快照——每次按键
+   都产生新文件，快照爆炸。结论：缓冲（连续写）+ 快照（Cmd+N 建、Cmd+S 合并）是
+   满足"崩溃保护 + 提交语义 + 日期序号轮转"的最简分工。
 
 ## 备注
 
