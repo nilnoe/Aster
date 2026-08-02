@@ -10,6 +10,11 @@ import XCTest
 final class AppInfoTests: XCTestCase {
   func testAppInfoVersionComesFromCore() {
     XCTAssertEqual(AppInfo.name, "Aster")
-    XCTAssertEqual(AppInfo.version, "0.1.1")
+    // 版本号单一来源（core/Cargo.toml → Bridge → App）；硬编码具体版本会在发版时
+    // 失效（T-048：0.1.1 → 0.1.2 CI 抓出），改为格式断言，一致性交给 CI-Release。
+    XCTAssertNotNil(
+      AppInfo.version.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression),
+      "版本号必须是 x.y.z：\(AppInfo.version)"
+    )
   }
 }

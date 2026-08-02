@@ -62,6 +62,7 @@
 - [x] T-045 缓冲数据生命周期（ADR-013 v1.3）：保留 = 未提交且未明确丢弃（含崩溃后 / 忽略 / 干净退出）；删除 = Cmd+S 合并成功 / 恢复载入 / 退出「不保存」三时机；AppDelegate 334 行与 bridge.rs 308 行超 Rule 3 → 拆 AppDelegate+Storage.swift 与 bridge_store.rs
 - [x] T-046 多文档状态全程检查（ADR-013 v1.4 / ADR-023 v1.5，用户指示）：PendingDocs 登记所有未决文档（切换 / 打开新文件不抛弃前一个）；退出提示覆盖全部未决（保存全部 / 全部不保存 / 取消）→ 干净退出后缓冲清空；缓冲定位 = 强杀 / 意外退出等边界情况专用；无模态弹窗原则（未来 = StatusBar 底部 y/n 提示，T-026；当前 NSAlert 为过渡实现）
 - [x] T-047 空快照文件退出清理（ADR-023 v1.6，用户指示）：进程干净退出时删除内容为空的 `aster-*.txt`（启动即建 / 从未输入合并的空文档不累积）；只删零长度，崩溃退出不清理
+- [x] T-048 发版 CI 检查修复（Beta V0.1.2 发布前置）：clippy 1.97 items_after_test_module；CI-Bench 结果目录定位（CARGO_TARGET_DIR）；阈值 100% / 下限 100µs（ADR-021 v1.2）；版本断言改格式校验
 - [ ] T-029 Crash Recovery 与 Session 恢复（T-043 已交付缓冲恢复 v1；剩余：多文档会话完整恢复、窗口状态，接线 Store session）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）

@@ -96,7 +96,7 @@ jobs:
         # criterion 结果落在 core/target/criterion。
         run: |
           cd core && CARGO_TARGET_DIR=target cargo bench --bench bench_editor --bench bench_pipeline -- --quick
-          cd .. && python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion
+          cd .. && python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 1.0 --criterion-root core/target/criterion
 
   package:
     name: Package App

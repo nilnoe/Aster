@@ -22,7 +22,8 @@ import shutil
 import sys
 from pathlib import Path
 
-MEAN_NS_FLOOR = 10_000  # 10µs：低于此的基准跳过（跨机器噪声不可比）
+MEAN_NS_FLOOR = 100_000  # 100µs（T-048）：共享 runner 的 quick 模式噪声可达
+# 数十 µs，10µs 下限仍会被噪声触发；低于 100µs 的基准跳过（跨机器噪声不可比）。
 
 
 def collect_results(criterion_root: Path) -> dict[str, float]:

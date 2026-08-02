@@ -25,6 +25,18 @@ macOS 26.5.1 / Apple M4（ADR-002）。
 
 ### Added — 2026-08-02（T-034 复审问题登记）
 
+### Fixed — 2026-08-02（T-048 发版 CI 检查修复）
+
+- fix(ci)：CI-Bench 结果目录定位——cargo 在 CI 上把 criterion 结果落到 workspace
+  根 `Aster/target`，显式 `CARGO_TARGET_DIR=target`（相对 core/）固定落点；
+  本地实测对比 16 项 0 回归
+- fix(ci)：CI-Bench 阈值与下限调整（ADR-021 v1.2）——共享 runner quick 模式噪声
+  +26%~+120%，10% 阈值必误报；改阈值 100% / 下限 100µs，CI 定位为「数量级恶化
+  粗告警」，精确回归以本地 release 全量测量为准
+- fix(test)：两处硬编码版本断言（bridge `testCoreVersionRoundTrip`、app
+  `testAppInfoVersionComesFromCore`）在 0.1.1 → 0.1.2 时被 CI 抓红 → 改格式断言，
+  版本 / tag 一致性交给 CI-Release（Rule 15）
+
 - docs(issues)：新建 [docs/issues.md](../docs/issues.md) 审查问题登记表——2026-08-02
   全仓审查的 8 条问题（I-001~I-008，含 P0 CJK 光标边界缺陷、P1 保存缺口 / 渲染每帧
   O(n)、P2 死 API / 文档漂移 / 审计形式化 / Release 门禁缺口）逐一编号、附证据与

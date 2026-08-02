@@ -36,4 +36,7 @@ jobs:
         # CARGO_TARGET_DIR=target（相对 core/）保证结果确定落在 core/target/。
         run: cd core && CARGO_TARGET_DIR=target cargo bench --bench bench_editor --bench bench_pipeline -- --quick
       - name: Compare against committed baseline
-        run: python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion
+        # T-048：阈值 100%、下限 100µs（ADR-021 v1.2）——共享 runner 的 quick
+        # 模式实测噪声 +26%~+120%，10% 阈值不可用；CI 只做「数量级恶化」粗告警，
+        # 精确回归以本地 release 全量测量为准（ADR-021 决策 4）。
+        run: python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 1.0 --criterion-root core/target/criterion
