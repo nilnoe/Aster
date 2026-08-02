@@ -25,11 +25,28 @@ jobs:
         run: brew install swift-format
       - name: Build Rust staticlib + generate bindings
         run: ./bridge/build.sh
-      - name: Format (hand-written Swift; Sources 为生成绑定，工具产物不 lint)
-        run: swift-format lint --recursive bridge/Tests app/Tests
+      - name: Format (app/Sources 为手写代码必须 lint；bridge/Sources 为生成绑定，工具产物不 lint)
+        run: swift-format lint --recursive app/Sources bridge/Tests app/Tests
       - name: Test bridge
         run: swift test
         working-directory: bridge
       - name: Test app
         run: swift test
         working-directory: app
+      - name: Scale Budget
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            lines=$(wc -l < "$f" | tr -d ' ')
+            if [ "$lines" -gt 300 ]; then
+              echo "OVER 300 LINES: $f ($lines)"
+              fail=1
+            fi
+          done < <(find app -name '*.swift' -not -path '*/.build/*')
+          total=$(find app/Sources -name '*.swift' -exec cat {} + | wc -l | tr -d ' ')
+          echo "app/Sources total lines: $total"
+          if [ "$total" -gt 5000 ]; then
+            echo "OVER SWIFT BUDGET: $total"
+            fail=1
+          fi
+          exit $fail
