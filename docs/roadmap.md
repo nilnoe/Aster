@@ -65,6 +65,7 @@
 - [x] T-048 发版 CI 检查修复（Beta V0.1.2 发布前置）：clippy 1.97 items_after_test_module；CI-Bench 结果目录定位（CARGO_TARGET_DIR）；阈值 100% / 下限 100µs（ADR-021 v1.2）；版本断言改格式校验
 - [x] T-049 CI-Bench 稳定性（ADR-021 v1.3）：对比改用 median（抗离群）+ 阈值 200%——共享 runner quick 模式噪声最高 +120%，100% 仍偶发误报；CI 只抓 3 倍级恶化，精确回归以本地为准
 - [x] T-050 App 集成测试套件（五组，用户指示）：真实 NSApplication 生命周期 + 文档保存 / 退出 / 崩溃恢复全链路 + 端到端数据流（AppKit → Bridge → Core → 事件 → 重绘）；策略与分层见 docs/testing.md「App 集成测试」
+- [x] T-051 测试方法论强化（用户指示「换思路」）：变异测试量化查错能力（6 个变体 → 暴露保存失败路径盲区）+ 失败注入测试（快照写失败必须保全缓冲行与未决状态）+ 随机操作序列不变量测试（固定种子 ×3，验证 ADR-013 v1.3 缓冲行 ⟺ 未决守恒与 BUG-011 泛化不变量）
 - [ ] T-029 Crash Recovery 与 Session 恢复（T-043 已交付缓冲恢复 v1；剩余：多文档会话完整恢复、窗口状态，接线 Store session）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）

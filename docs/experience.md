@@ -162,6 +162,7 @@
 | 2026-08-02 | T-050 | `typeText` 在光标处插入（默认光标 = 字节 0）："输入 + 默认内容"而不是"默认内容 + 输入"；`snapshotFiles` 断言没过滤 `buffer.sqlite` | 断言先推演光标语义：先 `move(.docEnd)` 再输入；目录断言只取 `aster-*.txt` 前缀（测试失败先怀疑测试，老教训再次应验） |
 | 2026-08-02 | BUG-012 | 回归测试「undo 回到快照内容」一直红：`typeText("X")` 后 `typeText("Y")` 是相邻追加 Insert，History 合并成一步，一次 undo 撤掉的是整个 "XY" 而非 "Y"（T-004 老坑重现） | 用选区替换（selectAll + typeText）构造 Replace op（单独成步不合并），一次 undo 恰好撤掉单次编辑；构造 undo 场景前先推演 History 合并规则 |
 | 2026-08-02 | BUG-010~012 | 「保存全部互相覆盖」「恢复后无法保存/退出」「undo 假 dirty」三个 bug 都藏在集成测试的**组合路径**里（多文件打开、多未决文档+恢复、保存后 undo）——单测与单文档 happy path 都测不到 | 缺陷狩猎从「跨文档状态机」入手：snapshotSeqByDocId / pendingDocs / committedText 三个映射的一致性就是保存链路的全部风险面；每个候选先写复现测试再改代码 |
+| 2026-08-03 | T-051 | 手写场景永远追不上边界组合——变异测试首轮 6 个变体暴露「保存失败路径」整体盲区（合并顺序颠倒全绿） | 用变异测试定位盲区再补测试：失败注入（快照目标被目录占用强制写失败）+ 随机操作序列不变量（固定种子 LCG，每步断言缓冲行 ⟺ 未决守恒）；变异注入后必须逐项 diff 核对恢复（M1/M2 恢复补丁未对齐导致残留变异 + 6 个假失败） |
 | 2026-08-02 | T-002 | `expect(dead_code)` 在测试构建报 unfulfilled | `#[cfg_attr(not(test), expect(dead_code))]` |
 | 2026-08-02 | T-002 | clippy `new_without_default` | 实现 `Default` 并注释理由 |
 | 2026-08-02 | T-004 | 返回 push 后的 op 触发 E0382 | 栈存 clone，返回原值 |
