@@ -29,7 +29,9 @@
   - T-037 Disk 保存（135f44a，ADR-023）：save_text + Bridge FFI + 菜单 ⌘S +
     dirty 标题 + 关闭保护
   - T-038 渲染数据路径重构（7220747）：缓存行结构、每帧单次 shaping、二分定位
-  - T-039 审计与门禁加固（进行中）：CI-Docs 审计完整性检查 + CI-Release 门禁对齐
+  - T-039 审计与门禁加固（3171806）：CI-Docs 审计完整性机械检查（未回填 ≤1 +
+    hash 全存在）+ CI-Release 门禁对齐（app/Sources lint、fuzz、规模预算、docs、
+    基准回归）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
@@ -42,6 +44,9 @@
 - **下一任务：** T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供；
   系统 NSPasteboard，Principle 4；粘贴 = 选区替换 `type_text` 路径，ADR-017）→
   随后 T-019 软换行（默认关，视觉折行属 App 渲染层）。
+- **审计纪律（T-039 起机械强制）**：audits.md 的 Commit 列不得累积「本切片」
+  （CI-Docs 检查 ≤1 行且 hash 真实存在）；审计行必须含行为证据。**提交前先本地
+  模拟门禁**：`grep -cE '\| 本切片 \|' docs/audits.md` 必须 ≤1。
 - **版本：** Beta 阶段，当前 **Beta V0.1.1**（core `0.1.1` 单一来源，三处同步：
   Changelog / 应用版本（core_version）/ git tag）。模板 `Beta V0.0.0`（末位补丁 /
   中间位功能 / 首位恒 0）。**发布 = 打 `Beta-V*` tag 推送，CI-Release 自动门禁 +
