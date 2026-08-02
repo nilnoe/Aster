@@ -20,3 +20,7 @@
 | Bridge | Swift ↔ Rust 的桥接层，基于 swift-bridge（ADR 技术选型）。 |
 | 垂直切片 | 穿透 Swift UI、Bridge、Core、测试的最小实现单元（WORKFLOW）。 |
 | 复杂度预算 | 宪法 Rule 9：每个 PR 必须回答复杂度三问。 |
+| 已固化文本（Committed Text） | 文档最近一次合并进快照的文本（App 侧 `committedTextByDocId`）；与当前 Buffer 内容比较判定是否真正 dirty（BUG-012，435e3a0）。 |
+| 测试接缝（Test Seam） | 为可测性抽取的 internal 方法（如 `presentPendingDocsAlert`），测试子类覆写注入决策；生产路径行为不变（T-050，docs/testing.md）。 |
+| 变异测试（Mutation Testing） | 向实现注入「常见错误变体」并跑全量测试定位盲区的方法（T-051）；变体全绿 = 该路径无测试保护。 |
+| 状态机不变量 | 保存状态机在任何操作序列后必须成立的性质：缓冲行存在 ⟺ 存在未决编辑（ADR-013 v1.3）、每个未决文档必有快照序号（BUG-011）；由固定种子随机序列测试验证（T-051）。 |

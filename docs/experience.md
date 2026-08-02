@@ -2,26 +2,41 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-047 完成；Beta V0.1.0 / V0.1.1 / V0.1.2 已发布）
+## 项目现状速览（截至 2026-08-03 收工；T-001 ~ T-051 + BUG-010~012 完成；Beta V0.1.2 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
     selection / history / layout / theme / command / event / lua / store / bridge /
-    editor / document_manager / snapshot），`core/src` 共 2110 行，127 个测试全绿（含 7 个
+    editor / document_manager / snapshot），`core/src` 共 2182 行，127 个测试全绿（含 7 个
     属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（78 个 XCTest 全绿，T-050 起含五组 App
-    集成测试），源码 2100 行（Rule 12
+  - app/：AppKit 壳 + Metal 编辑视图（**86 个 XCTest 全绿**：T-050 五组集成测试 +
+    T-051 失败注入 / 状态机不变量 + BUG-010~012 回归），源码 2139 行（Rule 12
     的 Swift 预算 ≤5,000 行生效中）。
-- **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；
-  v1.1 修订：ADR-001 DocumentManager Bridge 面、ADR-021 CI 基准告警、ADR-022
-  fuzz 扩展）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 /
-  性能数据驱动）。
-- **本会话完成（2026-08-02 晚，均已推送 origin/main，工作树干净）：**
+- **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
+  v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
+  ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
+  文档机械门禁 / 性能数据驱动）。
+- **本会话完成（2026-08-02 晚 ~ 2026-08-03 收工，均已推送 origin/main，工作树干净）：**
+  - T-050 App 集成测试套件（520892b）：五组进程内集成测试（启动链路 / 文档
+    生命周期 / 退出三分支 / 崩溃恢复 / 端到端 keyDown），App 63 → 78；AppDelegate
+    抽取两个提示 seam + 移除 final（docs/testing.md「App 集成测试」）
+  - BUG-010/011/012 修复（435e3a0）：多文件打开共享快照序号互相覆盖（数据丢失）、
+    崩溃恢复后保存链路断裂（无法保存 / 退出卡死）、undo 回快照内容后假 dirty；
+    新增 committedTextByDocId 比较基线；回归测试 BugReproTests 先红后绿
+  - T-051 测试方法论强化（b4d1406）：变异测试 6 变体定位盲区（M1 合并顺序颠倒
+    全绿 = 保存失败路径无测试）→ 失败注入测试（SaveFailurePathTests）+ 随机
+    操作序列不变量测试（SaveStateInvariantTests，3 种子 × 50 步）；App 86 全绿
+  - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
+    可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
+    跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
+  - 数据结构评估落地（34ca7e5，ADR-006 v1.1）：4 项热点 / 基准缺口（App 每键
+    全量文本流、Core 移动全量重建、中间编辑基准缺口、History 空间）+ Phase 8
+    T-063~T-066（基准扩展 / move 缓存 / 自动保存节流（需用户确认）/ WAL）
   - T-034 审查问题登记（440c75b）：docs/issues.md（I-001~I-008）+ Phase 6 切片排期
   - T-035 Up/Down 边界修复（29bdf9d，BUG-008）：floor_char_boundary 钳制 + Up/Down
     纳入属性差分 + 边界不变量（PROPTEST_CASES=3000 通过）；property.rs 拆 support
@@ -144,9 +159,11 @@
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
 | 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty「●」= 缓冲 ≠ 快照；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
+| 保存（BUG-010/012 修订，435e3a0） | **每个打开的文件分配独立快照序号**（不再继承当前文档序号，多文件保存互不覆盖）；`committedTextByDocId` 记录各文档最近一次合并进快照的文本——undo/redo 回快照内容时不再标记未保存（内容比较基线，非「发生编辑即脏」）；合并成功**先写快照再删缓冲行**（顺序不可颠倒，快照写失败必须保全缓冲行，T-051 变异验证） | 自动保存节流（合并连续按键）已排 T-065，**反转 ADR-023「每次内容变更写入」粒度需用户确认**；快照合并写非原子属已识别改进（T-055 原子写） |
 | 崩溃恢复 | v1（T-043，ADR-013 v1.1）：缓冲 `meta.clean_exit` 哨兵（正常退出 true / 启动清 false）；启动时哨兵非干净且有缓冲文档 → 「恢复最近一个」提示；恢复载回缓冲内容并置脏，Cmd+S 合并进新快照 | 多文档会话 / 窗口状态完整恢复在 T-029（剩余部分）；恢复内容未合并前仍在缓冲（崩溃不丢） |
 | SQLite 角色 | 边界（T-044，ADR-013 v1.2）：文档 = 文本文件（快照 .txt）；SQLite = 编辑器内部状态（缓冲 / session / 最近文件 / 工作区 / undo 持久化），永不混用；三条保留论据（崩溃保护事务性写入 / 多文档缓冲 / 总纲 §5 既定路线） | 拆除条件：砍掉会话 / 最近文件 / 工作区 / undo 路线时按 ADR 反转拆 rusqlite；session 表不许悬挂（T-029 消费）；快照原子写为已识别改进未排期 |
 | 缓冲生命周期 | 规则（T-045，ADR-013 v1.3）：保留 = 未提交且未明确丢弃（崩溃后 / 忽略 / 干净退出不删数据）；删除 = ⌘S 合并成功 / 恢复载入 / 退出「不保存」三时机；不变量：缓冲行存在 ⟺ 存在未决编辑 | 多文档未决行的完整清单随 T-029；恢复 v1 只呈现最新一个（其余行是「未决」的守恒结果，不是 bug） |
+| 缓冲生命周期（BUG-011 修订，435e3a0） | 崩溃恢复分支**必须先把恢复内容写入缓冲**（新 id 的 scratch 行）再删旧行，否则 ⌘S / 保存全部读不到内容；**其余未决缓冲文档逐个登记快照序号并置未决**（否则退出「保存全部」找不到合并目标而卡死） | 恢复 v1 仍只呈现最新一个（T-029）；恢复内容在内存 + 缓冲双份（崩溃保护） |
 | 多文档状态 | 全程检查（T-046，ADR-013 v1.4）：PendingDocs 登记所有未决文档（切换 / 打开新文件不抛弃前一个）；退出提示覆盖全部未决（保存全部 / 全部不保存 / 取消）→ 干净退出后缓冲清空；缓冲 = 强杀 / 意外退出边界专用 | 未来：无模态弹窗（ADR-023 v1.5）——StatusBar overlay 底部 y/n 提示（T-026）替代过渡期 NSAlert；多文档逐个处置 UI 随 T-026 / T-029 |
 | 空快照清理 | 退出清理（T-047，ADR-023 v1.6）：进程干净退出删除内容为空的 `aster-*.txt`（启动即建 / 从未合并的空文档不累积）；只删零长度，崩溃退出不清理 | 保留期 / 非空旧文件自动清理属未来配置切片 |
 
@@ -258,7 +275,10 @@
   计划已登记 roadmap（IME 契约 / 渲染变异 / 失败可见性 / 原子写 / 存储损坏 /
   时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 / 跨日轮转 / 变异工具化）；
   执行原则 = 先变异定位盲区再补测试，发现缺陷登记 BUG 并修复，0 生产代码改动
-  不作为验收。执行顺序按风险可调整。
+  不作为验收。执行顺序按风险可调整。**当前候选风险（人工验证，未自动化）**：
+  `characterIndex(for:)` 返回字节偏移而 NSTextInputClient 契约是 UTF-16 索引
+  （CJK IME 点击定位）；`setMarkedText` 忽略 replacementRange；缓冲自动保存失败
+  仅 NSLog（用户不可见）；崩溃循环累积空快照。
 - **数据结构评估（2026-08-03，ADR-006 v1.1）**：全仓复审结论已入 ADR-006——
   ① App 每键全量文本流（Bridge 拷贝 + 全量 upsert，O(n)/键，最大热点）；
   ② Core move_cursor 每移动全量 Layout::build（O(n)，App 已缓存而 Core 没有）；
@@ -266,6 +286,16 @@
   ④ History 空间 O(编辑总量)（设计取舍，监控）。优化切片 T-063~T-066 在
   roadmap Phase 8；任何结构替换先补基线（Rule 16），反转 ADR 决策（T-065
   自动保存节流）需用户确认。
+- **测试方法论（T-050 / T-051 沉淀，务必复用）**：① 手写场景追不上组合路径，
+  跨文档状态机（snapshotSeqByDocId / pendingDocs / committedTextByDocId）的
+  一致性就是保存链路全部风险面；② 测试全绿 ≠ 无 bug——变异测试量化查错能力，
+  全绿变体 = 盲区；③ 失败路径与成功路径分开测（快照写失败必须保全缓冲行）；
+  ④ 固定种子随机操作序列验证守恒不变量（缓冲行 ⟺ 未决、未决必有快照序号）；
+  ⑤ History 相邻 Insert 合并会干扰「undo 回快照内容」场景，用选区替换拆步。
+- **当前下一步**：功能线 T-014 剪贴板（NSPasteboard，ADR-018）；并行线 Phase 7
+  测试（用户投入）与 Phase 8 性能（T-063 基准先行）。**ADR-024（Bridge FFI 总账
+  计数校正）仍为未决提议**——ADR-013 头部「7 方法」与索引计数已漂移（实际 11 方法
+  + 7 FFI），纯文档修订，需用户确认后执行。
 - **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
   给下一个 agent 的提醒，不要重读全部源码。
 - **Bridge FFI 新增必读（T-015 踩坑）**：swift-bridge 0.1.59 对 `Result<u64, _>`
