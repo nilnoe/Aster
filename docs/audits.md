@@ -5,7 +5,7 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 | 切片 / 事项 | Commit | 审计项 | 结论 | 违规与处置 | 日期 |
 | --- | --- | --- | --- | --- | --- |
-| T-047 空快照退出清理（ADR-023 v1.6） | 本切片 | 行为证据：Core +2 + Bridge +1 + App 63 全绿（只删零长度 / 无关文件不动 / 目录缺失幂等）；ADR-023 v1.6 留痕（用户指示，Rule 13）；Rule 9 三问（1 方法 + 1 FFI + 1 处调用，0 抽象层 / 0 新依赖）/ Rule 12（snapshot.rs 227 ≤300；bridge_store.rs 89 ≤300） | Pass | 无 | 2026-08-02 |
+| T-047 空快照退出清理（ADR-023 v1.6） | 80adf3c | 行为证据：Core +2 + Bridge +1 + App 63 全绿（只删零长度 / 无关文件不动 / 目录缺失幂等）；ADR-023 v1.6 留痕（用户指示，Rule 13）；Rule 9 三问（1 方法 + 1 FFI + 1 处调用，0 抽象层 / 0 新依赖）/ Rule 12（snapshot.rs 227 ≤300；bridge_store.rs 89 ≤300） | Pass | 无 | 2026-08-02 |
 | T-046 多文档状态全程检查（ADR-013 v1.4 / ADR-023 v1.5） | 5ac474c | 行为证据：App 63 全绿（PendingDocs 4 项 + 既有 59 项行为不变）；多文档退出流程（保存全部逐个合并 / 全部不保存 / 取消）；ADR-013 v1.4（缓冲 = 边界情况专用，干净退出后清空）+ ADR-023 v1.5（无模态弹窗原则，过渡实现标注）留痕（用户指示，Rule 13）；Rule 9 三问（1 个登记类型 + 合并循环，0 抽象层 / 0 新依赖）/ Rule 12（PendingDocs 40 行；AppDelegate 224 / 存储扩展 174 均 ≤300） | Pass | 无 | 2026-08-02 |
 | T-045 缓冲生命周期（ADR-013 v1.3） | 8dacfff | 行为证据：Bridge 19 + App 59 全绿（delete 幂等 / 枚举消失 / 读回报错）；ADR-013 v1.3 生命周期规则（保留 4 类 / 删除 3 时机 / 不变量）；Rule 3（AppDelegate 334 → 209+145 拆分、bridge.rs 308 → 227+84 拆分，全部 ≤300）/ Rule 9 三问（1 FFI + 3 处接线 + 2 处拆分，0 抽象层 / 0 新依赖）/ Rule 12（delete_scratch 从死代码变真实消费） | Pass | AppDelegate / bridge.rs 超限由本切片自行拆分前置（同 T-018 先例） | 2026-08-02 |
 | T-044 SQLite 保留论证（ADR-013 v1.2） | 7a1408d | 行为证据：纯文档切片（无代码改动）；论证基于代码现状核验（scratch/meta 在用、session 表零消费者、libsqlite3.a 2.4MB、FFI 6 项）；Rule 9 三问（0 抽象层 / 0 依赖 / 0 API，仅文档）；Rule 13（守则 b 把 session 表接线义务挂到 T-029，防悬挂）；决议保留经用户确认 | Pass | 无 | 2026-08-02 |
