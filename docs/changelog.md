@@ -50,6 +50,8 @@
 - [docs/roadmap.md](../docs/roadmap.md) — 切片编号规则（T-XXX）与编号表，Commit 必须引用 Task 与 ADR
 - feat(core)：Buffer 最小模型（T-001，ADR-005）——`Buffer` / `BufferId` / `BufferError`，UTF-8 字符边界安全，13 个契约测试
 - [ADR-006](../docs/adr/ADR-006-data-structures.md) — 核心数据结构决策矩阵：已确定（Selection / Undo 栈 / 注册表 / 存储决策机制）+ 未确定（存储算法 / 行索引 / 多光标 / mmap 等，含原因）
+- [ADR-001](../docs/adr/ADR-001-document-manager.md) — 状态 Proposed → Accepted：确定 `open` / `close` 签名与支撑类型（`DocumentSource` / `DocumentManagerError`）；激活状态延迟到 T-013；SQLite 落盘延迟到 T-009 / T-021
+- feat(core)：DocumentManager `open` / `close`（T-002，ADR-001）——注册表 + 生命周期；`DocumentSource`（Disk / Scratch）；错误可见（ADR-004）；8 集成 + 5 单元测试
 - feat(core)：Selection 模型（T-003，ADR-007）——`anchor` + `head` 字节偏移，光标即 head，10 个契约测试
   - [docs/glossary.md](../docs/glossary.md) — 术语表
   - [ARCHITECTURE.md](../ARCHITECTURE.md) — 架构总览

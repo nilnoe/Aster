@@ -1,6 +1,6 @@
 # ADR-001 — DocumentManager
 
-- **Status:** Proposed（待确认）
+- **Status:** Accepted
 - **Date:** 2026-08-02
 - **Version:** 1.0
 - **新增 Public API:** 2 个
@@ -13,6 +13,10 @@
 ## 决策
 
 在 Rust Core 中新增 `DocumentManager`，作为所有 Document / Buffer 的统一注册表与生命周期所有者。
+
+内部注册表：`HashMap<BufferId, Document>`，其中 `Document` 是私有类型（`Buffer` + `Option<PathBuf>`：`None` 即 Scratch）。
+
+**激活状态（active buffer）不属于本切片**：由 T-013（编辑循环）决定管理归属，本 ADR 不锁定。
 
 ## 原因
 
@@ -38,14 +42,23 @@ DocumentManager → Theme
 
 Buffer 与 Theme 不反向依赖 DocumentManager。
 
-## 新增 Public API（2 个，建议，待确认）
+## 新增 Public API（2 个公开方法 + 支撑类型）
 
-1. `open(source: DocumentSource) -> BufferId`
-   - 统一打开 / 创建入口：`Disk(Path)` 或 `Scratch`。
-   - 注册 Buffer，绑定存储目标（Attach Path 或 SQLite），并激活。
-2. `close(id: BufferId) -> Result<()>`
-   - 关闭并回收 Buffer。
-   - 若为 Scratch 或会话需要恢复，按策略持久化到 SQLite。
+1. `open(&mut self, source: DocumentSource) -> Result<BufferId, DocumentManagerError>`
+   - `Disk(PathBuf)`：读取文件内容创建 Buffer，记录绑定路径（Attach Path 语义）。
+   - `Scratch`：创建无路径 Buffer。
+   - 返回 `Result`：磁盘读取可能失败，失败必须可见（ADR-004）。
+2. `close(&mut self, id: BufferId) -> Result<(), DocumentManagerError>`
+   - 移除 Buffer 及其注册信息；未知 id 返回 `UnknownBuffer`。
+
+支撑类型（计入本 ADR，不另外计 API 数）：
+
+- `DocumentSource`：`Disk(PathBuf)` / `Scratch`。
+- `DocumentManagerError`：`UnknownBuffer(BufferId)` / `ReadFailed { path, kind }`。
+
+构造器：`DocumentManager::new()`。
+
+其他 Core 模块对注册内容的访问（如后续 Command / 编辑循环）先使用 `pub(crate)` 内部通道；提升为公共 API 时必须另走 ADR（宪法 Rule 4）。
 
 ## 影响模块
 
@@ -67,3 +80,4 @@ Buffer 与 Theme 不反向依赖 DocumentManager。
 
 - 本次仅记录 ADR，不包含实现（遵循 Workflow：Architecture 阶段先记录决策，Test Design 在前，实现在后）。
 - 后续切片：为 `open` / `close` 编写测试（Red），再实现。
+- 实现顺序：T-002 实现注册与生命周期（内存态）；Scratch 的 SQLite 落盘由 T-009 / T-021 接入；激活状态由 T-013 决定。

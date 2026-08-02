@@ -13,7 +13,7 @@
 - [x] 文档体系建立（Constitution / ADR / Workflow / Roadmap / Changelog / AGENTS）
 - [x] 工程基础设施文档（CI / DEVELOPING / 测试策略 / 发布流程 / 依赖政策 / 安全）
 - [x] T-001 Rust Core 骨架：crate 结构 + Buffer 最小模型 + 测试（Red → Green）
-- [ ] T-002 ADR-001 实现：DocumentManager `open` / `close`（依赖 Buffer 骨架）
+- [x] T-002 DocumentManager：`open` / `close`（注册表 + 生命周期，ADR-001）
 
 ## Phase 1 — Core 编辑内核
 

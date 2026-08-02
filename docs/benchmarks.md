@@ -21,6 +21,7 @@
 | Undo 1000 次（ms） | TBD | TBD | — | — | — | — |
 | Buffer 基础操作（insert/delete 10k 次，ms） | TBD | TBD | — | T-001 / ADR-005 | 2026-08-02 | 无量化目标；后续用 criterion 建立 |
 | Selection 基础操作（10k 次，ms） | TBD | TBD | — | T-003 / ADR-007 | 2026-08-02 | 无量化目标；纯值类型 |
+| DocumentManager 基础操作（open/close 10k 次，ms） | TBD | TBD | — | T-002 / ADR-001 | 2026-08-02 | 无量化目标；HashMap 注册表 |
 
 ## 测量规则
 

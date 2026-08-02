@@ -16,7 +16,7 @@ Proposed → Accepted
 
 | ID | 标题 | 状态 | 日期 | Public API | 影响模块 | 文件 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ADR-001 | DocumentManager | Proposed | 2026-08-02 | 2 | Buffer, Theme | [ADR-001-document-manager.md](ADR-001-document-manager.md) |
+| ADR-001 | DocumentManager | Accepted | 2026-08-02 | 2 方法 + 2 支撑类型 | Buffer, Theme | [ADR-001-document-manager.md](ADR-001-document-manager.md) |
 | ADR-002 | macOS 支持策略（Latest Only） | Accepted | 2026-08-02 | 0 | Swift App、Rendering | [ADR-002-macos-support.md](ADR-002-macos-support.md) |
 | ADR-003 | 插件安全模型（Trusted by Default） | Accepted | 2026-08-02 | 0 | Plugin Runtime、Plugin API | [ADR-003-plugin-trust.md](ADR-003-plugin-trust.md) |
 | ADR-004 | 日志与崩溃上报 | Accepted | 2026-08-02 | 0 | Core、App、Bridge | [ADR-004-logging-crash.md](ADR-004-logging-crash.md) |

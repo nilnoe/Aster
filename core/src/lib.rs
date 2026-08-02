@@ -7,9 +7,11 @@
 //! `BufferError` 精确表达失败原因。
 
 mod buffer;
+mod document_manager;
 mod error;
 mod selection;
 
 pub use buffer::{Buffer, BufferId};
+pub use document_manager::{DocumentManager, DocumentManagerError, DocumentSource};
 pub use error::BufferError;
 pub use selection::Selection;
