@@ -117,6 +117,14 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
   // MARK: - 键盘（方向 / 退格 / 回车直连，其余走系统输入管线）
 
   override func keyDown(with event: NSEvent) {
+    // BUG-003：组合文本激活期间所有按键（回车 / 方向 / Esc…）必须交还系统输入法
+    // （interpretKeyEvents），否则 IME 无法提交组合；回车直连会插入换行并丢弃
+    // 组合内容。数字键选词此前正常，正是因为走了默认分支 → interpretKeyEvents。
+    if model.hasMarkedText {
+      interpretKeyEvents([event])
+      needsDisplay = true
+      return
+    }
     let modifiers = event.modifierFlags
     let shift = modifiers.contains(.shift)
     let command = modifiers.contains(.command)

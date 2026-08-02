@@ -30,6 +30,11 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 
 ### Fixed — 2026-08-02
 
+- fix(app)：拼音组合期间回车不提交（BUG-003，根因分类：Implementation Bug）——
+  keyDown 无条件拦截 keyCode 36 直连 `typeText("\n")`（会清空组合），输入法得不到
+  回车键；数字键选词正常正因走 `interpretKeyEvents`。修复：组合激活期间所有按键
+  交还输入法。回归测试注入回车事件断言组合保留、Buffer 无换行
+
 - fix(app)：光标 / 选区高亮 / IME 下划线不可见（BUG-002，根因分类：Implementation Bug）——
   图集纯白像素画在了用户坐标 y=0（对应纹理最后一行），而纯色 quad 的 UV 采样纹理
   行 0 → 全部透明。修复：白像素画到用户 y = H-1..H（纹理行 0）；新增离屏渲染像素

@@ -112,6 +112,7 @@
 | 2026-08-02 | BUG-002 | 光标 / 选区 / IME 下划线不可见：白像素画在用户 y=0，落在纹理**最后**一行，UV 采样纹理行 0 全是透明 | CGBitmapContext 默认 y 向上：纹理行 r ↔ 用户 y = H - r；纯色像素必须画在用户 y = H-1..H（`fillWhite` 用 `H - rect.maxY` 换算用户坐标） |
 | 2026-08-02 | T-017 | 离屏渲染读回为脏数据 / 全零 | ① 离屏纹理格式必须与管线 color attachment 一致（bgra8Unorm，否则整帧被丢）；② `renderOffscreen` 提交后必须 `waitUntilCompleted` 再 `getBytes` |
 | 2026-08-02 | T-017 | 渲染像素测试假阳性：扫描区与文本字形重叠，把字形像素当光标 | 光标用"贯穿行高的竖直线"判据（>20 行白色），字形墨迹仅 ~11 行；断言前先算坐标 |
+| 2026-08-02 | BUG-003 | 拼音按回车不提交：keyDown 对 keyCode 36 无条件直连 typeText("\n")，组合被清空、IME 拿不到回车 | 组合激活期间所有按键交还 interpretKeyEvents（IME 拥有键盘，Principle 4）；数字键选词正常正是走默认分支的证据 |
 
 ## 给下一个 agent 的提醒
 
