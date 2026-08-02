@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let documentManager = document_manager_new()
   /// 自动保存缓冲 Store（启动时打开并保持连接，崩溃保护；ADR-023 v1.3 决策 2）。
   private var bufferStore: Store?
+  /// 纯文本快照目录句柄（T-042，ADR-023 v1.4：Cmd+N 创建 / Cmd+S 合并）。
+  private let snapshot = snapshot_new(StorePaths.defaultDirectory())
   /// 当前快照序号（Cmd+N 创建；Cmd+S 合并目标；ADR-023 v1.3 决策 2）。
   private var currentSnapshotSeq: UInt?
   /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
@@ -41,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       let dir = StorePaths.defaultDirectory()
       bufferStore = try store_open_buffer(dir)
-      currentSnapshotSeq = UInt(try store_next_snapshot(dir))
+      currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
     } catch {
       NSLog("存储初始化失败：\(error)")
     }
@@ -88,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// 用户回到对应会话时执行（激活文档随 T-024 统一）。
   @objc func newDocument(_ sender: Any?) {
     do {
-      let seq = UInt(try store_next_snapshot(StorePaths.defaultDirectory()))
+      let seq = UInt(try snapshot_create_next(snapshot))
       let id = try document_manager_open_scratch(documentManager)
       let buffer = Buffer(BufferId(UInt64(id)))
       let model = makeModel(buffer)
@@ -156,8 +158,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return false
     }
     do {
-      let snapshot = try store_open_snapshot(StorePaths.defaultDirectory(), seq)
-      try store_save_scratch(snapshot, UInt(view.model.bufferIdValue), view.model.bufferText)
+      // Cmd+S = 合并：缓冲文本覆盖写进当前快照（提交 / 固化，ADR-023 v1.4）。
+      try snapshot_write(snapshot, seq, view.model.bufferText)
       isDirty = false
       updateWindowTitle()
       return true

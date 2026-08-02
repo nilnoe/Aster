@@ -53,34 +53,6 @@ impl Store {
         Ok(Self { conn })
     }
 
-    /// Cmd+N：创建当日下一个序号快照文件并返回 seq（T-041，ADR-023 v1.3 决策 2）。
-    ///
-    /// 决策依据：
-    /// - 快照文件 = 文档的提交版本；每次 Cmd+N 新文档 = 当日下一个序号文件
-    ///   （`aster-YYYY-MM-DD-<seq>.sqlite`），seq = 当日最大 + 1（容忍缺号）。
-    /// - 目录不存在则创建（默认路径首次启动可能不存在；失败经 `StoreError::Io`
-    ///   可见，ADR-004）。
-    /// - 日期用 UTC（纯 Rust 标准库可算，跨时区确定、可测试）；本地时区午夜轮转
-    ///   随配置系统细化（ADR-023 v1.3 备注）。
-    /// - civil date 换算用 Howard Hinnant days-from-civil 标准算法，不引入 chrono
-    ///   （Rule 7：标准库可解决；新依赖需 ADR）。
-    pub fn next_snapshot(dir: &Path) -> Result<i64, StoreError> {
-        std::fs::create_dir_all(dir).map_err(StoreError::Io)?;
-        let next = daily_seq_paths(dir).last().map_or(0, |(seq, _)| *seq) + 1;
-        let path = dir.join(format!("aster-{}-{next:03}.sqlite", today_iso()));
-        Self::open(&path)?;
-        Ok(next)
-    }
-
-    /// Cmd+S 合并目标：打开指定序号快照文件（T-041，ADR-023 v1.3 决策 2）。
-    ///
-    /// 决策依据：合并 = 把缓冲内容 upsert 进当前快照（提交 / 固化），不是新建
-    /// 文件；序号由 App 在 Cmd+N 时记录。
-    pub fn open_snapshot(dir: &Path, seq: i64) -> Result<Self, StoreError> {
-        let path = dir.join(format!("aster-{}-{seq:03}.sqlite", today_iso()));
-        Self::open(&path)
-    }
-
     /// 自动保存缓冲文件 `<dir>/buffer.sqlite`（T-041，ADR-023 v1.3 决策 2）。
     ///
     /// 决策依据：缓冲 = 崩溃保护的连续工作副本（每次内容变更写入，无需用户
@@ -89,17 +61,6 @@ impl Store {
     pub fn open_buffer(dir: &Path) -> Result<Self, StoreError> {
         std::fs::create_dir_all(dir).map_err(StoreError::Io)?;
         Self::open(&dir.join("buffer.sqlite"))
-    }
-
-    /// 打开当日最高序号快照文件（读取 / 继续；T-040，ADR-023 v1.2 决策 2）。
-    ///
-    /// 决策依据：无文件返回 `None`（调用方显式处理，ADR-004）；序号按数值排序，
-    /// 不依赖零填充的宽度（缺号 / 超 999 都正确）。
-    pub fn open_latest(dir: &Path) -> Result<Option<Self>, StoreError> {
-        let Some((_, path)) = daily_seq_paths(dir).last().cloned() else {
-            return Ok(None);
-        };
-        Self::open(&path).map(Some)
     }
 
     /// 内存数据库（测试 / 临时会话）。
@@ -192,32 +153,6 @@ pub(crate) fn today_iso() -> String {
     let days = secs.div_euclid(86_400);
     let (y, m, d) = civil_from_days(days);
     format!("{y:04}-{m:02}-{d:02}")
-}
-
-/// 当日 `aster-YYYY-MM-DD-<seq>.sqlite` 文件列表，按 seq 数值升序。
-///
-/// 决策依据：序号以数值排序而非词法序（零填充 3 位在 >999 时词法序会错）；
-/// 非当日 / 非本命名规范的文件（如用户放入的其他文件）一律忽略。
-fn daily_seq_paths(dir: &Path) -> Vec<(i64, std::path::PathBuf)> {
-    let prefix = format!("aster-{}-", today_iso());
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    let mut files = entries
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().into_string().ok()?;
-            if !name.starts_with(&prefix) || !name.ends_with(".sqlite") {
-                return None;
-            }
-            let seq: i64 = name[prefix.len()..name.len() - ".sqlite".len()]
-                .parse()
-                .ok()?;
-            Some((seq, entry.path()))
-        })
-        .collect::<Vec<_>>();
-    files.sort_by_key(|(seq, _)| *seq);
-    files
 }
 
 /// 天数（自 1970-01-01）→ (年, 月, 日)，UTC。

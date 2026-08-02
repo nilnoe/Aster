@@ -21,6 +21,7 @@ use crate::buffer::{Buffer, BufferId};
 use crate::document_manager::{DocumentManager, DocumentSource};
 use crate::editor::{Editor, Movement};
 use crate::layout::Layout;
+use crate::snapshot::Snapshot;
 use crate::store::Store;
 
 /// 核心版本号（验证 String 往返；内容来自 Cargo.toml）。
@@ -93,28 +94,39 @@ pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
 //   路径）Deferred 到未来文件系统切片（ADR-023 v1.1 决策 1）。
 // - id 以 usize 透传（ADR-014 惯例）；错误映射为消息字符串（ADR-014 惯例）。
 
-/// Cmd+N：创建当日下一个序号快照文件并返回 seq（T-041，ADR-023 v1.3 决策 2）。
-pub fn store_next_snapshot(dir: String) -> Result<usize, String> {
-    Store::next_snapshot(std::path::Path::new(&dir))
+// --- Snapshot 桥接面（T-042，ADR-023 v1.4） ---
+//
+// 决策依据：快照是纯文本文件（用户反馈 .sqlite 无法在 Buffer 打开）；Cmd+N 创建
+// 文本快照、Cmd+S 把缓冲文本合并进当前快照；错误映射为消息字符串（ADR-014 惯例）。
+
+/// 建立快照目录句柄（App 持有 opaque）。
+pub fn snapshot_new(dir: String) -> Snapshot {
+    Snapshot::new(std::path::PathBuf::from(dir))
+}
+
+/// Cmd+N：创建当日下一个序号文本快照并返回 seq。
+pub fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String> {
+    snapshot
+        .create_next()
         .map(|seq| seq as usize)
         .map_err(|e| format!("{e:?}"))
 }
 
-/// Cmd+S 合并目标：打开当前快照（App 记录 Cmd+N 返回的 seq）。
-pub fn store_open_snapshot(dir: String, seq: usize) -> Result<Store, String> {
-    Store::open_snapshot(std::path::Path::new(&dir), seq as i64).map_err(|e| format!("{e:?}"))
+/// Cmd+S：把缓冲文本合并（覆盖写）进指定序号快照（提交 / 固化）。
+pub fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String> {
+    snapshot
+        .write(seq as i64, &content)
+        .map_err(|e| format!("{e:?}"))
+}
+
+/// 读取快照内容（T-028 恢复 / 测试）。
+pub fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String> {
+    snapshot.read(seq as i64).map_err(|e| format!("{e:?}"))
 }
 
 /// 自动保存缓冲文件（崩溃保护；App 启动时打开并保持连接）。
 pub fn store_open_buffer(dir: String) -> Result<Store, String> {
     Store::open_buffer(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
-}
-
-/// 打开当日最高序号快照（读取 / 继续；无文件报错——测试与 T-028 用）。
-pub fn store_open_latest(dir: String) -> Result<Store, String> {
-    Store::open_latest(std::path::Path::new(&dir))
-        .map_err(|e| format!("{e:?}"))?
-        .ok_or_else(|| "当日还没有保存快照".to_string())
 }
 
 /// Cmd+S 保存点：把 Buffer 文本 upsert 进 scratch 表（ADR-023 v1.1 决策 6）。
@@ -238,16 +250,18 @@ mod ffi {
         fn editor_move_line_end(editor: &mut Editor, extend: bool);
         fn editor_move_doc_start(editor: &mut Editor, extend: bool);
         fn editor_move_doc_end(editor: &mut Editor, extend: bool);
-        fn store_next_snapshot(dir: String) -> Result<usize, String>;
-        fn store_open_snapshot(dir: String, seq: usize) -> Result<Store, String>;
         fn store_open_buffer(dir: String) -> Result<Store, String>;
-        fn store_open_latest(dir: String) -> Result<Store, String>;
         fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>;
         fn store_load_scratch(store: &Store, id: usize) -> Result<String, String>;
+        fn snapshot_new(dir: String) -> Snapshot;
+        fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String>;
+        fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String>;
+        fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String>;
 
         type BufferId;
         type DocumentManager;
         type Editor;
+        type Snapshot;
         type Store;
         #[swift_bridge(init)]
         fn new(id: u64) -> BufferId;

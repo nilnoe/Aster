@@ -38,7 +38,7 @@ Proposed → Accepted
 | ADR-020 | CI 发布流水线 | Accepted | 2026-08-02 | 0（CI 基础设施） | .github/workflows/ci-release.yml、release.md | [ADR-020-ci-release-pipeline.md](ADR-020-ci-release-pipeline.md) |
 | ADR-021 | 性能基准体系（criterion）（v1.1：CI 阈值告警） | Accepted | 2026-08-02 | 0（dev-only） | core（benches）、docs/benchmarks.md、.github/workflows/ci-bench.yml、bench-baseline/ | [ADR-021-performance-benchmarks.md](ADR-021-performance-benchmarks.md) |
 | ADR-022 | 属性测试（proptest）与审计记录制度（v1.1：fuzz 扩展） | Accepted | 2026-08-02 | 0（dev-only + 文档） | core（tests/property.rs）、docs/audits.md、WORKFLOW | [ADR-022-property-tests-audit-log.md](ADR-022-property-tests-audit-log.md) |
-| ADR-023 | 保存语义：SQLite 缓冲 + 快照（v1.3：Cmd+N 新快照 / 自动保存缓冲文件 / Cmd+S 合并；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Store 4 方法 + 1 错误变体 + Bridge FFI 6 项（v1.3） | core（store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
+| ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.4：Cmd+N 新文本快照 / 自动保存缓冲 / Cmd+S 合并；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Snapshot 5 方法 + Bridge FFI 5 项（v1.4） | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
 
 ## 触发规则
 

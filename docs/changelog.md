@@ -114,6 +114,22 @@
   civil date）+ Bridge 3 项（合并读回、缓冲往返、scratch id 递增）+ App 1 项
   （菜单 ⌘N）
 
+### Changed — 2026-08-02（T-042 快照改为纯文本，ADR-023 v1.4，用户反馈）
+
+- **修正（用户反馈）**：快照文件是 .sqlite 数据库时无法在 Buffer 打开——提交产物
+  必须是可打开的文本文件。**快照改为纯文本** `aster-YYYY-MM-DD-<seq>.txt`
+  （Cmd+N 创建、Cmd+S 合并缓冲文本进当前快照，可直接在 Buffer / 任意编辑器打开）；
+  SQLite 只保留缓冲（buffer.sqlite，崩溃保护）
+- feat(core)：新增 `snapshot` 模块（`Snapshot`：日期 + 序号轮转、创建 / 写 / 读 /
+  latest_seq；复用 store 的 today_iso）；Store 移除 SQLite 快照 API（next_snapshot /
+  open_snapshot / open_latest，Rule 12/14：无消费者立即删除，职责回归 SRP）
+- feat(bridge)：Snapshot FFI 5 项（snapshot_new / snapshot_create_next /
+  snapshot_write / snapshot_read + 缓冲 store_open_buffer / save / load）；
+  移除 store_next_snapshot / store_open_snapshot / store_open_latest
+- feat(app)：Cmd+N / Cmd+S 改走文本快照；缓冲自动保存不变
+- test：Core 4 项（snapshot 模块：序号递增 / 缺号 / 纯文本往返 / latest）+ Bridge
+  3 项（快照往返、.txt 断言、缓冲往返）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

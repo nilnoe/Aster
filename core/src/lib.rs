@@ -17,6 +17,7 @@ mod history;
 mod layout;
 mod lua;
 mod selection;
+mod snapshot;
 mod store;
 mod theme;
 
@@ -30,5 +31,6 @@ pub use history::{EditOp, History};
 pub use layout::Layout;
 pub use lua::{LuaError, LuaRuntime};
 pub use selection::Selection;
+pub use snapshot::Snapshot;
 pub use store::{SessionDocument, Store, StoreError};
 pub use theme::{Color, Theme, ThemeError};
