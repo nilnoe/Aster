@@ -217,22 +217,6 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     (y, m, d)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::civil_from_days;
-
-    /// 已知 epoch 天数 → 日期（数值来自 UTC 历法，2026-08-02 = 20667 等）。
-    #[test]
-    fn civil_from_days_known_epochs() {
-        assert_eq!(civil_from_days(0), (1970, 1, 1));
-        assert_eq!(civil_from_days(20_667), (2026, 8, 2));
-        assert_eq!(civil_from_days(19_782), (2024, 2, 29), "闰年 2/29");
-        assert_eq!(civil_from_days(19_783), (2024, 3, 1));
-        assert_eq!(civil_from_days(11_016), (2000, 2, 29), "400 年闰 2000");
-        assert_eq!(civil_from_days(-25_509), (1900, 2, 28), "100 年不闰 1900");
-    }
-}
-
 /// 初始化 v1 schema；`user_version` 作为未来迁移的锚点（T-021）。
 fn init_schema(conn: &Connection) -> Result<(), StoreError> {
     conn.execute_batch(
@@ -252,4 +236,20 @@ fn init_schema(conn: &Connection) -> Result<(), StoreError> {
          );",
     )
     .map_err(StoreError::Sqlite)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::civil_from_days;
+
+    /// 已知 epoch 天数 → 日期（数值来自 UTC 历法，2026-08-02 = 20667 等）。
+    #[test]
+    fn civil_from_days_known_epochs() {
+        assert_eq!(civil_from_days(0), (1970, 1, 1));
+        assert_eq!(civil_from_days(20_667), (2026, 8, 2));
+        assert_eq!(civil_from_days(19_782), (2024, 2, 29), "闰年 2/29");
+        assert_eq!(civil_from_days(19_783), (2024, 3, 1));
+        assert_eq!(civil_from_days(11_016), (2000, 2, 29), "400 年闰 2000");
+        assert_eq!(civil_from_days(-25_509), (1900, 2, 28), "100 年不闰 1900");
+    }
 }
