@@ -28,7 +28,7 @@
 ## Phase 2 — 系统集成
 
 - [x] T-010 swift-bridge 接入（spike，验证 API 面）
-- [ ] T-011 AppKit 壳：Window + Menu + 空白视图
+- [x] T-011 AppKit 壳：Window + Menu + 空白视图
 - [ ] T-012 Metal 渲染管线：文本渲染 spike（CoreText + IME + CJK）
 - [ ] T-013 编辑循环：键盘输入、光标、滚动、选择
 - [ ] T-014 系统集成：深浅色跟随、拖放、剪贴板、文档选择器
@@ -57,7 +57,7 @@
 
 顺序仅供参考，具体切片可能因 Analysis 阶段的新证据调整；任何调整必须先反映在 ADR 中。
 
-当前下一步：**T-011 AppKit 壳：Window + Menu + 空白视图**。
+当前下一步：**T-012 Metal 渲染管线：文本渲染 spike（CoreText + IME + CJK）**。
 
 ## 复审政策
 

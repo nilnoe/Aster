@@ -11,6 +11,7 @@ bridge/artifacts/
 bridge/Sources/AsterBridge/
 bridge/Sources/CAsterBridge/*.h
 bridge/.build/
+app/.build/
 *.xcuserstate
 xcuserdata/
 .swiftpm/

@@ -26,8 +26,10 @@ jobs:
       - name: Build Rust staticlib + generate bindings
         run: ./bridge/build.sh
       - name: Format (hand-written Swift; Sources 为生成绑定，工具产物不 lint)
-        run: swift-format lint --recursive Tests
-        working-directory: bridge
-      - name: Test
+        run: swift-format lint --recursive bridge/Tests app/Tests
+      - name: Test bridge
         run: swift test
         working-directory: bridge
+      - name: Test app
+        run: swift test
+        working-directory: app

@@ -4,9 +4,9 @@
 
 ## 项目现状速览（截至 2026-08-02）
 
-- **代码：** Rust Core 已完成 T-001 ~ T-010，`core/src` 共 1283 行，94 个测试全绿；bridge/ Swift 包 3 个 XCTest 全绿。
-- **决策：** ADR-001 ~ ADR-014 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-011（AppKit 壳：Window + Menu + 空白视图）。
+- **代码：** Rust Core 已完成 T-001 ~ T-010（core 1283 行 / 94 测试）；bridge/ 3 个 XCTest；app/ 4 个 XCTest，全绿。
+- **决策：** ADR-001 ~ ADR-015 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-012（Metal 渲染管线：文本渲染 spike）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
 
@@ -44,6 +44,8 @@
     - **Rust staticlib 不向 Swift 链接器传播传递静态依赖**：mlua vendored 的 `liblua5.4.a` 与 rusqlite bundled 的 `libsqlite3.a` 需在 Swift 包显式 `-llua5.4 -lsqlite3`（build.sh 里 find + 复制）。
     - Swift C importer 会把 `__swift_bridge__$*` 符号名改名成 `___swift_bridge__$*`（3 下划线），Rust 导出与 Swift 引用天然一致，无需处理。
     - manifest 的 `#filePath` 可能丢前导斜杠；`-L` 必须保证绝对路径。
+16. **SPM 跨包消费要点**（T-011）：依赖包必须声明 `products: [.library(...)]` 才能被消费；`.product(name:package:)` 的 `package` 参数是**目录名**（如 `bridge`）而非包内 name；`@testable import` 可测试 executable target（Swift 5.5+）。
+17. **Swift App 规模预算自 T-011 生效**：app/ 源码计入宪法 Rule 12（≤5,000 行）；AppKit 壳保持 ~160 行，新 UI 切片需持续记账。
 
 ## 架构决策速查（勿重新讨论，除非出现新数据）
 

@@ -45,6 +45,15 @@ swift-format lint --recursive Sources Tests
 swift test
 ```
 
+### App（AppKit 壳）
+
+```text
+cd app && swift run          # 启动编辑器（单个空白窗口）
+cd app && swift test         # 薄测试（AppInfo / 菜单结构）
+```
+
+app 依赖 bridge 的 AsterBridge 产品（本地包）；运行前先执行 `./bridge/build.sh` 生成绑定与 staticlib（T-011，ADR-015）。
+
 ### 构建运行
 
 首个代码切片落地后补充具体命令（如 `xcodebuild` / `swift run`）。

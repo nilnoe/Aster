@@ -17,6 +17,9 @@ let packageDir = rawPackageDir.hasPrefix("/") ? rawPackageDir : "/" + rawPackage
 
 let package = Package(
     name: "AsterBridge",
+    products: [
+        .library(name: "AsterBridge", targets: ["AsterBridge"]),
+    ],
     targets: [
         .systemLibrary(
             name: "CAsterBridge",

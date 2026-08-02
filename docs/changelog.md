@@ -74,3 +74,6 @@
 - [ADR-014](../docs/adr/ADR-014-swift-bridge-spike.md) — Swift Bridge 接入 spike（swift-bridge 0.1.59 + swift-bridge-build，Accepted）
 - feat(bridge)：swift-bridge 接入 spike（T-010，ADR-014）——core `bridge` 模块（Buffer / BufferId 桥接面 + `buffer_insert` 适配）；bridge/ Swift Package（systemLibrary C 模块 + staticlib 链接）；3 个 XCTest 契约测试；新增依赖 swift-bridge、swift-bridge-build（Rule 7 / 8 论证见 ADR-014）
 - ci(swift)：CI-Swift 作业改为先跑 `bridge/build.sh` 再 lint / test（生成绑定 + staticlib 链接进测试）
+- [ADR-015](../docs/adr/ADR-015-appkit-shell.md) — AppKit 壳（程序化启动、最小菜单集、版本单一来源，Accepted）
+- feat(app)：AppKit 壳（T-011，ADR-015）——`main.swift` 程序化启动 + 空白 NSWindow + 最小菜单（App / Edit / Window）；关于面板版本号经 Bridge 来自 Core；4 个 XCTest（含 App → Bridge → Core 垂直线程）；Swift App 规模预算自此生效
+- ci(swift)：CI-Swift 增加 app 包 lint 与 test

@@ -29,6 +29,7 @@
 | Lua 命令分发（load 脚本 + execute 10k 次，ms） | TBD | TBD | — | T-008 / ADR-012 | 2026-08-02 | 无量化目标；mlua vendored Lua 5.4 |
 | SQLite Scratch 保存 / 加载（10k 次，ms） | TBD | TBD | — | T-009 / ADR-013 | 2026-08-02 | 无量化目标；rusqlite bundled |
 | Swift → Rust 往返调用（10k 次，ms） | TBD | TBD | — | T-010 / ADR-014 | 2026-08-02 | 无量化目标；spike 验证全链路 |
+| App 冷启动（ms） | TBD | TBD | — | T-011 / ADR-015 | 2026-08-02 | 无量化目标；首个 App 切片，正式基线 T-020 |
 
 ## 测量规则
 
