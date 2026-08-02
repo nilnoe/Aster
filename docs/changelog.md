@@ -17,6 +17,19 @@
   改为按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），缓存键含
   pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形大于 1×
 
+### Added — 2026-08-02（续 T-013）
+
+- feat(core)：编辑循环（T-013，ADR-017）——新增 `Editor` 模块（Buffer + Selection +
+  History 协调者）：`type_text`（选区替换，`EditOp::Replace` 一次 undo 撤销）、
+  `delete_backward`（UTF-8 字符边界）、`move_cursor`（8 方向 + Shift 扩展，行/列
+  字节列语义）、`undo`/`redo`（光标折叠到操作点）、`select_all`、`set_selection`
+- [ADR-017](../docs/adr/ADR-017-editor-loop.md) — 编辑循环决策：编辑语义全部落 Core，
+  命令/激活文档接线推迟到 T-015，IME 内联组合模型，滚动为视图状态
+- feat(app)：Metal 编辑视图（T-013，ADR-017）——方向键/退格/回车直连 Core、
+  IME 组合文本内联光标处 + 下划线、点击定位/拖选、滚轮滚动与光标可见性、
+  Edit 菜单撤销/重做/全选接线；新增 `LineLayout`（shaping 一次多查询）与
+  `MetalPipeline`（管线资源拆出，Rule 3）
+
 ### Added — 2026-08-02
 
 - feat(app)：Metal 文本渲染管线 spike（T-012，ADR-016）——空白视图替换为 MTKView；

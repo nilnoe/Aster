@@ -2,14 +2,14 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-012 完成）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-013 完成）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-010（buffer / selection / history / layout / theme / command / event / lua / store / bridge），`core/src` 共 1321 行，96 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
-  - bridge/：swift-bridge 绑定 Swift Package（6 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 文本渲染（15 个 XCTest 全绿），源码 830 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
-- **决策：** ADR-001 ~ ADR-016 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-013（编辑循环：键盘输入、光标、滚动、选择）。
+  - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，107 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
+  - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
+  - app/：AppKit 壳 + Metal 编辑视图（26 个 XCTest 全绿），源码 1226 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+- **决策：** ADR-001 ~ ADR-017 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-014（系统集成：深浅色跟随、拖放、剪贴板、文档选择器）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
 - **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
@@ -73,6 +73,7 @@
 | Bridge 构建 | swift-bridge 0.1.59 + `bridge/build.sh`；staticlib + lua/sqlite 传递依赖显式链接进 Swift 包 | swift-bridge 升级（major）另走 ADR（依赖政策） |
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
 | 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 增量失效 / 光标 / 滚动随 T-013 细化（ADR-016）；颜色接 Theme 在 T-014 |
+| 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-015；剪贴板 / 拖放 / 深浅色随 T-014 |
 
 ## 踩坑记录（可追加）
 
@@ -98,6 +99,14 @@
 | 2026-08-02 | T-012 | CGBitmapContext 内存行序与 Metal 纹理行序的坐标映射 | 默认上下文 y 向上：纹理行 r ↔ 用户 y = H - r；字形放进图集矩形 (x,y,w,h) 后基线 y = H - y - h - bounds.minY；用像素测试（读回纹理）验证，别凭直觉 |
 | 2026-08-02 | T-012 | app 测试 target 直接写 `AsterBridge` 依赖名报 not found | 跨包产品必须 `.product(name: "AsterBridge", package: "bridge")`；裸名只对同包 target 有效 |
 | 2026-08-02 | BUG-001 | Retina 下文本渲染模糊：图集按 pt 栅格化而 quad 按 px 绘制，2× 线性放大 | 图集按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），键含 pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形 > 1× |
+| 2026-08-02 | T-013 | 编辑测试三连失败全是测试 bug（光标初始在 0、UTF-8 字节数算错、列语义算错） | 再次印证"测试失败先自查测试"；断言前先推演光标状态与字节区间 |
+| 2026-08-02 | T-013 | `XCTAssertEqual((Int, Int), ...)` 编译报 tuple 不 Equatable | 拆成两个单值断言 |
+| 2026-08-02 | T-013 | `undo(_:)`/`redo(_:)` 加 override 报"does not override"；`selectAll(_:)` 不加报"requires override" | NSResponder 无 undo:/redo: 方法（菜单用字符串 Selector），但有 selectAll:；分别对待 |
+| 2026-08-02 | T-013 | IME 区间单位混用：selectedRange/markedRange 的 location 是 UTF-16，Core 光标是字节 | 一律经 EditorModel 的 `utf16Range(fromByteRange:)` 换算；组合文本的 markedRange 用 displayText 前缀长度计算，不能直接拿 Buffer 字节 |
+| 2026-08-02 | T-013 | 选区替换需要"一步撤销"：Insert+Delete 两条记录要按两次撤销 | `EditOp::Replace { at, end, deleted, text }`：保存被删文本，逆操作自足（ADR-008 原则）；History 合并规则不受影响 |
+| 2026-08-02 | T-013 | swift-bridge 枚举桥接（Movement）有 already_declared 手写 FFI 风险 | 桥接面拆成 8 个方向函数（`editor_move_left` 等），Core 保留 Movement 枚举供 Rust/测试使用 |
+| 2026-08-02 | T-013 | TextRenderer 达 303 行超 Rule 3 | 拆出 `MetalPipeline.swift`（shader/管线/采样器）；渲染顶点生成与管线资源分离 |
+| 2026-08-02 | T-013 | 方向键用 selector 名（moveLeft: 等）脆弱，且 doCommand 只收到部分 | keyDown 按 keyCode（123-126/51/36/53）+ modifierFlags 直连，普通字符与 IME 仍走 interpretKeyEvents |
 
 ## 给下一个 agent 的提醒
 
@@ -106,5 +115,5 @@
 - 测试先红后绿；测试失败先自查测试。
 - 提交前五项门禁 + 规模检查（CI 有机械检查，本地也可跑）。
 - 每次切片遇到新问题，把解法追加到上面的踩坑记录。
-- **T-013 前置**：光标 / 选区 / 滚动需要 Layout 的 `line_range` 与 UTF-8 ↔ UTF-16 换算（当前 bridge 只有 `line_starts`）；Buffer 编辑后 `Layout` 需重建（ADR-009），字形图集无需因文本变化失效（字形与内容无关）；IME 的 `replacementRange` / `selectedRange` 目前是 spike stub，T-013 接真实光标状态；`TextRenderer` 已 280 行接近上限，增量失效若需扩容先精简。
+- **T-014 前置**：深浅色跟随（窗口 appearance + Theme 模型 T-006 接线）、剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；颜色进顶点已由 ADR-016 预留；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-015（ADR-017 备注）。
 - **快速启动命令**：`cargo test`（core）；`./bridge/build.sh && cd bridge && swift test`；`cd app && swift test`；`cd app && swift run`（GUI，会开窗口）。

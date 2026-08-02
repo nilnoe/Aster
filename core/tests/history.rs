@@ -21,6 +21,10 @@ fn apply_and_record(b: &mut Buffer, h: &mut History, op: EditOp) {
         EditOp::Delete { at, text } => {
             b.delete(*at, *at + text.len()).unwrap();
         }
+        EditOp::Replace { at, end, text, .. } => {
+            b.delete(*at, *end).unwrap();
+            b.insert(*at, text).unwrap();
+        }
     }
     h.record(op);
 }

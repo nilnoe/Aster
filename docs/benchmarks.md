@@ -24,6 +24,7 @@
 | Selection 基础操作（10k 次，ms） | TBD | TBD | — | T-003 / ADR-007 | 2026-08-02 | 无量化目标；纯值类型 |
 | DocumentManager 基础操作（open/close 10k 次，ms） | TBD | TBD | — | T-002 / ADR-001 | 2026-08-02 | 无量化目标；HashMap 注册表 |
 | Undo / Redo 基础操作（10k 次，ms） | TBD | TBD | — | T-004 / ADR-008 | 2026-08-02 | 无量化目标；操作栈 |
+| Editor 基础操作（10k type + 10k delete，ms） | TBD | 0.83 | 建立 | T-013 / ADR-017 | 2026-08-02 | release 构建；Apple M4 / macOS 26.5.1；含历史记录，正式基准 T-020 |
 | Layout 构建 1MB（ms）与 line_at 10k 次（ms） | TBD | TBD | — | T-005 / ADR-009 | 2026-08-02 | 无量化目标；O(n) 构建 |
 | Theme DSL 解析（parse 10k 次，ms） | TBD | TBD | — | T-006 / ADR-010 | 2026-08-02 | 无量化目标；行级手写解析器 |
 | Command 分发 + Event 广播（execute/emit 10k 次，ms） | TBD | TBD | — | T-007 / ADR-011 | 2026-08-02 | 无量化目标；HashMap 查表 + Vec 广播 |

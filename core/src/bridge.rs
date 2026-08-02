@@ -18,6 +18,7 @@
 #![allow(clippy::unnecessary_cast)]
 
 use crate::buffer::{Buffer, BufferId};
+use crate::editor::{Editor, Movement};
 use crate::layout::Layout;
 
 /// 核心版本号（验证 String 往返；内容来自 Cargo.toml）。
@@ -42,6 +43,78 @@ pub fn layout_line_starts(text: String) -> Vec<usize> {
     Layout::build(&text).line_starts().to_vec()
 }
 
+// --- Editor 桥接面（T-013，ADR-017） ---
+//
+// 决策依据：
+// - 移动方向用 8 个独立函数而非桥接 `Movement` 枚举：swift-bridge 0.1.59 对
+//   already_declared 枚举需手写 FFI 胶水（ADR-014 备注），机械拆分零风险；
+//   Core 侧仍保留 Movement 供 Rust 调用方与测试使用。
+// - 编辑操作的错误映射为消息字符串（ADR-014 惯例）；成功返回光标位置（head）
+//   或 bool，UI 无需回读整段状态。
+
+pub fn editor_new(buffer: Buffer) -> Editor {
+    Editor::new(buffer)
+}
+
+pub fn editor_text(editor: &Editor) -> &str {
+    editor.text()
+}
+
+pub fn editor_selection_start(editor: &Editor) -> usize {
+    editor.selection().start()
+}
+
+pub fn editor_selection_end(editor: &Editor) -> usize {
+    editor.selection().end()
+}
+
+pub fn editor_selection_head(editor: &Editor) -> usize {
+    editor.selection().head()
+}
+
+pub fn editor_type_text(editor: &mut Editor, s: String) -> Result<usize, String> {
+    editor.type_text(&s).map_err(|e| format!("{e:?}"))?;
+    Ok(editor.selection().head())
+}
+
+pub fn editor_delete_backward(editor: &mut Editor) -> Result<usize, String> {
+    editor.delete_backward().map_err(|e| format!("{e:?}"))?;
+    Ok(editor.selection().head())
+}
+
+pub fn editor_undo(editor: &mut Editor) -> Result<bool, String> {
+    editor.undo().map_err(|e| format!("{e:?}"))
+}
+
+pub fn editor_redo(editor: &mut Editor) -> Result<bool, String> {
+    editor.redo().map_err(|e| format!("{e:?}"))
+}
+
+pub fn editor_select_all(editor: &mut Editor) {
+    editor.select_all();
+}
+
+pub fn editor_set_selection(editor: &mut Editor, anchor: usize, head: usize) {
+    editor.set_selection(anchor, head);
+}
+
+macro_rules! editor_move_fn {
+    ($name:ident, $movement:ident) => {
+        pub fn $name(editor: &mut Editor, extend: bool) {
+            editor.move_cursor(Movement::$movement, extend);
+        }
+    };
+}
+
+editor_move_fn!(editor_move_left, Left);
+editor_move_fn!(editor_move_right, Right);
+editor_move_fn!(editor_move_up, Up);
+editor_move_fn!(editor_move_down, Down);
+editor_move_fn!(editor_move_line_start, LineStart);
+editor_move_fn!(editor_move_line_end, LineEnd);
+editor_move_fn!(editor_move_doc_start, DocStart);
+editor_move_fn!(editor_move_doc_end, DocEnd);
+
 #[swift_bridge::bridge]
 // 决策依据：生成的 FFI 胶水含同类型指针转换（如 `*mut Buffer as *mut Buffer`），
 // clippy 视其为 unnecessary_cast；这是代码生成器输出而非手写代码，允许该 lint。
@@ -51,8 +124,28 @@ mod ffi {
         fn core_version() -> String;
         fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize, String>;
         fn layout_line_starts(text: String) -> Vec<usize>;
+        fn editor_new(buffer: Buffer) -> Editor;
+        fn editor_text(editor: &Editor) -> &str;
+        fn editor_selection_start(editor: &Editor) -> usize;
+        fn editor_selection_end(editor: &Editor) -> usize;
+        fn editor_selection_head(editor: &Editor) -> usize;
+        fn editor_type_text(editor: &mut Editor, s: String) -> Result<usize, String>;
+        fn editor_delete_backward(editor: &mut Editor) -> Result<usize, String>;
+        fn editor_undo(editor: &mut Editor) -> Result<bool, String>;
+        fn editor_redo(editor: &mut Editor) -> Result<bool, String>;
+        fn editor_select_all(editor: &mut Editor);
+        fn editor_set_selection(editor: &mut Editor, anchor: usize, head: usize);
+        fn editor_move_left(editor: &mut Editor, extend: bool);
+        fn editor_move_right(editor: &mut Editor, extend: bool);
+        fn editor_move_up(editor: &mut Editor, extend: bool);
+        fn editor_move_down(editor: &mut Editor, extend: bool);
+        fn editor_move_line_start(editor: &mut Editor, extend: bool);
+        fn editor_move_line_end(editor: &mut Editor, extend: bool);
+        fn editor_move_doc_start(editor: &mut Editor, extend: bool);
+        fn editor_move_doc_end(editor: &mut Editor, extend: bool);
 
         type BufferId;
+        type Editor;
         #[swift_bridge(init)]
         fn new(id: u64) -> BufferId;
         fn as_u64(self: &BufferId) -> u64;

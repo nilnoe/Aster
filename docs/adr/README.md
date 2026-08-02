@@ -32,6 +32,7 @@ Proposed → Accepted
 | ADR-014 | Swift Bridge 接入（spike） | Accepted | 2026-08-02 | 桥接 FFI 面 5 项 + 2 依赖 | Core（bridge 模块）、bridge/ | [ADR-014-swift-bridge-spike.md](ADR-014-swift-bridge-spike.md) |
 | ADR-015 | AppKit 壳（Window / Menu） | Accepted | 2026-08-02 | 0（可执行目标） | app/ | [ADR-015-appkit-shell.md](ADR-015-appkit-shell.md) |
 | ADR-016 | Metal 文本渲染管线（spike） | Accepted | 2026-08-02 | 1 个 Bridge FFI | app/、core（bridge/layout） | [ADR-016-metal-text-rendering.md](ADR-016-metal-text-rendering.md) |
+| ADR-017 | 编辑循环（Editor 模块） | Accepted | 2026-08-02 | Core 8 API + Bridge 16 函数 | core（新增 editor）、bridge、app/ | [ADR-017-editor-loop.md](ADR-017-editor-loop.md) |
 
 ## 触发规则
 

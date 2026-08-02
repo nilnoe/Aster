@@ -18,6 +18,16 @@ pub enum EditOp {
     Insert { at: usize, text: String },
     /// 删除从字节偏移 `at` 开始的 `text.len()` 个字节。
     Delete { at: usize, text: String },
+    /// 用 `text` 替换 `[at, end)` 区间（ADR-017：选区替换一次 undo 撤销）。
+    ///
+    /// 决策依据：替换 = 删除 + 插入两步，若记录两条 op 需要按两次撤销；
+    /// 保存被删文本 `deleted` 使逆操作不依赖 Buffer 历史内容（ADR-008 原则）。
+    Replace {
+        at: usize,
+        end: usize,
+        deleted: String,
+        text: String,
+    },
 }
 
 impl EditOp {
@@ -32,6 +42,17 @@ impl EditOp {
                 at: *at,
                 text: text.clone(),
             },
+            EditOp::Replace {
+                at,
+                end: _,
+                deleted,
+                text,
+            } => EditOp::Replace {
+                at: *at,
+                end: *at + text.len(),
+                deleted: text.clone(),
+                text: deleted.clone(),
+            },
         }
     }
 
@@ -40,6 +61,12 @@ impl EditOp {
         match self {
             EditOp::Insert { at, text } => buffer.insert(*at, text).map(|_| ()),
             EditOp::Delete { at, text } => buffer.delete(*at, *at + text.len()).map(|_| ()),
+            EditOp::Replace { at, end, text, .. } => {
+                buffer.delete(*at, *end)?;
+                // 决策依据：`at` 已由 delete 验证为字符边界，`text` 是合法 &str，
+                // insert 在此处实践上不可能失败；不为理论路径引入事务回滚（Rule 9）。
+                buffer.insert(*at, text).map(|_| ())
+            }
         }
     }
 }

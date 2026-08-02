@@ -9,7 +9,7 @@
 | Core（Rust） | 单元测试 / 属性测试 | Buffer、Undo、Layout、Theme、Command、Event 等纯逻辑，不依赖 I/O |
 | Core（Rust） | 集成测试 | SQLite 持久化、PTY 会话、Lua 宿主 |
 | Bridge | 集成测试 | Swift ↔ Rust 往返调用；API 签名与行为契约 |
-| App（Swift） | 薄测试 | 仅测抽出的逻辑（T-012 起：输入状态机 / 图集分配器 / 字形图集像素读回，无 GPU 时跳过）；View 层靠手动验证与基准 |
+| App（Swift） | 薄测试 | 仅测抽出的逻辑（T-012 起：输入状态机 / 图集分配器 / 字形图集像素读回 / LineLayout 命中换算；无 GPU 时跳过）；View 层靠手动验证与基准 |
 | 性能 | benchmark | 见 [docs/benchmarks.md](benchmarks.md)；每个切片刷新基线 |
 
 ## 规则

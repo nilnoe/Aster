@@ -1,35 +1,36 @@
-//! Metal 渲染视图（T-012，ADR-016）。
+//! Metal 渲染视图（T-012 ADR-016 + T-013 ADR-017 扩展）。
 //!
 //! 决策依据：
-//! - IME 用系统 `NSTextInputClient`（Principle 4：不实现输入法）：`keyDown` →
-//!   `interpretKeyEvents`，系统回调 `setMarkedText` / `insertText`；组合文本渲染 +
-//!   提交写回 Core 是本切片闭环，光标 / 替换区间状态机属 T-013。
-//! - 事件驱动刷新：文本变化置 `needsDisplay`（`enableSetNeedsDisplay` + 暂停自绘循环），
-//!   无轮询（ADR Performance Goals）。
-//! - `insertText` 错误经 NSLog 可见（ADR-004：失败要可见）。
+//! - 键盘 / 鼠标 / 滚轮只做事件采集与坐标换算，编辑决策全部进 Core `Editor`
+//!   （薄 UI，docs/testing.md）；方向键 / 退格按 keyCode 直连（比 selector 名字
+//!   可靠），普通字符与 IME 走 `interpretKeyEvents`（系统能力，Principle 4）。
+//! - 滚动是视图状态（ADR-017）：`scrollY` 点值，编辑 / 移动后滚到光标可见。
+//! - 菜单动作（撤销 / 重做 / 全选）经响应链到本视图（ADR-015 菜单接线）。
+//! - IME 区间（UTF-16）经 EditorModel 换算成字节后进 Core（ADR-017 备注）。
 
 import AppKit
 import MetalKit
 
 @MainActor
-// `@MainActor NSTextInputClient`：隔离 conformance——协议本身非主 actor 隔离，
-// 而实现必须访问主 actor 状态（模型 / 视图），显式把该 conformance 钉在主 actor 上
-// （Swift 6.2 #ConformanceIsolation；AppKit 仅在主线程回调这些方法）。
+// 隔离 conformance：协议非主 actor 隔离，实现访问主 actor 状态（Swift 6.2
+// #ConformanceIsolation；AppKit 仅在主线程回调，ADR-016 备注）。
 final class MetalView: MTKView, @MainActor NSTextInputClient {
   private let model: EditorModel
   private let renderer: TextRenderer
+  private var scrollY: CGFloat = 0
+  private var mouseAnchorByte = 0
 
   init(frame: NSRect, model: EditorModel) {
     guard let device = MTLCreateSystemDefaultDevice() else {
       preconditionFailure("Metal 不可用（T-012，ADR-016）")
     }
     self.model = model
-    self.renderer = TextRenderer(device: device, model: model)
+    self.renderer = TextRenderer(device: device)
     super.init(frame: frame, device: device)
     clearColor = MTLClearColor(red: 0.13, green: 0.13, blue: 0.15, alpha: 1)
     enableSetNeedsDisplay = true
     isPaused = true
-    delegate = renderer
+    delegate = self
   }
 
   @available(*, unavailable)
@@ -42,10 +43,11 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
   func insertText(_ string: Any, replacementRange: NSRange) {
     guard let text = Self.text(from: string) else { return }
     do {
-      try model.insertText(text)
+      try model.insertText(text, replacementUTF16: replacementRange)
     } catch {
       NSLog("insertText 写入 Core 失败：\(error)")
     }
+    scrollCursorIntoView()
     needsDisplay = true
   }
 
@@ -60,14 +62,16 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
   }
 
   func selectedRange() -> NSRange {
-    // spike：插入点恒在文本末尾（UTF-16 长度供系统输入上下文定位）。
-    NSRange(location: (model.displayText as NSString).length, length: 0)
+    if model.hasMarkedText {
+      // 组合期间光标在组合文本之后（UTF-16）。
+      return NSRange(
+        location: model.markedUTF16Range.location + model.composition.utf16.count, length: 0)
+    }
+    return model.utf16Range(fromByteRange: model.selectionStartByte..<model.selectionEndByte)
   }
 
   func markedRange() -> NSRange {
-    guard model.hasMarkedText else { return NSRange(location: NSNotFound, length: 0) }
-    let location = (model.bufferText as NSString).length
-    return NSRange(location: location, length: (model.composition as NSString).length)
+    model.markedUTF16Range
   }
 
   func hasMarkedText() -> Bool { model.hasMarkedText }
@@ -75,7 +79,7 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
   func attributedSubstring(forProposedRange range: NSRange, actualRange: NSRangePointer?)
     -> NSAttributedString?
   {
-    nil  // spike：无选区文本访问需求（T-013 实现）
+    nil  // 无选区文本访问需求（T-013 选择渲染经 Core 选区，不读 attributed text）
   }
 
   func validAttributesForMarkedText() -> [NSAttributedString.Key] {
@@ -84,32 +88,144 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
 
   func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
     actualRange?.pointee = range
-    // spike：插入点在文本末尾——返回末行基线附近的窗口坐标矩形（T-013 精确化）。
-    let caret = NSRect(x: bounds.maxX - 2, y: bounds.maxY - 40, width: 2, height: 20)
+    // 组合候选框跟随光标行（spike 近似：行首到行中；T-013 后按字符精确化）。
+    let line = model.lineIndex(ofByteOffset: model.cursorByte)
+    let lineTop = CGFloat(line) * renderer.lineHeightPts - scrollY
+    let caret = NSRect(
+      x: bounds.midX,
+      y: bounds.maxY - lineTop - renderer.lineHeightPts * 0.5,
+      width: 2,
+      height: renderer.lineHeightPts * 0.8
+    )
     return window?.convertToScreen(convert(caret, to: nil)) ?? caret
   }
 
   func characterIndex(for point: NSPoint) -> Int {
-    (model.displayText as NSString).length  // spike：全部输入落在末尾
+    byteOffset(at: point)
   }
 
   override func doCommand(by selector: Selector) {
-    // 光标移动 / 删除等编辑命令属 T-013 编辑循环（ADR-016 备注）。
+    // 移动 / 删除已在 keyDown 直连；其余命令（如完整移动族）本切片不接。
   }
 
-  // MARK: - 键盘与焦点
+  // MARK: - 键盘（方向 / 退格 / 回车直连，其余走系统输入管线）
 
   override func keyDown(with event: NSEvent) {
-    interpretKeyEvents([event])
+    let modifiers = event.modifierFlags
+    let shift = modifiers.contains(.shift)
+    let command = modifiers.contains(.command)
+    switch event.keyCode {
+    case 123:  // ←
+      model.move(command ? .lineStart : .left, extend: shift)
+    case 124:  // →
+      model.move(command ? .lineEnd : .right, extend: shift)
+    case 125:  // ↓
+      model.move(command ? .docEnd : .down, extend: shift)
+    case 126:  // ↑
+      model.move(command ? .docStart : .up, extend: shift)
+    case 51:  // delete（退格）
+      do {
+        try model.deleteBackward()
+      } catch {
+        NSLog("deleteBackward 失败：\(error)")
+      }
+    case 36:  // 回车
+      do {
+        try model.typeText("\n")
+      } catch {
+        NSLog("insertNewline 失败：\(error)")
+      }
+    case 53:  // Esc：取消组合
+      model.unmarkText()
+    default:
+      interpretKeyEvents([event])
+      needsDisplay = true
+      return
+    }
+    scrollCursorIntoView()
+    needsDisplay = true
   }
 
-  override var acceptsFirstResponder: Bool { true }
+  // MARK: - 鼠标（点击定位 / 拖选）
 
-  override func becomeFirstResponder() -> Bool { true }
-
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
+  override func mouseDown(with event: NSEvent) {
     window?.makeFirstResponder(self)
+    mouseAnchorByte = byteOffset(at: convert(event.locationInWindow, from: nil))
+    model.setSelection(anchor: mouseAnchorByte, head: mouseAnchorByte)
+    needsDisplay = true
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    let head = byteOffset(at: convert(event.locationInWindow, from: nil))
+    model.setSelection(anchor: mouseAnchorByte, head: head)
+    scrollCursorIntoView()
+    needsDisplay = true
+  }
+
+  // MARK: - 滚动
+
+  override func scrollWheel(with event: NSEvent) {
+    scrollY -= event.scrollingDeltaY
+    clampScroll()
+    needsDisplay = true
+  }
+
+  // MARK: - 菜单动作（Edit 菜单经响应链，ADR-015 接线）
+
+  @objc func undo(_ sender: Any?) {
+    do {
+      try model.undo()
+    } catch {
+      NSLog("undo 失败：\(error)")
+    }
+    scrollCursorIntoView()
+    needsDisplay = true
+  }
+
+  @objc func redo(_ sender: Any?) {
+    do {
+      try model.redo()
+    } catch {
+      NSLog("redo 失败：\(error)")
+    }
+    scrollCursorIntoView()
+    needsDisplay = true
+  }
+
+  @objc override func selectAll(_ sender: Any?) {
+    model.selectAll()
+    needsDisplay = true
+  }
+
+  // MARK: - 坐标换算
+
+  private func byteOffset(at point: NSPoint) -> Int {
+    let lineHeight = renderer.lineHeightPts
+    let contentY = scrollY + (bounds.height - point.y)
+    let lineIndex = min(max(0, Int(contentY / lineHeight)), model.lines.count - 1)
+    let lineStart = model.lineByteRanges[lineIndex].lowerBound
+    let layout = LineLayout(text: model.lines[lineIndex], font: renderer.font)
+    let x = point.x - renderer.leftPadPts
+    return lineStart + layout.byteOffset(atX: max(0, x))
+  }
+
+  private func clampScroll() {
+    let contentHeight = CGFloat(model.lines.count) * renderer.lineHeightPts
+    let maxScroll = max(0, contentHeight - bounds.height)
+    scrollY = min(max(0, scrollY), maxScroll)
+  }
+
+  private func scrollCursorIntoView() {
+    let line = model.lineIndex(ofByteOffset: model.cursorByte)
+    let lineTop = CGFloat(line) * renderer.lineHeightPts
+    let lineBottom = lineTop + renderer.lineHeightPts
+    if lineTop < scrollY {
+      scrollY = lineTop
+    }
+    if lineBottom > scrollY + bounds.height {
+      scrollY = lineBottom - bounds.height
+    }
+    clampScroll()
   }
 
   private static func text(from value: Any) -> String? {
@@ -120,5 +236,15 @@ final class MetalView: MTKView, @MainActor NSTextInputClient {
       return attributed.string
     }
     return nil
+  }
+}
+
+// MARK: - MTKViewDelegate（自绘：事件驱动，仅变化后重绘）
+
+extension MetalView: MTKViewDelegate {
+  func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+  func draw(in view: MTKView) {
+    renderer.render(in: view, model: model, scrollY: scrollY)
   }
 }
