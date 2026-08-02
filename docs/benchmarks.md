@@ -64,3 +64,8 @@
   `cargo bench --manifest-path core/Cargo.toml`；本机 Apple Silicon（arm64）/
   macOS 26.5.1。编辑热路径四项首次以短采样（1s measurement）建立，其余默认
   100 样本；跨次对比只认同一参数。
+- **已知缺口（2026-08-03，ADR-006 v1.1）：** 现有基准只测**末尾**编辑
+  （insert/delete end_10k）与 1MB 单次打开；文档**中间** insert/delete、
+  光标移动（↑↓/Home/End）成本无数据——移动重建 `Layout`（O(n)/次）与 String
+  中间编辑（O(n)）的真实代价未量化。T-063 排期补齐（1MB 中间编辑 10k、
+  移动 1k、大 blob upsert）。

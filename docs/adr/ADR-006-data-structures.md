@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.0
+- **Version:** 1.1
 - **新增 Public API:** 0 个（仅记录决策，现有 API 不变）
 - **影响模块:** Core
 - **是否违反 Single Responsibility:** 否
@@ -63,6 +63,38 @@
 2. 基准未出前，新切片不得依赖 String 内部实现细节（Buffer API 是隔离面，ADR-005）。
 3. 决策输出：更新本表"已确定"列；反转 String 属反转 Accepted 决策，需用户确认。
 
+## 评估进展（v1.1，2026-08-03 全仓数据结构复审）
+
+对照实现与 T-023 基线逐结构复核，结论如下（纯文档补充，无决策变更）。
+
+### 已确认无风险
+
+- HashMap 命令表 / 文档注册表（O(1)）、值类型 Selection / BufferId、不可变 Layout
+  快照、字形图集 + 顶点流（T-038 后每帧 O(可见行)）——结构与使用方式匹配。
+
+### 热点与基准缺口（按风险排序）
+
+1. **App 编辑热路径每次按键全量文本流（O(n)/键）**：typeText → onChange →
+   `bufferText`（Bridge 全量拷贝）→ committedText 比较 → `store_save_scratch`
+   全量 upsert。1MB 文档每键 ≈ 拷贝 + 写 1MB 缓冲（含 journal 放大）。
+   缓解候选：事件带 delta / 自动保存节流（反转 ADR-023「每次内容变更写入」
+   粒度，需用户确认）/ SQLite WAL。
+2. **`move_cursor` 每次移动全量 `Layout::build`（O(n)/次）**：移动不改变文本，
+   行结构不变却全量重建；App 层 T-038 已缓存行结构而 Core 未缓存。
+   优化：Editor 持有行索引缓存（编辑失效、移动复用），移动 O(n) → O(log n)；
+   不违反「不可变快照」决策（仅重建时机更优），需基准对比（Rule 16）。
+3. **String 中间编辑 O(n)（未定项，基准缺口）**：现有 bench 只测**末尾**编辑
+   （buffer_insert_end_10k ≈ O(1)），中间 insert/delete 的 memmove 成本从未测量；
+   Gap Buffer / Rope 决策仍按本 ADR 门禁（基准 + 用户确认）。
+4. **History 空间 O(编辑总量)**：`EditOp::Delete` 保存被删文本副本（ADR-008
+   逆操作自足），大范围删除内存放大；设计取舍正确，监控不更改。
+
+### 待办（roadmap Phase 8）
+
+T-063 编辑热路径基准扩展（补中间编辑 / 移动 / 大 blob upsert 数据）；
+T-064 move_cursor 行索引缓存；T-065 自动保存节流（需用户确认）；
+T-066 SQLite WAL + synchronous 评估。
+
 ## 审计
 
 ### Single Responsibility — 否（不违反）
@@ -92,3 +124,8 @@
 - 已确定项若被后续证据推翻，走 ADR 修订；反转 Accepted 决策需用户确认（宪法修订流程）。
 - 未确定项不允许在实现中悄悄选定；进入实现前必须先更新本 ADR。
 - 本 ADR 内的任务编号以最新 Roadmap 为准（历次重编号见 ADR-019 与 Changelog），引用时不再回改历史编号。
+
+## 修订记录
+
+- **1.0 → 1.1（2026-08-03）：** 追加「评估进展」节——全仓数据结构复审结论
+  （4 项热点 / 缺口清单 + 待办切片）；无决策变更，未反转任何已确定项。
