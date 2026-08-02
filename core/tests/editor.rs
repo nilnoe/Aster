@@ -114,6 +114,63 @@ fn editor_move_up_down_keeps_byte_column() {
     assert_eq!(editor.selection().head(), 1);
 }
 
+/// BUG-008 回归：Up/Down 的「字节列」目标必须钳制到 UTF-8 字符边界
+/// （ADR-005：所有编辑偏移必须是字符边界）。
+///
+/// 现象：ASCII 行末（列 4）↓ 进入 "你好" 行时目标字节 9 落在 "好" 内部，
+/// 后续输入 / 退格全部失败。修复后光标应落在包含该列的字形起点（floor）。
+#[test]
+fn editor_move_down_into_cjk_line_keeps_char_boundary() {
+    let mut editor = editor_with("abcd\n你好");
+    editor.move_cursor(Movement::LineEnd, false);
+    assert_eq!(editor.selection().head(), 4);
+    editor.move_cursor(Movement::Down, false);
+    let head = editor.selection().head();
+    assert_eq!(head, 8, "列 4 落在 好(字节8..11) 内，应钳到字形起点 8");
+    assert!(editor.text().is_char_boundary(head), "光标必须是字符边界");
+    // 钳制后编辑必须可用（BUG-008 主诉）。
+    editor.type_text("x").unwrap();
+    assert_eq!(editor.text(), "abcd\n你x好");
+}
+
+#[test]
+fn editor_move_up_into_cjk_line_keeps_char_boundary() {
+    let mut editor = editor_with("你好\nabcd");
+    editor.move_cursor(Movement::DocEnd, false);
+    assert_eq!(editor.selection().head(), 11);
+    editor.move_cursor(Movement::Up, false);
+    let head = editor.selection().head();
+    assert_eq!(head, 3, "列 4 落在 好(字节3..6) 内，应钳到字形起点 3");
+    assert!(editor.text().is_char_boundary(head));
+    editor.delete_backward().unwrap();
+    assert_eq!(
+        editor.text(),
+        "好\nabcd",
+        "head=3 退格删除光标前一个字符（你）"
+    );
+}
+
+#[test]
+fn editor_move_down_from_cjk_line_into_ascii_line_keeps_char_boundary() {
+    let mut editor = editor_with("你好\nabcd");
+    editor.move_cursor(Movement::LineEnd, false);
+    assert_eq!(editor.selection().head(), 6);
+    editor.move_cursor(Movement::Down, false);
+    let head = editor.selection().head();
+    assert_eq!(head, 11, "列 6 超出 ASCII 行尾，钳到行尾");
+    assert!(editor.text().is_char_boundary(head));
+}
+
+#[test]
+fn editor_shift_down_into_cjk_line_keeps_char_boundary() {
+    let mut editor = editor_with("abcd\n你好");
+    editor.move_cursor(Movement::LineEnd, false);
+    editor.move_cursor(Movement::Down, true);
+    let sel = editor.selection();
+    assert_eq!(sel.head(), 8, "Shift 扩展与折叠移动走同一钳制路径");
+    assert!(editor.text().is_char_boundary(sel.head()));
+}
+
 #[test]
 fn editor_move_extend_selects_and_collapse_resets() {
     let mut editor = editor_with("abcde");

@@ -9,7 +9,7 @@ Bug 编号双向可追溯；修复完成时回填状态与 Commit，**不清理�
 
 | ID | 严重度 | 问题 | 证据 / 现象 | 处置 | 状态 | 修复 Commit |
 | --- | --- | --- | --- | --- | --- | --- |
-| I-001 | P0 | Up/Down 跨 CJK 行光标落在字符内部（非 UTF-8 边界），后续编辑全部报错、按键静默丢失 | `core/src/editor.rs` 字节列语义未钳制边界；实测 `"abcd\n你好"` 行末 ↓ → head=9（"好"内部），违反 ADR-005 UTF-8 底线；属性测试差分明确排除 Up/Down，无覆盖 | BUG-008 / T-035 | Open | — |
+| I-001 | P0 | Up/Down 跨 CJK 行光标落在字符内部（非 UTF-8 边界），后续编辑全部报错、按键静默丢失 | `core/src/editor.rs` 字节列语义未钳制边界；实测 `"abcd\n你好"` 行末 ↓ → head=9（"好"内部），违反 ADR-005 UTF-8 底线；属性测试差分明确排除 Up/Down，无覆盖 | BUG-008 / T-035 | Fixed | 本切片（T-035） |
 | I-002 | P1 | 编辑器没有保存能力：Disk 文件打开后编辑无法写回，关窗即丢；Roadmap 无 Disk 保存切片 | 全仓无 write / save 路径；T-015 只有 open；T-028 仅覆盖 Scratch attach path | T-037（ADR-023） | Open | — |
 | I-003 | P1 | 渲染数据路径每帧 O(n)：全文 Bridge 拷贝 + 全量切分 + 线性行扫描 + 可见行每帧双重 shaping | `EditorModel.lines/lineByteRanges` 每帧全量重建；`VertexBuilder` 选区循环与字形循环各建一次 `LineLayout`；benchmarks.md 渲染帧时间 TBD，从未被基准覆盖 | T-038 | Open | — |
 | I-004 | P2 | 无消费者公共 API `Selection::clamp` 滞留 main（Rule 14 禁止；Rule 12 死代码立即删除） | 全仓零调用，实际钳制由 `set_selection` 的 floor_char_boundary 承担 | T-036 | Open | — |

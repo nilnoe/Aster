@@ -31,8 +31,9 @@ jobs:
         run: cargo test
       - name: Fuzz (property extended cases)
         # T-033（ADR-022 v1.1）：fuzz 语义 = 扩展属性空间；默认 256 例 → 3000 例
-        # 的 property 专项运行，覆盖 emoji / CJK / 换行 / 组合字符输入。
-        run: PROPTEST_CASES=3000 cargo test --test property
+        # 的 property 专项运行，覆盖 emoji / CJK / 换行 / 组合字符输入；
+        # T-035 拆分后基础与 fuzz 两个二进制分别跑。
+        run: PROPTEST_CASES=3000 cargo test --test property --test property_fuzz
       - name: Scale Budget
         run: |
           fail=0

@@ -5,7 +5,8 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 | 切片 / 事项 | Commit | 审计项 | 结论 | 违规与处置 | 日期 |
 | --- | --- | --- | --- | --- | --- |
-| T-034 审查问题登记 | 本切片 | Rule 15（issues.md 入 README 索引）/ Rule 3（issues.md 单一职责）/ Rule 9 三问（0 抽象层 / 0 依赖 / 0 公共 API，纯文档） | Pass（自审） | 无 | 2026-08-02 |
+| T-035 Up/Down 边界修复（BUG-008） | 本切片 | 行为证据：4 个手写回归 + Up/Down 纳入属性差分 + 边界不变量显式断言（`PROPTEST_CASES=3000` 通过）；ADR-017 v1.1 备注（字节列须 floor 到边界，ADR-005 优先）；Rule 9 三问（1 行钳制 + 模型镜像算法，0 抽象层 / 0 依赖）/ Rule 12（property.rs 超 300 行 → 拆 support（119）/ property（162）/ property_fuzz（91），全部 ≤300；editor.rs 238 ≤300） | Pass | 无 | 2026-08-02 |
+| T-034 审查问题登记 | 440c75b | Rule 15（issues.md 入 README 索引）/ Rule 3（issues.md 单一职责）/ Rule 9 三问（0 抽象层 / 0 依赖 / 0 公共 API，纯文档） | Pass（自审） | 无 | 2026-08-02 |
 | 复审（全仓） | d996059、db053f5、bce9d05、fb82b85、aa78b6a | 文档漂移 / ADR 失约 / 零消费者模块 / 基准缺失 / 门禁缺口 | 发现并处置 | ADR-018 索引补登、宪法 V1.4（R13~16）、接线计划（T-015/016/024/028/029/031）、CI-Docs 与 CI-Release 门禁、T-023 基准落地 | 2026-08-02 |
 | T-023 性能基准体系 | aa78b6a | Rule 16 基准门禁 / Rule 3 文件 ≤300 / ADR-021 / Rule 9 三问（1 dev-dep、0 公共接口） | Pass | 无 | 2026-08-02 |
 | T-032 测试与审计加固 | 本切片 | Rule 8（proptest ADR-022）/ Rule 9 三问 / 审计留痕制度落地 | Pass（自审） | 无 | 2026-08-02 |

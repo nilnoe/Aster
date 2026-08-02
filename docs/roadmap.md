@@ -68,7 +68,7 @@
 > 审查结论与证据见 [docs/issues.md](issues.md)；按严重度顺序修复：P0 → P2 清理 → P1 功能 → 门禁加固。
 
 - [ ] T-034 审查问题登记：新建 docs/issues.md 并同步索引 / Roadmap / Changelog（I-001~I-008）
-- [ ] T-035 Up/Down 光标 UTF-8 边界修复（I-001，BUG-008，ADR-005 底线）+ Up/Down 纳入属性测试差分
+- [x] T-035 Up/Down 光标 UTF-8 边界修复（I-001，BUG-008，ADR-005 底线）+ Up/Down 纳入属性测试差分
 - [ ] T-036 存量清理：删除无消费者 `Selection::clamp`（I-004）、校正文档计数漂移与 T-032 审计回填（I-005）、移除 .github/.DS_Store（I-006）
 - [ ] T-037 Disk 保存切片：File「保存」Cmd+S 写回绑定路径（I-002，ADR-023；dirty 标题指示 + 关闭保护）
 - [ ] T-038 渲染数据路径重构：缓存行结构、每帧单次 shaping、视口切行，消除每帧 O(n)（I-003）

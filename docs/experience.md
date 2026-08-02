@@ -156,6 +156,8 @@
 | 2026-08-02 | T-033 | criterion 0.8.2 的 `--baseline` 对比只打印报告，不因回归失败退出（exit 0） | 自建 `scripts/bench-regression.py`（stdlib）读 `new/estimates.json` 的 `mean.point_estimate` 对比提交基线，回归超阈值 exit 1（ADR-021 v1.1） |
 | 2026-08-02 | T-033 | `cd core && cargo bench` 产生 `core/target/`，`/target` 只忽略仓库根 | `.gitignore` 补 `core/target/`；CI-Bench 作业在 `core/` 内跑 bench，脚本经 `--criterion-root core/target/criterion` 定位结果 |
 | 2026-08-02 | T-033 | `PROPTEST_CASES=3000 cargo test --test property` 耗时 ~9s（默认 256 例 ~0.8s） | CI 专项 fuzz 步骤可接受；属性测试仍无 attr-macro 依赖（ADR-022 决策 4 不变） |
+| 2026-08-02 | BUG-008 | 属性测试差分排除 Up/Down，恰是 CJK 光标边界 bug 藏身处：字节列目标 `t_start + column.min(...)` 落在多字节字符内部，后续编辑全部 InvalidCharBoundary | 所有移动统一 `floor_char_boundary(new_head.min(len))`（Left/Right 已停边界，floor 恒等）；差分排除某操作 = 该操作不受不变量保护，不变量（如"光标必为字符边界"）应单独显式断言，不能只靠差分同构 |
+| 2026-08-02 | BUG-008 | 回归测试期望值写错（head=3 退格删除的是"你"而非留空） | 又是"测试失败先怀疑测试"：先推演字节区间再写断言 |
 
 ## 给下一个 agent 的提醒
 

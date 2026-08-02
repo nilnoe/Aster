@@ -20,6 +20,17 @@
   处置切片；已知待办（T-014/016/024/028/029/031）只作完整性登记不重复编号
 - docs(roadmap)：新增 Phase 6 复审整改切片 T-034~T-039（按严重度排序：P0 → P2 → P1 → 门禁）
 
+### Fixed — 2026-08-02（T-035，BUG-008）
+
+- fix(core)：Up/Down 光标在 CJK 行落非字符边界（BUG-008，根因分类：Implementation
+  Bug）——`move_cursor` 字节列目标直接 `t_start + column.min(...)`，进入含多字节
+  字符的行时可能落在字符内部（实测 `"abcd\n你好"` 行末 ↓ → head=9 在"好"内），
+  违反 ADR-005「所有编辑偏移必须是字符边界」，后续 type_text / delete_backward
+  全部失败、按键静默丢失。修复：所有移动统一 `floor_char_boundary(new_head.min(len))`
+  钳制（Left/Right 等本就停在边界，floor 恒等）。回归测试：4 个手写用例（↓/↑ 进出
+  CJK 行、Shift 扩展）+ 属性测试纳入 Up/Down 差分并显式断言「光标必须落在字符边界」
+  不变量（`PROPTEST_CASES=3000` 实测通过）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

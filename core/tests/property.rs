@@ -1,13 +1,18 @@
-//! 属性测试（T-032，ADR-022）。
+//! 属性测试（T-032，ADR-022；T-035 拆分，Rule 3：单文件 ≤300 行）。
 //!
 //! 决策依据：手写契约用例无法穷举边界——UTF-8 非边界偏移、任意操作序列、
 //! undo/redo 往返、行结构不变量；proptest 生成任意输入并自动缩小失败用例
 //! （Rule 11：proptest 是 Rust 属性测试事实标准，不重复造轮子）。
 //! 用例数用默认值（可经 `PROPTEST_CASES` 调整），CI 时长由小策略规模保证。
+//! fuzz 输入空间（emoji / 换行 / 组合符号）见 `property_fuzz.rs`。
 
 use proptest::prelude::*;
 
-use aster_core::{Buffer, BufferId, Editor, Layout, Movement};
+use aster_core::{Buffer, BufferId, Editor, Layout};
+
+mod support;
+
+use support::{apply_editor, apply_model, Model, Op};
 
 /// 生成 1..=8 个 ASCII / CJK 字符：同时覆盖 UTF-8 单字节与多字节路径。
 fn text_strategy() -> impl Strategy<Value = String> {
@@ -19,6 +24,21 @@ fn text_strategy() -> impl Strategy<Value = String> {
         1..=8,
     )
     .prop_map(|chars| chars.into_iter().collect())
+}
+
+fn any_op() -> impl Strategy<Value = Op> {
+    prop_oneof![
+        text_strategy().prop_map(Op::Type),
+        Just(Op::DeleteBackward),
+        Just(Op::Left),
+        Just(Op::Right),
+        Just(Op::Up),
+        Just(Op::Down),
+        Just(Op::LineStart),
+        Just(Op::LineEnd),
+        Just(Op::DocStart),
+        Just(Op::DocEnd),
+    ]
 }
 
 proptest! {
@@ -80,7 +100,7 @@ proptest! {
     }
 
     /// Editor：随机操作序列下，Core 行为与朴素模型逐布一致（文本 + 光标）。
-    /// Up/Down 视觉列语义依赖渲染度量（ADR-017 备注），差分范围不含二者。
+    /// Up/Down 以字节列 + 字符边界 floor 同算法纳入差分（T-035，BUG-008）。
     #[test]
     fn editor_matches_model(ops in prop::collection::vec(any_op(), 0..=60)) {
         let mut ed = Editor::new(Buffer::new(BufferId::new(1)));
@@ -93,6 +113,13 @@ proptest! {
                 ed.selection().head(),
                 model.cursor,
                 "光标不一致 {:?}",
+                op
+            );
+            // BUG-008 不变量：光标必须始终落在字符边界（ADR-005 底线）。
+            prop_assert!(
+                ed.text().is_char_boundary(ed.selection().head()),
+                "光标落在非字符边界 (head={}) after {:?}",
+                ed.selection().head(),
                 op
             );
         }
@@ -131,166 +158,5 @@ proptest! {
                 "行内不得包含 \\n（行 {line}）"
             );
         }
-    }
-}
-
-/// 差分测试用的编辑操作（不含 Up/Down，见 editor_matches_model 注释）。
-#[derive(Debug, Clone)]
-enum Op {
-    Type(String),
-    DeleteBackward,
-    Left,
-    Right,
-    LineStart,
-    LineEnd,
-    DocStart,
-    DocEnd,
-}
-
-fn any_op() -> impl Strategy<Value = Op> {
-    prop_oneof![
-        text_strategy().prop_map(Op::Type),
-        Just(Op::DeleteBackward),
-        Just(Op::Left),
-        Just(Op::Right),
-        Just(Op::LineStart),
-        Just(Op::LineEnd),
-        Just(Op::DocStart),
-        Just(Op::DocEnd),
-    ]
-}
-
-/// fuzz 输入空间（T-033，ADR-022 v1.1）：emoji（UTF-8 4 字节）、CJK、
-/// 换行、组合附加符号——在真实多语言多行文本下验证 Editor 不变量。
-fn fuzz_text_strategy() -> impl Strategy<Value = String> {
-    prop::collection::vec(
-        prop_oneof![
-            prop::char::range('a', 'z'),
-            prop::char::range('\u{4e00}', '\u{9fff}'),
-            prop::char::range('\u{1f300}', '\u{1f9ff}'), // emoji（代理对）
-            prop::char::range('\u{300}', '\u{36f}'),     // 组合附加符号
-            Just('\n'),
-        ],
-        1..=12,
-    )
-    .prop_map(|chars| chars.into_iter().collect())
-}
-
-/// fuzz 操作序列：与 `any_op` 同构，但输入来自 fuzz 文本空间。
-fn any_op_fuzz() -> impl Strategy<Value = Op> {
-    prop_oneof![
-        fuzz_text_strategy().prop_map(Op::Type),
-        Just(Op::DeleteBackward),
-        Just(Op::Left),
-        Just(Op::Right),
-        Just(Op::LineStart),
-        Just(Op::LineEnd),
-        Just(Op::DocStart),
-        Just(Op::DocEnd),
-    ]
-}
-
-proptest! {
-    /// fuzz 差分（T-033）：多行 + 多字节输入空间下，Editor 与朴素模型逐布一致
-    /// （文本 + 光标）；序列更长（≤80 步）以暴露跨行移动 / 组合字符边界问题。
-    #[test]
-    fn editor_matches_model_fuzz_unicode(
-        ops in prop::collection::vec(any_op_fuzz(), 0..=80)
-    ) {
-        let mut ed = Editor::new(Buffer::new(BufferId::new(1)));
-        let mut model = Model::default();
-        for op in &ops {
-            apply_editor(&mut ed, op);
-            apply_model(&mut model, op);
-            prop_assert_eq!(ed.text(), model.text.as_str(), "文本不一致 {:?}", op);
-            prop_assert_eq!(
-                ed.selection().head(),
-                model.cursor,
-                "光标不一致 {:?}",
-                op
-            );
-        }
-    }
-
-    /// fuzz undo/redo 往返（T-033）：多行 + 多字节输入下逆操作栈契约
-    /// （ADR-008）；原用例只覆盖 ASCII/CJK 单行文本。
-    #[test]
-    fn editor_undo_redo_fuzz_multiline(
-        ops in prop::collection::vec(any_op_fuzz(), 0..=60)
-    ) {
-        let mut ed = Editor::new(Buffer::new(BufferId::new(1)));
-        for op in &ops {
-            apply_editor(&mut ed, op);
-        }
-        let snapshot = ed.text().to_string();
-        while ed.undo().unwrap() {}
-        prop_assert_eq!(ed.text(), "", "undo 全部后应回到空文本");
-        while ed.redo().unwrap() {}
-        prop_assert_eq!(ed.text(), snapshot, "redo 全部后应还原快照");
-    }
-}
-
-fn apply_editor(ed: &mut Editor, op: &Op) {
-    match op {
-        Op::Type(s) => {
-            ed.type_text(s).unwrap();
-        }
-        Op::DeleteBackward => {
-            ed.delete_backward().unwrap();
-        }
-        Op::Left => ed.move_cursor(Movement::Left, false),
-        Op::Right => ed.move_cursor(Movement::Right, false),
-        Op::LineStart => ed.move_cursor(Movement::LineStart, false),
-        Op::LineEnd => ed.move_cursor(Movement::LineEnd, false),
-        Op::DocStart => ed.move_cursor(Movement::DocStart, false),
-        Op::DocEnd => ed.move_cursor(Movement::DocEnd, false),
-    }
-}
-
-/// 朴素编辑模型：文本 + 字节光标，语义与 Editor（ADR-017）逐布对齐。
-#[derive(Debug, Default)]
-struct Model {
-    text: String,
-    cursor: usize,
-}
-
-fn apply_model(m: &mut Model, op: &Op) {
-    match op {
-        Op::Type(s) => {
-            m.text.insert_str(m.cursor, s);
-            m.cursor += s.len();
-        }
-        Op::DeleteBackward => {
-            let prev = m.text[..m.cursor]
-                .char_indices()
-                .next_back()
-                .map_or(0, |(i, _)| i);
-            if prev < m.cursor {
-                m.text.replace_range(prev..m.cursor, "");
-                m.cursor = prev;
-            }
-        }
-        Op::Left => {
-            m.cursor = m.text[..m.cursor]
-                .char_indices()
-                .next_back()
-                .map_or(0, |(i, _)| i);
-        }
-        Op::Right => {
-            m.cursor = m.text[m.cursor..]
-                .chars()
-                .next()
-                .map_or(m.cursor, |c| m.cursor + c.len_utf8());
-        }
-        Op::LineStart => {
-            m.cursor = m.text[..m.cursor].rfind('\n').map_or(0, |i| i + 1);
-        }
-        Op::LineEnd => {
-            m.cursor = m.text[m.cursor..]
-                .find('\n')
-                .map_or(m.text.len(), |i| m.cursor + i);
-        }
-        Op::DocStart => m.cursor = 0,
-        Op::DocEnd => m.cursor = m.text.len(),
     }
 }

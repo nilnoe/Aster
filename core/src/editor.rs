@@ -143,6 +143,11 @@ impl Editor {
                 }
             }
         };
+        // BUG-008：Up/Down 的字节列目标（column.min）可能落在多字节字符内部，
+        // 例如 ASCII 列 4 ↓ 进 CJK 行时目标 9 在 "好" 中间。所有移动统一 floor
+        // 到字符边界（ADR-005：编辑偏移必须是字符边界）；Left/Right 等本就停在
+        // 边界，floor 是恒等，无需分支。
+        let new_head = text.floor_char_boundary(new_head.min(len));
         if extend {
             self.selection.set_head(new_head);
         } else {
