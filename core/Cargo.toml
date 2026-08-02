@@ -15,3 +15,19 @@ swift-bridge = "0.1.59"
 
 [build-dependencies]
 swift-bridge-build = "0.1.59"
+
+[dev-dependencies]
+# 决策依据（ADR-021）：基准框架需要置信区间与回归检测（Rule 7）；关闭默认特性
+# 去掉 plotters（html 报告）/ rayon（并行采样）及其 wasm 依赖树——与 T-009 rusqlite
+# 依赖瘦身同一原则（Rule 9），cargo_bench_support 已满足命令行报告。
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "bench_editor"
+# 决策依据（ADR-021）：criterion 自带 main，必须关闭 libtest harness，
+# 否则 cargo bench 走默认测试壳，基准函数不执行（实测 running 0 tests）。
+harness = false
+
+[[bench]]
+name = "bench_pipeline"
+harness = false

@@ -49,6 +49,15 @@
 - docs(release)：发布清单增加「归档一致性」检查（tag 内容与 Changelog 归档一致）
 - docs(workflow)：WORKFLOW Architecture / Benchmark 步骤回链 Rule 13 / 14 / 16
 
+### Added — 2026-08-02（T-023 性能基准体系）
+
+- [ADR-021](../docs/adr/ADR-021-performance-benchmarks.md) — 性能基准体系：criterion
+  （dev-dependency）+ 两组基准（编辑内核 / 管线），稳定测量规则（release + 机器记录 +
+  CI 不跑）；ADR-006 数据结构评估框架的数据来源（宪法 Rule 16 落地）
+- feat(bench)：T-023 落地——编辑内核组 10 项 + 管线组 7 项基准，docs/benchmarks.md
+  回填首个稳定基线（criterion 0.8.2；Apple Silicon arm64 / macOS 26.5.1）；
+  编辑热路径基准即为 ADR-006 存储决策的对照数据
+
 ## [Beta V0.1.1] — 2026-08-02
 
 **补丁版：** 上一版（Beta V0.1.0）发布后的缺陷修复——渲染覆盖层不可见、

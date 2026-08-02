@@ -5,7 +5,7 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-017 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，108 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
+  - Rust Core：T-001 ~ T-013 + T-023（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，108 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
@@ -64,8 +64,8 @@
 
 | 主题 | 现状 | 替换 / 决策触发点 |
 | --- | --- | --- |
-| 文本存储 | `String`（Buffer 内部实现细节） | T-023 基准证明不达标时换 Rope/Gap（ADR-006） |
-| 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-023），接口不变 |
+| 文本存储 | `String`（Buffer 内部实现细节） | 基准已建立（benchmarks.md，T-023 / ADR-021）；是否换 Rope/Gap 由 ADR-006 门禁 + 用户确认 |
+| 行索引 | 不可变快照 `Layout`，编辑后调用方重建 | 随存储一起替换（T-023 基准后），接口不变 |
 | 软换行 | 用户可选、默认关闭；默认按行渲染 + 水平滚动（ADR-019） | 配置系统（Lua/Config DSL）切片落地后经配置开启 |
 | 水平滚动 | v1 默认能力（ADR-019，T-018）：scrollX 点值平移 + 光标横向可见性 | 平滑滚动动画随 T-022 |
 | 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
@@ -124,6 +124,7 @@
 | 2026-08-02 | T-017 | 渲染像素测试崩溃 SIGTRAP：`r + 100`（UInt8 255+100）算术溢出 | 像素比较先转 Int；又是测试自身的问题（"测试失败先怀疑测试"） |
 | 2026-08-02 | BUG-005 | 文本区鼠标指针是箭头而非 I 型 | `resetCursorRects` + `addCursorRect(bounds, .iBeam)`（系统能力，Principle 4） |
 | 2026-08-02 | 复审 | 文档漂移漏检：ADR 索引漏登 ADR-018（changelog/roadmap 却反复引用）；experience 现状速览行数/测试数过期 | 本次补索引、校正行数；长期靠 CI 文档完整性检查（已列入修复 TODO） |
+| 2026-08-02 | T-023 | criterion bench 二进制显示 running 0 tests（libtest 壳吞掉 criterion main）；闭包内 RefCell borrow 临时值悬垂（E0716） | `[[bench]]` 显式声明 `harness = false`；借用先 `let` 绑定再传 `&mut`；另 criterion 默认特性带 plotters/rayon/wasm 依赖，关默认特性只留 cargo_bench_support（同 rusqlite 瘦身教训） |
 
 ## 给下一个 agent 的提醒
 

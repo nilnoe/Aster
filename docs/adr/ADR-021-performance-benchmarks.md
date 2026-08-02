@@ -1,0 +1,77 @@
+# ADR-021 — 性能基准体系（criterion）
+
+- **Status:** Accepted
+- **Date:** 2026-08-02
+- **Version:** 1.0
+- **新增 Public API:** 0（仅 dev-dependency 与 `benches/`，不影响公共接口）
+- **影响模块:** core（dev-dependencies、benches/）、docs/benchmarks.md、Roadmap T-023
+- **是否违反 Single Responsibility:** 否
+- **是否增加循环依赖:** 否
+
+---
+
+## 决策
+
+1. **基准工具用 criterion**（dev-dependency，仅 core crate）：提供稳定统计（置信区间 /
+   回归检测）与报告，替代手写计时循环。
+2. **基准分两组**：
+   - 编辑内核组（`bench_editor.rs`）：Buffer 基础操作、Selection、History、Editor 编辑
+     热路径、Layout 构建与 `line_at`、DocumentManager 打开——覆盖 ADR-006 评估框架的
+     「编辑热路径 / 行访问 / 打开成本」维度。
+   - 管线组（`bench_pipeline.rs`）：Theme DSL 解析、Command 分发 + Event 广播、Lua
+     命令分发、SQLite Scratch 保存 / 加载——为已交付 Core 模块建立稳定基线。
+3. **稳定测量规则**：一律 release 构建；记录机器 / macOS / 硬件（沿用
+   docs/benchmarks.md 测量规则）；criterion 默认统计量；**CI 不跑基准**（共享机器噪声
+   大，数值不可比），基准是本地切片 DoD 的一部分。
+4. **对接 ADR-006**：文本存储（String / Gap / Rope / Piece Table）的决策数据来自编辑
+   内核组基准；「打开成本」以 1MB 文档的载入 + Layout 构建计时近似；「内存」维度
+   criterion 不测，本轮以峰值 RSS 手测记录补充，dhat / Instruments 在需要时另走 ADR
+   （Rule 8）。
+5. **渲染帧基线**：App 侧整帧重建成本属 Swift 层，不在本切片；其 Rust 侧组成（Layout
+   构建 / `line_at`）已在编辑内核组覆盖，Swift 侧基准随渲染切片（T-016 前后）单独建立。
+
+## 原因
+
+- **为什么标准库不能解决（Rule 7）**：Rust 标准库没有基准框架；手写 `Instant` 循环无法
+  给出置信区间与回归检测，长期基线对比不可靠。criterion 是事实标准（Rule 11 复用优先）。
+- **为什么现在做（Rule 16）**：ADR-006 的存储决策（String → Rope/Gap）与渲染策略
+  （整帧重建）都是性能取舍，必须先有可复现基线；基准体系拖延越久，决策窗口越窄。
+- **为什么 CI 不跑**：GitHub Actions 共享机器噪声大；CI 只负责编译与门禁，基准是本地
+  切片动作。
+
+## 审计
+
+### Single Responsibility — 否（不违反）
+
+基准只测量，不引入业务职责。
+
+### 循环依赖 — 否（不违反）
+
+dev-dependency 不进入发布产物；core 公共接口不变。
+
+## 新增 Public API
+
+无。
+
+## 影响模块
+
+- **core/Cargo.toml** — 新增 criterion（dev-dependencies）。
+- **core/benches/** — 两组基准文件。
+- **docs/benchmarks.md** — 回填首个稳定基线（T-023 产出）。
+- **Roadmap** — T-023 完成。
+
+## 复杂度预算（宪法 Rule 9）
+
+1. **增加了哪些复杂度？** 1 个 dev-dependency + 2 个基准文件；0 模块 / 0 Public API。
+2. **是否是永久性的？** criterion 是长期基准基础设施（dev-only，不进入产物）；基准文件
+   随新模块追加。
+3. **有没有更简单但同样满足需求的方案？** 手写计时循环——无置信区间与回归检测，基线
+   不可比；放弃基准——违反 Rule 16 且存储决策永远无数据。criterion 是最简可用形态。
+
+结论：1 dev-dependency / 2 文件 / 0 公共接口，未触及红线。
+
+## 备注
+
+- 基准文件同样受宪法 Rule 3（≤300 行）约束；分组按职责拆文件。
+- 内存维度与 Swift 渲染帧基线是已知后续项，回填到 benchmarks.md 的备注中，不阻塞
+  本切片的时延基线。
