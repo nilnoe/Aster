@@ -1,0 +1,46 @@
+name: CI-Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "ADR.md"
+      - "AGENTS.md"
+      - "WORKFLOW.md"
+      - "README.md"
+      - ".github/workflows/ci-docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "ADR.md"
+      - "AGENTS.md"
+      - "WORKFLOW.md"
+      - "README.md"
+      - ".github/workflows/ci-docs.yml"
+
+jobs:
+  docs:
+    name: Docs Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ADR index completeness (宪法 Rule 15)
+        run: |
+          fail=0
+          # 每个 ADR 文件必须出现在索引中
+          while IFS= read -r f; do
+            name=$(basename "$f")
+            if ! grep -qF "$name" docs/adr/README.md; then
+              echo "MISSING FROM ADR INDEX: $name"
+              fail=1
+            fi
+          done < <(find docs/adr -maxdepth 1 -name 'ADR-*.md' | sort)
+          # 索引中每条 ADR 链接必须指向真实文件
+          while IFS= read -r link; do
+            if [ ! -f "docs/adr/$link" ]; then
+              echo "BROKEN ADR INDEX LINK: $link"
+              fail=1
+            fi
+          done < <(grep -oE '\]\(ADR-[^)]+\.md\)' docs/adr/README.md | sed -E 's/^\]\(//; s/\)$//' | sort -u)
+          exit $fail

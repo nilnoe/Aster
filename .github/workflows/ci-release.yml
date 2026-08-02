@@ -15,6 +15,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Version tag consistency (宪法 Rule 15)
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/Beta-V* ]]; then
+            VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml)
+            if [ "$VERSION" != "${GITHUB_REF_NAME#Beta-V}" ]; then
+              echo "TAG/version mismatch: tag=$GITHUB_REF_NAME core=$VERSION"
+              exit 1
+            fi
+          fi
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
