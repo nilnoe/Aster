@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationWillTerminate(_ notification: Notification) {
     guard let store = bufferStore else { return }
     try? store_set_clean_exit(store, true)
+    // T-047（ADR-023 v1.6）：进程干净退出时删除空快照文件（启动即建 / 从未
+    // 输入合并的空文档不累积）；崩溃退出不执行本回调，下次干净退出一并处理。
+    _ = try? snapshot_prune_empty(snapshot)
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

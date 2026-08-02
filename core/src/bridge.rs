@@ -206,6 +206,7 @@ mod ffi {
         fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String>;
         fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String>;
         fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String>;
+        fn snapshot_prune_empty(snapshot: &Snapshot) -> Result<usize, String>;
 
         type BufferId;
         type DocumentManager;

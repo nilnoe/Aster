@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.5
+- **Version:** 1.6
 - **新增 Public API:** v1.4：`Snapshot` 类型 5 方法 + Bridge FFI 5 项（snapshot_new /
   snapshot_create_next / snapshot_write / snapshot_read + 缓冲 store_open_buffer /
   store_save_scratch / store_load_scratch）
@@ -33,6 +33,10 @@
    - 读取 / 继续 = 当日最高 seq（`Snapshot::latest_seq`）。日期为 UTC（本地时区
      午夜轮转随配置系统细化）。旧日文件自然留存；**保留期 / 自动清理属未来配置
      切片，本版本不做自动删除**（Rule 9）。
+   - **v1.6 补充（空文件清理，用户指示 2026-08-02）**：快照 `aster-*.txt` 中
+     **内容为空的文件在进程干净退出时删除**（`Snapshot::prune_empty`）——启动
+     即建的 001、⌘N 后从未输入 / 合并的空文档，不应在默认目录累积。只删除
+     零长度文件；崩溃退出不清理（下次干净退出时一并处理）。
 3. **默认路径可指定（v1.1）**：默认目录 = `~/Library/Application Support/Aster`；
    v1 经环境变量 `ASTER_STORE_DIR` 覆盖（最小实现，无配置系统），Config DSL / Lua
    配置切片落地后迁移为配置项。

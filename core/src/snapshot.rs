@@ -53,6 +53,34 @@ impl Snapshot {
         Ok(self.daily_files()?.last().map(|(seq, _)| *seq))
     }
 
+    /// 删除目录中内容为空的快照文件，返回删除数量（T-047，ADR-023 v1.6）。
+    ///
+    /// 决策依据：启动即建的 001、⌘N 后从未输入 / 合并的空快照不应在默认目录
+    /// 累积（用户指示：空文件在进程生命周期结束后删除）。只删 `aster-*.txt`
+    /// 且零长度的文件（空文件无内容可丢）；目录缺失返回 0（幂等）；崩溃退出
+    /// 不调用本方法（下次干净退出一并处理）。
+    pub fn prune_empty(&self) -> Result<usize, io::Error> {
+        let entries = match std::fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(0),
+            Err(e) => return Err(e),
+        };
+        let mut deleted = 0;
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            if !name.starts_with("aster-") || !name.ends_with(".txt") {
+                continue;
+            }
+            if entry.metadata()?.len() == 0 {
+                std::fs::remove_file(entry.path())?;
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
+    }
+
     fn path_for(&self, seq: i64) -> PathBuf {
         self.dir.join(format!("aster-{}-{seq:03}.txt", today_iso()))
     }
@@ -168,5 +196,32 @@ mod tests {
         let _ = snap.create_next().unwrap();
         let s2 = snap.create_next().unwrap();
         assert_eq!(snap.latest_seq().unwrap(), Some(s2));
+    }
+
+    #[test]
+    fn prune_empty_deletes_only_zero_length_snapshots() {
+        let dir = temp_dir("prune");
+        let snap = Snapshot::new(dir.clone());
+        let empty1 = snap.create_next().unwrap();
+        let _ = snap.create_next().unwrap();
+        snap.write(empty1 + 1, "内容").unwrap();
+        // 无关空文件不在命名规范内，不得删除。
+        std::fs::write(dir.join("notes.txt"), "").unwrap();
+
+        assert_eq!(snap.prune_empty().unwrap(), 1, "只删零长度快照");
+        let names = file_names(&dir);
+        assert_eq!(names.len(), 1, "只剩非空快照");
+        assert_eq!(
+            std::fs::read_to_string(dir.join(&names[0])).unwrap(),
+            "内容"
+        );
+        assert!(dir.join("notes.txt").exists(), "无关文件不受影响");
+    }
+
+    #[test]
+    fn prune_empty_on_missing_dir_returns_zero() {
+        let dir = temp_dir("prune-none");
+        let snap = Snapshot::new(dir.clone());
+        assert_eq!(snap.prune_empty().unwrap(), 0, "目录缺失幂等返回 0");
     }
 }

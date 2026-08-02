@@ -84,4 +84,19 @@ final class SnapshotBridgeTests: XCTestCase {
     XCTAssertTrue(Array(store_scratch_ids(buffer)).isEmpty, "缓冲已无该文档")
     XCTAssertThrowsError(try store_load_scratch(buffer, 8), "删除后读回必须报错")
   }
+
+  /// T-047（ADR-023 v1.6）：进程干净退出删除空快照，非空快照保留。
+  func testPruneEmptyRemovesOnlyEmptySnapshots() throws {
+    let dir = makeTempDir("prune")
+    let snapshot = snapshot_new(dir)
+    let emptySeq = try snapshot_create_next(snapshot)
+    let keptSeq = try snapshot_create_next(snapshot)
+    try snapshot_write(snapshot, keptSeq, "有内容")
+
+    let deleted = try snapshot_prune_empty(snapshot)
+
+    XCTAssertEqual(deleted, 1, "只删空快照")
+    XCTAssertEqual(try snapshot_read(snapshot, keptSeq).toString(), "有内容")
+    XCTAssertThrowsError(try snapshot_read(snapshot, emptySeq), "空快照已被删除")
+  }
 }

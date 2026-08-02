@@ -176,6 +176,16 @@
   overlay 的 Buffer 底部行内 y/n 提示（T-026）；当前 NSAlert 标注为过渡实现
 - test：App +4（PendingDocs：mark/commit 不影响其他文档 / discard / 幂等），App 63 全绿
 
+### Changed — 2026-08-02（T-047 空快照退出清理，ADR-023 v1.6，用户指示）
+
+- feat(core)：`Snapshot::prune_empty`——删除目录中内容为空的 `aster-*.txt`
+  （启动即建的 001、⌘N 后从未输入 / 合并的空文档不累积）；只删零长度文件，
+  目录缺失幂等返回 0
+- feat(bridge / app)：`snapshot_prune_empty` FFI；`applicationWillTerminate`
+  写干净哨兵后调用（崩溃退出不清理，下次干净退出一并处理）
+- test：Core +2（只删零长度快照 / 无关文件不动；目录缺失返回 0）+ Bridge +1
+  （空快照删除、非空保留）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

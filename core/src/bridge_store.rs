@@ -37,6 +37,11 @@ pub fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String> 
     snapshot.read(seq as i64).map_err(|e| format!("{e:?}"))
 }
 
+/// 删除内容为空的快照文件并返回删除数（T-047，ADR-023 v1.6：进程干净退出清理）。
+pub fn snapshot_prune_empty(snapshot: &Snapshot) -> Result<usize, String> {
+    snapshot.prune_empty().map_err(|e| format!("{e:?}"))
+}
+
 /// 自动保存缓冲文件（崩溃保护；App 启动时打开并保持连接）。
 pub fn store_open_buffer(dir: String) -> Result<Store, String> {
     Store::open_buffer(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
