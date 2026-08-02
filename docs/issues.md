@@ -10,7 +10,7 @@ Bug 编号双向可追溯；修复完成时回填状态与 Commit，**不清理�
 | ID | 严重度 | 问题 | 证据 / 现象 | 处置 | 状态 | 修复 Commit |
 | --- | --- | --- | --- | --- | --- | --- |
 | I-001 | P0 | Up/Down 跨 CJK 行光标落在字符内部（非 UTF-8 边界），后续编辑全部报错、按键静默丢失 | `core/src/editor.rs` 字节列语义未钳制边界；实测 `"abcd\n你好"` 行末 ↓ → head=9（"好"内部），违反 ADR-005 UTF-8 底线；属性测试差分明确排除 Up/Down，无覆盖 | BUG-008 / T-035 | Fixed | 29bdf9d |
-| I-002 | P1 | 编辑器没有保存能力：关窗即丢编辑；Roadmap 无保存切片 | 全仓无持久化路径；T-015 只有 open | T-037 → T-040（ADR-023 v1.2，保存目标改为 SQLite 快照） | Fixed | 135f44a + 本切片（T-040） |
+| I-002 | P1 | 编辑器没有保存能力：关窗即丢编辑；Roadmap 无保存切片 | 全仓无持久化路径；T-015 只有 open | T-037 → T-040（ADR-023 v1.2，保存目标改为 SQLite 快照） | Fixed | 135f44a + d28cb9b |
 | I-003 | P1 | 渲染数据路径每帧 O(n)：全文 Bridge 拷贝 + 全量切分 + 线性行扫描 + 可见行每帧双重 shaping | `EditorModel.lines/lineByteRanges` 每帧全量重建；`VertexBuilder` 选区循环与字形循环各建一次 `LineLayout`；benchmarks.md 渲染帧时间 TBD，从未被基准覆盖 | T-038 | Fixed | 7220747 |
 | I-004 | P2 | 无消费者公共 API `Selection::clamp` 滞留 main（Rule 14 禁止；Rule 12 死代码立即删除） | 全仓零调用，实际钳制由 `set_selection` 的 floor_char_boundary 承担 | T-036 | Fixed | 6ceb0fe |
 | I-005 | P2 | 文档计数漂移与审计行未回填：experience 写 core 1676 行（实 1731）；audits 写 App 1483（实 1615）；T-032 审计行 commit 列仍为「本切片」（d867ac7） | Rule 15 机械门禁只覆盖 ADR 索引，未覆盖 experience / audits 计数 | T-036 | Fixed | 6ceb0fe |

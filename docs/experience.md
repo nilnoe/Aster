@@ -32,8 +32,9 @@
   - T-039 审计与门禁加固（3171806）：CI-Docs 审计完整性机械检查（未回填 ≤1 +
     hash 全存在）+ CI-Release 门禁对齐（app/Sources lint、fuzz、规模预算、docs、
     基准回归）
-  - T-040 保存改为 SQLite 快照（进行中，ADR-023 v1.2）：用户确认反转 T-037 磁盘
-    写回——Cmd+S 每次保存新建「日期+序号」文件（单日多版本）；撤销 save_text
+  - T-040 保存改为 SQLite 快照（d28cb9b，ADR-023 v1.2）：用户确认反转 T-037 磁盘
+    写回——Cmd+S 每次保存新建「日期+序号」文件（单日多版本，Store::open_next /
+    open_latest）；撤销 save_text（Rule 14）
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
