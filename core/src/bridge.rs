@@ -18,6 +18,7 @@
 #![allow(clippy::unnecessary_cast)]
 
 use crate::buffer::{Buffer, BufferId};
+use crate::layout::Layout;
 
 /// 核心版本号（验证 String 往返；内容来自 Cargo.toml）。
 pub fn core_version() -> String {
@@ -33,6 +34,14 @@ pub fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize,
     buffer.insert(at, &s).map_err(|e| format!("{e:?}"))
 }
 
+/// 行起始字节偏移（首元素恒为 0），供 App 按行切分 Buffer 文本做 CoreText shaping。
+///
+/// 决策依据：复用 Core `Layout`（ADR-009）的行结构，App 不另造 `\n` 切分
+/// （宪法 Rule 11）；字节语义与 Buffer 一致（ADR-005）。
+pub fn layout_line_starts(text: String) -> Vec<usize> {
+    Layout::build(&text).line_starts().to_vec()
+}
+
 #[swift_bridge::bridge]
 // 决策依据：生成的 FFI 胶水含同类型指针转换（如 `*mut Buffer as *mut Buffer`），
 // clippy 视其为 unnecessary_cast；这是代码生成器输出而非手写代码，允许该 lint。
@@ -41,6 +50,7 @@ mod ffi {
     extern "Rust" {
         fn core_version() -> String;
         fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize, String>;
+        fn layout_line_starts(text: String) -> Vec<usize>;
 
         type BufferId;
         #[swift_bridge(init)]

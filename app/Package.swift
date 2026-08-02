@@ -23,7 +23,10 @@ let package = Package(
         ),
         .testTarget(
             name: "AsterAppTests",
-            dependencies: ["AsterApp"]
+            dependencies: [
+                "AsterApp",
+                .product(name: "AsterBridge", package: "bridge"),
+            ]
         ),
     ]
 )

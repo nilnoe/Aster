@@ -17,6 +17,7 @@
 | 打开文档 100KB（ms） | TBD | TBD | — | — | — | — |
 | 打开文档 1MB（ms） | TBD | TBD | — | — | — | — |
 | 渲染帧时间（ms） | TBD | TBD | — | — | — | — |
+| 首帧字形栅格化+上传（16 字形，ms） | TBD | 0.25 | 建立 | T-012 / ADR-016 | 2026-08-02 | release 构建；Apple M4 / macOS 26.5.1；无量化目标，正式基准 T-020 |
 | 内存占用（MB） | TBD | TBD | — | — | — | — |
 | Undo 1000 次（ms） | TBD | TBD | — | — | — | — |
 | Buffer 基础操作（insert/delete 10k 次，ms） | TBD | TBD | — | T-001 / ADR-005 | 2026-08-02 | 无量化目标；后续用 criterion 建立 |

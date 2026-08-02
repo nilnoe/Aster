@@ -12,6 +12,17 @@
 
 ### Added — 2026-08-02
 
+- feat(app)：Metal 文本渲染管线 spike（T-012，ADR-016）——空白视图替换为 MTKView；
+  Core Buffer 文本经 **CoreText shaping → 字形图集纹理 → Metal quad 绘制**全链路；
+  Bridge 新增 `layout_line_starts`（行结构复用 Core Layout，ADR-009）；视图实现
+  `NSTextInputClient`：IME 组合文本带下划线渲染，提交经 `buffer_insert` 写回 Core；
+  CJK 多行往返在 Bridge 测试验证，字形图集做像素级读回验证（无 GPU 时跳过）；
+  可测逻辑抽离为 `EditorModel`（输入状态机）与 `AtlasPacker`（图集分配器）
+- [ADR-016](../docs/adr/ADR-016-metal-text-rendering.md) — Metal 文本渲染管线：
+  字形缓存（按需图集 + font+glyph 键）与 GPU 缓冲格式（32B/顶点 quad 流）落定，
+  渲染归 App、纯逻辑归 Core 的边界固化
+- [ADR-006](../docs/adr/ADR-006-data-structures.md) — 「字形缓存 / GPU 缓冲格式」
+  从未确定改为已确定（引用 ADR-016）；软换行维持不做
 - 项目启动：文档体系建立
   - [docs/constitution.md](../docs/constitution.md) — 项目宪法（10 条不可违反原则）
   - [docs/adr/ADR-001-document-manager.md](../docs/adr/ADR-001-document-manager.md) — DocumentManager（Status: Proposed）

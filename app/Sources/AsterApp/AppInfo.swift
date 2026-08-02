@@ -6,6 +6,6 @@
 import AsterBridge
 
 enum AppInfo {
-    static let name = "Aster"
-    static let version = core_version().toString()
+  static let name = "Aster"
+  static let version = core_version().toString()
 }

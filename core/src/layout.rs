@@ -60,4 +60,32 @@ impl Layout {
         let idx = self.line_starts.partition_point(|&s| s <= offset);
         Some(idx - 1)
     }
+
+    /// 每行起始字节偏移的只读视图（首元素恒为 0）。
+    ///
+    /// 决策依据：T-012 渲染切片（ADR-016）经 Bridge 消费，App 按行切分文本做
+    /// CoreText shaping；`pub(crate)` 而非 `pub`——不构成公共 API（宪法 Rule 12），
+    /// 避免未经 ADR 扩大 Layout 公共面（ADR-009 只承诺四个查询方法）。
+    pub(crate) fn line_starts(&self) -> &[usize] {
+        &self.line_starts
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Layout;
+
+    /// `line_starts` 是 Bridge 渲染切片（T-012 / ADR-016）的内部访问器：
+    /// App 按行切分文本做 CoreText shaping，行结构语义保持 ADR-009。
+    #[test]
+    fn line_starts_tracks_line_boundaries() {
+        let layout = Layout::build("ab\ncd\ne");
+        assert_eq!(layout.line_starts(), &[0, 3, 6]);
+    }
+
+    #[test]
+    fn line_starts_empty_text_is_one_line() {
+        let layout = Layout::build("");
+        assert_eq!(layout.line_starts(), &[0]);
+    }
 }
