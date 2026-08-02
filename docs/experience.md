@@ -55,6 +55,7 @@
 | 2026-08-02 | T-004 | 返回 push 后的 op 触发 E0382 | 栈存 clone，返回原值 |
 | 2026-08-02 | T-004 | 连续 insert 测试被合并规则干扰 | 用前插构造非相邻 op |
 | 2026-08-02 | T-004 | 测试失败实为测试 bug | 先自查测试前提与合并语义 |
+| 2026-08-02 | T-006 | `git push github-nilnoe` 报 not a repository | remote 名是 `origin`，SSH 别名 `github-nilnoe` 只存在于 URL（`git@github-nilnoe:...`）；`git remote -v` 确认后用 `git push origin main` |
 
 ## 给下一个 agent 的提醒
 
