@@ -28,7 +28,7 @@ Proposed → Accepted
 | ADR-010 | Theme 模型与 Theme DSL | Accepted | 2026-08-02 | 3 类型 + 1 方法 | Core（theme 模块） | [ADR-010-theme-model.md](ADR-010-theme-model.md) |
 | ADR-011 | Command 系统与 Event 总线 | Accepted | 2026-08-02 | 4 类型 + 2 枚举 + 7 方法 | Core（command、event 模块） | [ADR-011-command-event.md](ADR-011-command-event.md) |
 | ADR-012 | Lua Runtime（mlua）与 Plugin API | Accepted | 2026-08-02 | 2 类型 + 5 方法 + Lua API | Core（lua 模块） | [ADR-012-lua-runtime.md](ADR-012-lua-runtime.md) |
-| ADR-013 | SQLite 存储层（Store）（v1.3：崩溃恢复原语 + 角色边界 + 缓冲生命周期） | Accepted | 2026-08-02 | 2 类型 + 10 方法 + 1 变体 + FFI 1 项 | Core（store 模块）、app（恢复/保存流程） | [ADR-013-sqlite-store.md](ADR-013-sqlite-store.md) |
+| ADR-013 | SQLite 存储层（Store）（v1.4：崩溃恢复原语 + 角色边界 + 缓冲生命周期 + 多文档状态全程检查） | Accepted | 2026-08-02 | 2 类型 + 10 方法 + 1 变体 + FFI 1 项 | Core（store 模块）、app（恢复/保存流程） | [ADR-013-sqlite-store.md](ADR-013-sqlite-store.md) |
 | ADR-014 | Swift Bridge 接入（spike） | Accepted | 2026-08-02 | 桥接 FFI 面 5 项 + 2 依赖 | Core（bridge 模块）、bridge/ | [ADR-014-swift-bridge-spike.md](ADR-014-swift-bridge-spike.md) |
 | ADR-015 | AppKit 壳（Window / Menu） | Accepted | 2026-08-02 | 0（可执行目标） | app/ | [ADR-015-appkit-shell.md](ADR-015-appkit-shell.md) |
 | ADR-016 | Metal 文本渲染管线（spike） | Accepted | 2026-08-02 | 1 个 Bridge FFI | app/、core（bridge/layout） | [ADR-016-metal-text-rendering.md](ADR-016-metal-text-rendering.md) |
@@ -38,7 +38,7 @@ Proposed → Accepted
 | ADR-020 | CI 发布流水线 | Accepted | 2026-08-02 | 0（CI 基础设施） | .github/workflows/ci-release.yml、release.md | [ADR-020-ci-release-pipeline.md](ADR-020-ci-release-pipeline.md) |
 | ADR-021 | 性能基准体系（criterion）（v1.1：CI 阈值告警） | Accepted | 2026-08-02 | 0（dev-only） | core（benches）、docs/benchmarks.md、.github/workflows/ci-bench.yml、bench-baseline/ | [ADR-021-performance-benchmarks.md](ADR-021-performance-benchmarks.md) |
 | ADR-022 | 属性测试（proptest）与审计记录制度（v1.1：fuzz 扩展） | Accepted | 2026-08-02 | 0（dev-only + 文档） | core（tests/property.rs）、docs/audits.md、WORKFLOW | [ADR-022-property-tests-audit-log.md](ADR-022-property-tests-audit-log.md) |
-| ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.4：Cmd+N 新文本快照 / 自动保存缓冲 / Cmd+S 合并；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Snapshot 5 方法 + Bridge FFI 5 项（v1.4） | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
+| ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.5：Cmd+N 新文本快照 / 自动保存缓冲 / Cmd+S 合并；无模态弹窗原则；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Snapshot 5 方法 + Bridge FFI 5 项（v1.4） | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
 
 ## 触发规则
 

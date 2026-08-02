@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.4
+- **Version:** 1.5
 - **新增 Public API:** v1.4：`Snapshot` 类型 5 方法 + Bridge FFI 5 项（snapshot_new /
   snapshot_create_next / snapshot_write / snapshot_read + 缓冲 store_open_buffer /
   store_save_scratch / store_load_scratch）
@@ -38,12 +38,18 @@
    配置切片落地后迁移为配置项。
 4. **错误全部可见（ADR-004）**：目录创建失败 → `StoreError::Io`；
    SQLite 操作失败 → `StoreError::Sqlite`（既有变体）；App 经 NSAlert 呈现，不静默吞掉。
-5. **App 侧最小可用集（v1.4）**：File 菜单「新建」（⌘N，创建新快照）+「保存」
+5. **App 侧最小可用集（v1.5）**：File 菜单「新建」（⌘N，创建新快照）+「保存」
    （⌘S，合并缓冲）；dirty 状态由 `EditorModel.onChange` 回调维护（type_text /
    delete_backward / undo / redo 成功才触发，光标移动与选区不置脏），窗口标题加
    「●」；关闭 / 退出时存在未提交编辑 → NSAlert 三选（保存 / 不保存 / 取消）；
    保存键 = BufferId（启动默认 Buffer 也接线 onChange——修复此前未接线导致无
    dirty / 退出保护失效的 bug）。
+   - **v1.5 修订（无模态弹窗原则，用户指示 2026-08-02）**：产品理念是**不弹窗**
+     ——模态 NSAlert 违背「极简、纯 Buffer」理念，是**过渡实现**；未保存 / 未决
+     文档提示的未来形态是 **Buffer 底部行内提示 + y/n 输入**（StatusBar overlay，
+     T-026，尚未建设）。过渡期保留弹窗并明确标注临时，T-026 落地后移除。
+   - 退出提示覆盖**全部**未决文档（T-046：保存全部 / 全部不保存 / 取消），
+     不再只问当前文档。
 6. **保存数据模型（v1.4）**：SQLite（`buffer.sqlite`）承载缓冲工作副本（每 id
    一行，持续覆盖，崩溃保护）；快照是**纯文本文件**（提交内容，可打开编辑）。
    会话 / 崩溃恢复编排仍在 T-028 / T-029，本切片不扩展 schema。

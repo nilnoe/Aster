@@ -51,7 +51,7 @@
 
 - [ ] T-024 Command Palette overlay：Command / Event 接线进编辑循环（ARCHITECTURE 数据流跑通，ADR-011）+ Lua 插件加载（命令注册，ADR-012）与主题可编程入口（ADR-018）
 - [ ] T-025 Search overlay
-- [ ] T-026 StatusBar overlay
+- [ ] T-026 StatusBar overlay（含未保存 / 未决文档的 Buffer 底部行内提示 + y/n 输入——替代过渡期模态弹窗，ADR-023 v1.5 无模态弹窗原则）
 - [ ] T-027 Shell overlay（PTY + 模糊背景）
 - [ ] T-028 Scratch 工作流：`Cmd+N` → 自动保存 → Attach Path；接线 Store scratch 与 DocumentManager（Scratch 源，ADR-001 / ADR-013）
 
@@ -60,6 +60,7 @@
 - [x] T-043 崩溃恢复 v1（ADR-013 v1.1）：缓冲哨兵（clean_exit）+ 启动检测 + 恢复提示；缓冲文档载回编辑器
 - [x] T-044 SQLite 保留论证入文档（ADR-013 v1.2 + 总纲 §5 边界）：文档 = 文本文件、SQLite = 内部状态；三条保留论据 + 拆除条件 + 三条守则；决议保留
 - [x] T-045 缓冲数据生命周期（ADR-013 v1.3）：保留 = 未提交且未明确丢弃（含崩溃后 / 忽略 / 干净退出）；删除 = Cmd+S 合并成功 / 恢复载入 / 退出「不保存」三时机；AppDelegate 334 行与 bridge.rs 308 行超 Rule 3 → 拆 AppDelegate+Storage.swift 与 bridge_store.rs
+- [x] T-046 多文档状态全程检查（ADR-013 v1.4 / ADR-023 v1.5，用户指示）：PendingDocs 登记所有未决文档（切换 / 打开新文件不抛弃前一个）；退出提示覆盖全部未决（保存全部 / 全部不保存 / 取消）→ 干净退出后缓冲清空；缓冲定位 = 强杀 / 意外退出等边界情况专用；无模态弹窗原则（未来 = StatusBar 底部 y/n 提示，T-026；当前 NSAlert 为过渡实现）
 - [ ] T-029 Crash Recovery 与 Session 恢复（T-043 已交付缓冲恢复 v1；剩余：多文档会话完整恢复、窗口状态，接线 Store session）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）

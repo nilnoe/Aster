@@ -164,6 +164,18 @@
   Snapshot 适配移入 `bridge_store.rs` 子模块（swift-bridge 宏按名解析验证通过）
 - test：Bridge +1（删除幂等 + 不再枚举 + 读回报错）；App 59 全绿（行为不变）
 
+### Changed — 2026-08-02（T-046 多文档状态全程检查，ADR-013 v1.4 / ADR-023 v1.5，用户指示）
+
+- **多文档状态全程检查**：新增 `PendingDocs` 登记所有未决文档（以 BufferId 为键）——
+  打开另一个文件 / ⌘N 不再抛弃前一个文档的未决状态；⌘S 合并 / 丢弃从登记移除
+- **退出提示覆盖全部未决**：应用ShouldTerminate 改为「有 N 个文档存在未提交更改」，
+  选项 保存全部（逐个合并到各自快照）/ 全部不保存 / 取消；干净退出后缓冲清空
+- **缓冲定位收敛**（ADR-013 v1.4）：缓冲只服务系统强杀 / 意外退出等边界情况；
+  恢复「忽略」= 登记为未决文档（分配快照序号），不因忽略而失管
+- **无模态弹窗原则**（ADR-023 v1.5，用户指示）：产品理念不弹窗；未来 = StatusBar
+  overlay 的 Buffer 底部行内 y/n 提示（T-026）；当前 NSAlert 标注为过渡实现
+- test：App +4（PendingDocs：mark/commit 不影响其他文档 / discard / 幂等），App 63 全绿
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

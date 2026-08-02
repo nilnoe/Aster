@@ -27,8 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   var currentSnapshotSeq: UInt?
   /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
   var currentFileName: String?
-  /// 未提交编辑标记（ADR-023 v1.3：缓冲 ≠ 快照；内容变更置脏，Cmd+S 合并后清除）。
-  var isDirty = false
+  /// 多文档未提交状态（T-046，ADR-013 v1.4）：进程生命周期内全程检查，
+  /// 切换文档 / 打开新文件不抛弃前一个文档的未决状态。
+  var pendingDocs = PendingDocs()
+  /// 文档 id → 快照序号（⌘N / 恢复 / 打开时登记；⌘S 与退出「保存全部」合并目标）。
+  var snapshotSeqByDocId: [UInt: UInt] = [:]
   /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
   var needsRecoveryPrompt = false
   var mainWindow: NSWindow?
@@ -68,18 +71,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// 阻止退出（ADR-004：失败可见），让用户自己决定。「不保存」删除缓冲行
   /// （ADR-013 v1.3 删除时机 3）。
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    guard isDirty else { return .terminateNow }
+    guard !pendingDocs.isEmpty else { return .terminateNow }
     let alert = NSAlert()
-    alert.messageText = "有未提交的更改"
-    alert.informativeText = "要保存对“\(currentFileName ?? AppInfo.name)”的更改吗？"
-    alert.addButton(withTitle: "保存")
-    alert.addButton(withTitle: "不保存")
+    alert.messageText = "有 \(pendingDocs.count) 个文档存在未提交更改"
+    alert.informativeText =
+      "包括“\(currentFileName ?? AppInfo.name)”等 \(pendingDocs.count) 个文档。"
+      + "保存全部将合并进各自的快照。"
+    alert.addButton(withTitle: "保存全部")
+    alert.addButton(withTitle: "全部不保存")
     alert.addButton(withTitle: "取消")
     switch alert.runModal() {
     case .alertFirstButtonReturn:
-      return saveCurrentDocument() ? .terminateNow : .terminateCancel
+      return saveAllPending() ? .terminateNow : .terminateCancel
     case .alertSecondButtonReturn:
-      discardCurrentBufferRow()
+      discardAllPending()
       return .terminateNow
     default:
       return .terminateCancel
@@ -108,8 +113,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         view.load(model)
       }
       currentSnapshotSeq = seq
+      snapshotSeqByDocId[id] = seq
       currentFileName = nil
-      isDirty = false
       updateWindowTitle()
     } catch {
       NSLog("新建文档失败：\(error)")
@@ -143,7 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         view.load(model)
       }
       currentFileName = url.lastPathComponent
-      isDirty = false
+      // T-046：打开的文件继承当前 Scratch 快照作为合并目标（v1 语义）。
+      if let seq = currentSnapshotSeq {
+        snapshotSeqByDocId[id] = seq
+      }
       updateWindowTitle()
     } catch {
       NSLog("打开文档失败：\(error)")
@@ -164,7 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// 标题 = [● ] + 文件名（初始演示 Buffer 显示 App 名）。
   func updateWindowTitle() {
     let base = currentFileName ?? AppInfo.name
-    mainWindow?.title = isDirty ? "● \(base)" : base
+    let currentDirty =
+      (mainWindow?.contentView as? MetalView)
+      .map { pendingDocs.contains(UInt($0.model.bufferIdValue)) } ?? false
+    mainWindow?.title = currentDirty ? "● \(base)" : base
   }
 
   func presentSaveError(_ message: String) {
@@ -186,6 +197,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // 启动默认文档 = 首个 Scratch（DM 分配唯一 id，作保存键；ADR-001 v1.2）。
     // Scratch 打开不可失败（无 IO）；兜底 id 1 仅为结构完整性（ADR-004 不静默）。
     let id = (try? document_manager_open_scratch(documentManager)) ?? 1
+    // T-046：启动默认文档登记快照序号（合并目标）。
+    if let seq = currentSnapshotSeq {
+      snapshotSeqByDocId[id] = seq
+    }
     // 样例内容验证 CJK + 多行渲染链路（T-012，ADR-016）。
     let buffer = Buffer(BufferId(UInt64(id)))
     _ = try? buffer_insert(buffer, 0, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
