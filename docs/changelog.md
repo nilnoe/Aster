@@ -60,3 +60,5 @@
   - [docs/glossary.md](../docs/glossary.md) — 术语表
   - [ARCHITECTURE.md](../ARCHITECTURE.md) — 架构总览
   - [WORKFLOW.md](../WORKFLOW.md) — 新增 Commit Message 约定（Conventional Commits）
+- [ADR-010](../docs/adr/ADR-010-theme-model.md) — Theme 模型与 Theme DSL（固定四角色 + `rgba()` 语法，Accepted）
+- feat(core)：Theme 模型与 Theme DSL 解析（T-006，ADR-010）——`Color` / `Theme` / `ThemeError`；`Theme::parse` 行级解析；12 个契约测试

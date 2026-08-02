@@ -24,6 +24,7 @@
 | DocumentManager 基础操作（open/close 10k 次，ms） | TBD | TBD | — | T-002 / ADR-001 | 2026-08-02 | 无量化目标；HashMap 注册表 |
 | Undo / Redo 基础操作（10k 次，ms） | TBD | TBD | — | T-004 / ADR-008 | 2026-08-02 | 无量化目标；操作栈 |
 | Layout 构建 1MB（ms）与 line_at 10k 次（ms） | TBD | TBD | — | T-005 / ADR-009 | 2026-08-02 | 无量化目标；O(n) 构建 |
+| Theme DSL 解析（parse 10k 次，ms） | TBD | TBD | — | T-006 / ADR-010 | 2026-08-02 | 无量化目标；行级手写解析器 |
 
 ## 测量规则
 

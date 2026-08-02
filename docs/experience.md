@@ -4,9 +4,9 @@
 
 ## 项目现状速览（截至 2026-08-02）
 
-- **代码：** Rust Core 已完成 T-001 ~ T-005，`core/src` 共 588 行，57 个测试全绿。
-- **决策：** ADR-001 ~ ADR-009 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-006（Theme 模型 + Theme DSL）。
+- **代码：** Rust Core 已完成 T-001 ~ T-006，`core/src` 共 753 行，69 个测试全绿。
+- **决策：** ADR-001 ~ ADR-010 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-007（Command 系统 + Event 总线）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
 

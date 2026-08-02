@@ -12,6 +12,7 @@ mod error;
 mod history;
 mod layout;
 mod selection;
+mod theme;
 
 pub use buffer::{Buffer, BufferId};
 pub use document_manager::{DocumentManager, DocumentManagerError, DocumentSource};
@@ -19,3 +20,4 @@ pub use error::BufferError;
 pub use history::{EditOp, History};
 pub use layout::Layout;
 pub use selection::Selection;
+pub use theme::{Color, Theme, ThemeError};
