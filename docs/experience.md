@@ -2,7 +2,7 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015/T-033 完成；Beta V0.1.0 / V0.1.1 已发布）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-047 完成；Beta V0.1.0 / V0.1.1 / V0.1.2 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
@@ -65,10 +65,11 @@
 - **审计纪律（T-039 起机械强制）**：audits.md 的 Commit 列不得累积「本切片」
   （CI-Docs 检查 ≤1 行且 hash 真实存在）；审计行必须含行为证据。**提交前先本地
   模拟门禁**：`grep -cE '\| 本切片 \|' docs/audits.md` 必须 ≤1。
-- **版本：** Beta 阶段，当前 **Beta V0.1.1**（core `0.1.1` 单一来源，三处同步：
+- **版本：** Beta 阶段，当前 **Beta V0.1.2**（core `0.1.2` 单一来源，三处同步：
   Changelog / 应用版本（core_version）/ git tag）。模板 `Beta V0.0.0`（末位补丁 /
   中间位功能 / 首位恒 0）。**发布 = 打 `Beta-V*` tag 推送，CI-Release 自动门禁 +
-  打包 Aster.app zip + 附到 Release（ADR-020）**。
+  打包 Aster.app zip + 附到 Release（ADR-020）**。V0.1.2 按所有者指定为补丁号
+  （功能周期按策略应为 V0.2.0，差异已记录于 Changelog）。
 - **远程：** remote 名是 `origin`（`git@github-nilnoe:nilnoe/Aster.git`），SSH 别名 `github-nilnoe` 在 URL 中；**不要**把别名当 remote 名用（T-006 踩过）；不要用 `github.com` 入口。
 - **部署目标：** macOS 26（ADR-002）：app/bridge manifest `platforms: [.macOS(.v26)]`（swift-tools-version 6.2+）+ `MACOSX_DEPLOYMENT_TARGET=26.0` 编译 Rust C 对象，两端必须一致。
 

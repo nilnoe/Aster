@@ -1,6 +1,6 @@
 [package]
 name = "aster-core"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Aster editor Rust core: platform-independent editing engine."
 license = "MIT"
