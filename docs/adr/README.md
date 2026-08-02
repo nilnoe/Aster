@@ -21,6 +21,7 @@ Proposed → Accepted
 | ADR-003 | 插件安全模型（Trusted by Default） | Accepted | 2026-08-02 | 0 | Plugin Runtime、Plugin API | [ADR-003-plugin-trust.md](ADR-003-plugin-trust.md) |
 | ADR-004 | 日志与崩溃上报 | Accepted | 2026-08-02 | 0 | Core、App、Bridge | [ADR-004-logging-crash.md](ADR-004-logging-crash.md) |
 | ADR-005 | Buffer 数据模型（最小化） | Accepted | 2026-08-02 | 12 个公开项 | Core（buffer 模块） | [ADR-005-buffer-model.md](ADR-005-buffer-model.md) |
+| ADR-006 | 核心数据结构决策矩阵 | Accepted | 2026-08-02 | 0 | Core | [ADR-006-data-structures.md](ADR-006-data-structures.md) |
 
 ## 触发规则
 
