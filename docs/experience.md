@@ -8,7 +8,20 @@
   - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，116 个测试全绿（含 7 个属性测试，ADR-022 v1.1）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（13 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（47 个 XCTest 全绿），源码 1615 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
-- **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
+- **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；
+  v1.1 修订：ADR-001 DocumentManager Bridge 面、ADR-021 CI 基准告警、ADR-022
+  fuzz 扩展）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 /
+  性能数据驱动）。
+- **本会话完成（2026-08-02 晚，均已推送 origin/main，工作树干净）：**
+  - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
+    `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
+    BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
+  - T-015 文件打开接线（e6a7ebd）：File 菜单「打开…」+ 拖放，DocumentManager
+    首次进产品（ADR-001 v1.1，Bridge FFI 3 项）
+  - T-033 fuzz + 基准回归告警（9a60b08）：CI-Bench 作业 + `bench-baseline/`
+    （17 项基线）+ `scripts/bench-regression.py` + 2 个 fuzz 属性测试
+    （ADR-021 / ADR-022 v1.1）
+  - 审计 hash 回填：794f5f6 / 0c5f8d3 / 27a86a3 / f4d2fba / b760698
 - **下一任务：** T-014 剪贴板（方向见 ADR-018：深浅色不跟随系统，主题由 Lua 提供；
   系统 NSPasteboard，Principle 4；粘贴 = 选区替换 `type_text` 路径，ADR-017）→
   随后 T-019 软换行（默认关，视觉折行属 App 渲染层）。
@@ -162,11 +175,25 @@
   修复在测试自身；CI 只按路径触发（改 core 不跑 Swift，纯文档不触发）是设计行为。
 - **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
   给下一个 agent 的提醒，不要重读全部源码。
+- **Bridge FFI 新增必读（T-015 踩坑）**：swift-bridge 0.1.59 对 `Result<u64, _>`
+  的 C 结构命名未实现（`todo!()` 崩溃）——id / 数值一律 usize 透传；改
+  `core/src/bridge.rs` 后必须先 `./bridge/build.sh` 再生绑定 + staticlib，再
+  `swift test`（CI-Swift 第一步同此）。
+- **CI-Bench（T-033，ADR-021 v1.1）**：改 core 后 CI 会跑 `cargo bench -- --quick`
+  对比 `bench-baseline/`，回归超 10% 即红。**本地改基准后必须重新生成基线并提交**：
+  `cd core && cargo bench` 后执行 `python3 scripts/bench-regression.py --save-baseline
+  bench-baseline --criterion-root core/target/criterion`（机器记录进 benchmarks.md）。
 - **会话结束未决项（2026-08-02）**：遗留项全部清零——T-018（含前置拆分）、
   T-015 文件打开接线、T-033 fuzz + 基准回归告警（ADR-021 v1.1 反转经用户确认）
   均已完成并推送。下一步按 Roadmap 为 T-014 剪贴板。另外：audits.md 审计登记
   制度已生效，新切片必须留审计行。
-- **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-024（Command Palette，ADR-017 备注）。
+- **T-014 前置**：剪贴板 = 系统 NSPasteboard（总纲 Principle 4，Rule 11）；Edit
+  菜单已有 `cut:` / `copy:` / `paste:`（target nil 走响应链，T-011 建好未接线）——
+  T-014 在 MetalView 实现响应链方法 → NSPasteboard；粘贴 = 选区替换
+  （`EditorModel.typeText` 路径，ADR-017；`set_selection` 已桥接）；深浅色不跟随
+  系统（ADR-018）。拖放 / 打开已落地（T-015），DocumentManager 已桥接
+  （`document_manager_open_disk` / `document_manager_text`）。Command 上下文 /
+  激活文档接线在 T-024（Command Palette，ADR-017 备注）。
 - **T-019 前置（ADR-019）**：软换行默认关，开启后视觉折行属 App 渲染层（Layout
   逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经 Config DSL / Lua 开启；
   水平滚动已在 T-018 完成（Viewport.scrollX + 光标横向可见性）。
