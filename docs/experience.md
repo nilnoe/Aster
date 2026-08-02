@@ -5,7 +5,7 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-017 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，107 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
+  - Rust Core：T-001 ~ T-013（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，108 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）。
@@ -28,7 +28,7 @@
 - 宪法（docs/constitution.md）不可由 agent 自行修改；修订需用户确认。
 - 沙箱环境：git 写 `.git` 需要提权（`require_escalated`）；既有依赖构建本地可用，**新增依赖首次构建需联网**（沙箱内 `cargo add` / 首次 `cargo test` 需 `require_escalated`）。
 - **多包构建链**：`core/`（Rust）→ `bridge/`（绑定包）→ `app/`（AppKit）。改动 core / bridge.rs 后必须先 `./bridge/build.sh`（cargo build --release + 复制绑定 / staticlib / lua / sqlite）再 `swift test`；CI-Swift 作业第一步行同一脚本。
-- **Swift 门禁现状**：`swift-format lint --recursive bridge/Tests app/Tests` + `swift test`（bridge、app 两个包分别跑）；生成绑定（Sources）不 lint。
+- **Swift 门禁现状**：`swift-format lint --recursive app/Sources bridge/Tests app/Tests` + `swift test`（bridge、app 两个包分别跑）；生成绑定（bridge/Sources）不 lint，手写的 app/Sources 必须 lint（CI 已覆盖）。
 - 需要运行 GUI（app 启动验证）时用短时后台运行 + kill 抓 stderr，别长时间驻留。
 
 ## 技术经验（Rust / Clippy / 测试）
@@ -123,6 +123,7 @@
 | 2026-08-02 | T-013/IME | "拼音按回车得到英文字母" 是 macOS 系统输入法固有行为（回车提交原始拼音，空格/数字确认汉字），TextEdit 同样如此，非我方 bug | 不要"修复"它（改 = 重实现 IME，违反 Principle 4）；如需回车确认候选，用户侧换第三方输入法（如 Rime） |
 | 2026-08-02 | T-017 | 渲染像素测试崩溃 SIGTRAP：`r + 100`（UInt8 255+100）算术溢出 | 像素比较先转 Int；又是测试自身的问题（"测试失败先怀疑测试"） |
 | 2026-08-02 | BUG-005 | 文本区鼠标指针是箭头而非 I 型 | `resetCursorRects` + `addCursorRect(bounds, .iBeam)`（系统能力，Principle 4） |
+| 2026-08-02 | 复审 | 文档漂移漏检：ADR 索引漏登 ADR-018（changelog/roadmap 却反复引用）；experience 现状速览行数/测试数过期 | 本次补索引、校正行数；长期靠 CI 文档完整性检查（已列入修复 TODO） |
 
 ## 给下一个 agent 的提醒
 

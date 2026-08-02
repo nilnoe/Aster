@@ -104,7 +104,7 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 - [ADR-006](../docs/adr/ADR-006-data-structures.md) — 「字形缓存 / GPU 缓冲格式」
   从未确定改为已确定（引用 ADR-016）；软换行维持不做
 - 项目启动：文档体系建立
-  - [docs/constitution.md](../docs/constitution.md) — 项目宪法（10 条不可违反原则）
+  - [docs/constitution.md](../docs/constitution.md) — 项目宪法（12 条不可违反原则）
   - [docs/adr/ADR-001-document-manager.md](../docs/adr/ADR-001-document-manager.md) — DocumentManager（Status: Proposed）
   - [WORKFLOW.md](../WORKFLOW.md) — 11 步垂直切片开发管线
   - [docs/roadmap.md](../docs/roadmap.md) — 开发路线 TODO
