@@ -29,3 +29,20 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test
+      - name: Scale Budget
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            lines=$(wc -l < "$f" | tr -d ' ')
+            if [ "$lines" -gt 300 ]; then
+              echo "OVER 300 LINES: $f ($lines)"
+              fail=1
+            fi
+          done < <(find core -name '*.rs' -not -path '*/target/*')
+          total=$(find core/src -name '*.rs' -exec cat {} + | wc -l | tr -d ' ')
+          echo "core/src total lines: $total"
+          if [ "$total" -gt 20000 ]; then
+            echo "OVER CORE BUDGET: $total"
+            fail=1
+          fi
+          exit $fail

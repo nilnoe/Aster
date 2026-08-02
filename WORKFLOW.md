@@ -19,7 +19,7 @@
 5. **Implementation** — 最小实现，让测试 **Pass（Green）**。随后 Refactor，测试保持 Pass。UI 保持薄，可测试的逻辑尽可能落在 Rust Core 内。
 6. **Format** — `cargo fmt` + `swift-format`。
 7. **Lint** — `cargo clippy`。
-8. **Audit** — Architecture Audit：检查切片是否符合 ADR 与宪法——Core 是否稳定、是否有隐藏耦合、是否有超出切片范围的代码、是否有违规抽象、是否通过复杂度预算（宪法 Rule 9：新增了什么复杂度、是否永久、是否有更简单方案）。
+8. **Audit** — Architecture Audit：检查切片是否符合 ADR 与宪法——Core 是否稳定、是否有隐藏耦合、是否有超出切片范围的代码、是否有违规抽象、是否通过复杂度预算（宪法 Rule 9）与规模预算（宪法 Rule 12，见 [docs/scale.md](docs/scale.md)）。
 9. **Benchmark** — 运行相关基准并与上一基线对比，记录结果。涉及 ADR Performance Goals（Cold Startup、Document Opening、Rendering）的切片必须给出量化对比；不涉及的切片也要刷新基线或记录"无显著影响"。
 10. **Documentation** — 更新 ADR、README、docs、Roadmap 状态与 Changelog 中所有与本切片相关的部分。
 11. **Commit** — 全量质量门禁通过（宪法 Rule 6）：`cargo fmt`、`cargo clippy`、`cargo test`、`swift-format`、`swift test`。全部通过才允许提交。Commit message 引用对应的 Task 与 ADR。
@@ -32,6 +32,7 @@
 - 宪法 Rule 6 五项门禁全部通过
 - Architecture Audit 无违规项
 - 复杂度预算三问已回答并记录（宪法 Rule 9）
+- 规模预算已检查（宪法 Rule 12：单文件 ≤ 300 行、无上帝文件、总量未超预算）
 - Benchmark 已记录
 - 文档已更新（含 Roadmap 状态与 Changelog）
 

@@ -21,6 +21,8 @@
   - [AGENTS.md](../AGENTS.md) — 执行约定
 - [docs/constitution.md](../docs/constitution.md) — Version 1.1：新增 Rule 10（注释必须有决策依据）与修订流程
 - [docs/constitution.md](../docs/constitution.md) — Version 1.2：新增 Rule 11（禁止重复造轮子 / Reuse First）
+- [docs/constitution.md](../docs/constitution.md) — Version 1.3：修订 Rule 3（上帝文件禁令）+ 新增 Rule 12（规模预算：单文件 / 模块 / 总量上限、扩容与精简条件、封装与接口）
+- [docs/scale.md](../docs/scale.md) — 规模预算执行细则（硬性上限表、预警 80%、扩容 ≤25%、精简五触发条件）
 - 新增 ADR：
   - [ADR-002](../docs/adr/ADR-002-macos-support.md) — macOS 支持策略：仅最新版，零兼容负担（Accepted）
   - [ADR-003](../docs/adr/ADR-003-plugin-trust.md) — 插件安全模型：默认信任，第一阶段不沙箱（Accepted）
@@ -36,6 +38,8 @@
   - [docs/bugs.md](../docs/bugs.md) — 缺陷登记表（内部登记）
 - 工程基础设施：
   - [.github/workflows/ci-rust.yml](../.github/workflows/ci-rust.yml) + [ci-swift.yml](../.github/workflows/ci-swift.yml) — CI：Rust 与 Swift 门禁机械执行（按路径触发）
+  - [.github/workflows/ci-rust.yml](../.github/workflows/ci-rust.yml) — 新增 Scale Budget 检查（单文件 ≤ 300 行、core 总量 ≤ 20k）
+  - [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) — 新增规模预算必填项
   - [DEVELOPING.md](../DEVELOPING.md) — 构建与运行
   - [docs/testing.md](../docs/testing.md) — 分层测试策略
   - [docs/release.md](../docs/release.md) — 发布流程（Trunk-based + 发布清单）

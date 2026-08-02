@@ -23,6 +23,7 @@
 - `docs/testing.md` — 分层测试策略。
 - `docs/release.md` — 发布流程。
 - `docs/dependencies.md` — 依赖维护政策。
+- `docs/scale.md` — 规模预算：单文件 / 模块 / 总量上限与精简触发条件。
 - `SECURITY.md` — 信任模型与漏洞报告。
 - `.github/workflows/` — CI 机械门禁（Rust / Swift 双作业，按路径触发）。
 - `README.md` — 文档体系索引。
@@ -55,6 +56,7 @@ Task → Analysis → Architecture → Test Design → Implementation → Format
 - **宪法不可自行修改：** Agent 不得直接修改 `docs/constitution.md`；需要修订时先向用户提出建议，获得确认后执行。
 - **CI 强制：** PR 必须通过 GitHub Actions 全部作业（宪法 Rule 6 的机械执行）。
 - **平台与安全约束：** 仅支持最新 macOS（ADR-002）；插件默认信任（ADR-003）；默认无遥测，崩溃上报需显式开启（ADR-004）。
+- **规模预算：** 宪法 Rule 12——单文件 ≤ 300 行、禁上帝文件、逻辑模块 ≤ 1,200 行、Core ≤ 20k / Swift ≤ 5k；扩容需 ADR 与用户确认；重复出现三处必须提取或复用。
 - **版本：** 现阶段 Beta，模板 `Beta V0.0.0`——补丁递增末位、功能递增中间位、首位恒为 0；首个正式版为 `V1.0.0`（见 docs/release.md）。
 - **Benchmark 是常态：** 每个切片至少建立或刷新一次性能基线，涉及 ADR Performance Goals 的切片必须给出量化对比。
 - **Docs 是 Commit 的一部分：** 未更新文档的切片不算完成（含 Roadmap 状态与 Changelog）。
