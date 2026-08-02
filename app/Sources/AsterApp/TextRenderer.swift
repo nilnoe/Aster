@@ -182,8 +182,12 @@ final class TextRenderer {
       let layout = LineLayout(text: lines[cursorLine], font: font)
       let top = CGFloat(cursorLine) * lineHeightPx - scrollRemainderPx
       if selStart == selEnd && caretVisible {
+        // BUG-004：组合期间光标跟随到组合文本末尾（组合在 displayText 中内联于
+        // 光标处，无换行，与光标同一行）。
+        let caretByte =
+          cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
         let x =
-          (leftPadPts + layout.xOffset(atByteOffset: cursorByte - lineRange.lowerBound))
+          (leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound))
           * scale
         appendSolidRect(
           x: x.rounded(),

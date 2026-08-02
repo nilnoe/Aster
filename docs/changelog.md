@@ -30,6 +30,11 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 
 ### Fixed — 2026-08-02
 
+- fix(app)：IME 组合期间光标不跟随（BUG-004，根因分类：Implementation Bug）——
+  组合文本内联于光标处，光标却画在组合起点；改为画在组合文本末尾
+  （cursor + composition 长度）。回归测试：离屏渲染后断言光标竖直线出现在
+  "ab你好" 末尾列（Red→Green）
+
 - fix(app)：拼音组合期间回车不提交（BUG-003，根因分类：Implementation Bug）——
   keyDown 无条件拦截 keyCode 36 直连 `typeText("\n")`（会清空组合），输入法得不到
   回车键；数字键选词正常正因走 `interpretKeyEvents`。修复：组合激活期间所有按键

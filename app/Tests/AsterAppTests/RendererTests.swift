@@ -3,6 +3,7 @@
 //! 用真实 TextRenderer 离屏渲染后读回像素：光标列必须出现白色像素、
 //! 选区必须出现蓝色调高亮——直接证明纯色覆盖层真实渲染（不再依赖肉眼）。
 
+import AppKit
 import AsterBridge
 import Metal
 import XCTest
@@ -96,13 +97,53 @@ final class RendererTests: XCTestCase {
     let pixels = readBack(texture, width: 400, height: 100)
     var found = false
     for i in stride(from: 0, to: pixels.count, by: 4) {
-      let r = pixels[i]
-      let g = pixels[i + 1]
-      let b = pixels[i + 2]
+      // UInt8 直接参与 `r + 100` 会溢出（255+100）——先转 Int（测试自身踩坑）。
+      let r = Int(pixels[i])
+      let g = Int(pixels[i + 1])
+      let b = Int(pixels[i + 2])
       if b > 200 && b > r + 100 && b > g + 60 {
         found = true
       }
     }
     XCTAssertTrue(found, "选区高亮必须渲染蓝色调像素（BUG-002）")
+  }
+
+  /// 回归（BUG-004）：组合期间光标渲染在组合文本末尾，而不是组合起点。
+  func testCaretFollowsCompositionEnd() throws {
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(22)))
+    try model.typeText("ab")
+    model.move(.docEnd, extend: false)
+    model.setMarkedText("你好")
+    let renderer = TextRenderer(device: device)
+    let texture = makeTexture(device: device, width: 600, height: 100)
+    renderer.renderOffscreen(
+      model: model,
+      scrollY: 0,
+      caretVisible: true,
+      into: texture,
+      viewSize: CGSize(width: 600, height: 100),
+      scale: 2
+    )
+    let pixels = readBack(texture, width: 600, height: 100)
+    // 期望光标列 = (12pt 左留白 + "ab你好" 宽) × 2。
+    let layout = LineLayout(text: "ab你好", font: NSFont.systemFont(ofSize: 16))
+    let caretX0 = Int((12 + layout.width) * 2)
+    var whiteRows = 0
+    for y in 0..<100 {
+      var rowWhite = false
+      for x in caretX0..<(caretX0 + 4) {
+        let i = (y * 600 + x) * 4
+        if pixels[i] > 200 && pixels[i + 1] > 200 && pixels[i + 2] > 200 {
+          rowWhite = true
+        }
+      }
+      if rowWhite {
+        whiteRows += 1
+      }
+    }
+    XCTAssertGreaterThan(whiteRows, 20, "组合期间光标必须跟随到组合文本末尾（BUG-004）")
   }
 }
