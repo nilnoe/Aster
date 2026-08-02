@@ -18,7 +18,7 @@
 ## Phase 1 — Core 编辑内核
 
 - [x] T-003 Selection 模型（anchor / head 字节偏移，光标即 head）
-- [ ] T-004 Undo / Redo
+- [x] T-004 Undo / Redo（inverse-operation 栈 + 相邻 Insert 合并，ADR-008）
 - [ ] T-005 Layout：行布局引擎
 - [ ] T-006 Theme：主题模型 + Theme DSL
 - [ ] T-007 Command 系统 + Event 总线
