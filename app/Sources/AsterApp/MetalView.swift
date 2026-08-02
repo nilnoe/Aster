@@ -182,8 +182,9 @@ final class MetalView: MTKView {
     return lineStart + layout.byteOffset(atX: max(0, x))
   }
 
-  /// 内容尺寸：高度 = 行数 × 行高；宽度 = 可见行最大宽度（ADR-019 决策 1，
-  /// 不取全文档最宽行——超长行场景后续再调）。
+  /// 内容尺寸：高度 = 行数 × 行高；宽度 = 可见行最大宽度 + 左右留白
+  /// （ADR-019 决策 1，不取全文档最宽行；右留白随 BUG-006：否则行末光标
+  /// 滚到最右时被 clamp 吃掉留白，光标仍会贴边消失）。
   private func contentSize() -> CGSize {
     let height = CGFloat(model.lines.count) * renderer.lineHeightPts
     let lineWindow = viewport.visibleLineRange(
@@ -198,7 +199,7 @@ final class MetalView: MTKView {
         renderer.leftPadPts + LineLayout(text: model.lines[lineIndex], font: renderer.font).width
       )
     }
-    return CGSize(width: width, height: height)
+    return CGSize(width: width + renderer.rightPadPts, height: height)
   }
 
   /// 编辑 / 移动后把光标带进视野（internal：IME 扩展 insertText 提交后调用）。
@@ -215,6 +216,8 @@ final class MetalView: MTKView {
       cursorX: cursorX,
       lineTop: lineTop,
       lineHeightPts: renderer.lineHeightPts,
+      leftPadPts: renderer.leftPadPts,
+      rightPadPts: renderer.rightPadPts,
       contentSize: contentSize(),
       viewportSize: bounds.size
     )

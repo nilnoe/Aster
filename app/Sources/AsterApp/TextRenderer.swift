@@ -30,6 +30,8 @@ final class TextRenderer {
 
   /// 行左留白（点）（视图做鼠标命中换算需要，内部可见）。
   let leftPadPts: CGFloat = 12
+  /// 行右留白（点）（BUG-006：光标横向可见性必须在右缘留白，与左缘对称）。
+  let rightPadPts: CGFloat = 12
 
   init(device: MTLDevice) {
     guard let commandQueue = device.makeCommandQueue(),

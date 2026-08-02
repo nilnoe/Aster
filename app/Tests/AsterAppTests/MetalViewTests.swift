@@ -106,4 +106,50 @@ final class MetalViewTests: XCTestCase {
     )
     XCTAssertEqual(view.viewport.scrollX, 0, accuracy: 1)
   }
+
+  /// BUG-006 回归（接线）：行末光标经 scrollCursorIntoView 后必须停在右缘
+  /// 12pt 留白内，scrollCursorIntoView 必须把 rightPad 传给 Viewport。
+  func testCursorAtLineEndStaysInsideRightMargin() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(33)))
+    // 78 字符 ≈ 690pt ≫ 视口 600pt，横向滚动有钳制空间。
+    try model.typeText(String(repeating: "abcdefghijklmnopqrstuvwxyz", count: 3))
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300), model: model)
+    model.move(.docEnd, extend: false)
+
+    view.scrollCursorIntoView()
+
+    let layout = LineLayout(text: model.lines[0], font: view.renderer.font)
+    let caretX = view.renderer.leftPadPts + layout.width - view.viewport.scrollX
+    XCTAssertLessThanOrEqual(
+      caretX, view.bounds.width - view.renderer.rightPadPts + 0.5,
+      "末尾光标必须停在右缘留白内（BUG-006）"
+    )
+    XCTAssertGreaterThanOrEqual(caretX, 0)
+  }
+
+  /// BUG-006 回归（用户场景）：横向滚动到行末后按回车，新行行首光标必须停在
+  /// 左留白处（scrollX 归零，左侧边距恢复），而不是贴 x=0 把边距滚出视口。
+  func testReturnAfterHorizontalScrollRestoresLeftMargin() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(34)))
+    try model.typeText(String(repeating: "abcdefghijklmnopqrstuvwxyz", count: 3))
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300), model: model)
+    model.move(.docEnd, extend: false)
+    view.scrollCursorIntoView()
+    XCTAssertGreaterThan(view.viewport.scrollX, 0, "前置：行末必须已横向滚动")
+
+    let enter = try XCTUnwrap(makeReturnEvent())
+    view.keyDown(with: enter)
+
+    XCTAssertEqual(view.viewport.scrollX, 0, "回车到行首后 scrollX 必须归零（BUG-006）")
+    XCTAssertEqual(
+      view.renderer.leftPadPts - view.viewport.scrollX, 12,
+      "行首光标必须停在左留白 12pt 处"
+    )
+  }
 }

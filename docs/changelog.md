@@ -28,6 +28,17 @@
   离屏质心位移像素测试（scrollX 6pt @2x → 质心左移 12px）；MetalView 滚轮
   轴映射测试（CGEvent 构造，量级断言不依赖「自然滚动」偏好方向）
 
+### Fixed — 2026-08-02
+
+- fix(app)：横向滚动后行末光标消失 / 回车后左侧边距消失（BUG-006，
+  根因分类：Implementation Bug）——`Viewport.ensureCursorVisible` 把光标滚到
+  「恰好贴边」：右缘时光标 quad（2pt 宽）整体在视口外；左缘（回车到新行行首）
+  时 scrollX 被设为 cursorX，12pt 左边距被滚出视口。修复：左右各预留 12pt
+  边缘留白（与渲染层 `leftPadPts` 对称，新增 `rightPadPts`），内容宽度计入
+  右留白（否则滚动到最右时 clamp 吃掉留白，光标仍会贴边）。回归测试：Viewport
+  边缘留白单测、MetalView 接线测试（行末右缘 / 回车后行首左缘）、离屏渲染像素
+  测试（行末光标列必须落在右缘 12pt 留白内）
+
 ### Changed — 2026-08-02（Beta V0.2 规划）
 
 - ci：新增 `CI-Release` 发布流水线（[ADR-020](../docs/adr/ADR-020-ci-release-pipeline.md)）——

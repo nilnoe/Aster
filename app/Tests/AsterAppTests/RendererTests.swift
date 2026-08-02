@@ -143,6 +143,57 @@ final class RendererTests: XCTestCase {
     XCTAssertEqual(c6.x, c0.x - 12, accuracy: 2, "字形质心必须左移 scrollX×scale")
   }
 
+  /// BUG-006 回归：长行末尾光标在横向滚动后必须渲染在右缘留白内（视口内），
+  /// 而不是被滚出右边缘整体消失。
+  func testCaretAtLineEndStaysInsideRightMargin() throws {
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(24)))
+    try model.typeText(String(repeating: "abcdefghijklmnopqrstuvwxyz", count: 3))
+    model.move(.docEnd, extend: false)
+    let renderer = TextRenderer(device: device)
+    let layout = LineLayout(text: model.lines[0], font: renderer.font)
+    let cursorX = renderer.leftPadPts + layout.width
+    let viewportWidthPts: CGFloat = 600
+    var viewport = Viewport()
+    viewport.ensureCursorVisible(
+      cursorX: cursorX, lineTop: 0, lineHeightPts: renderer.lineHeightPts,
+      leftPadPts: renderer.leftPadPts, rightPadPts: renderer.rightPadPts,
+      contentSize: CGSize(
+        width: renderer.leftPadPts + layout.width + renderer.rightPadPts, height: 100
+      ),
+      viewportSize: CGSize(width: viewportWidthPts, height: 100)
+    )
+    // 离屏纹理按像素尺寸（600pt × 2）；光标列 = (600 - 12)pt × 2 = 1176px。
+    let texture = makeTexture(device: device, width: 1200, height: 200)
+    renderer.renderOffscreen(
+      model: model,
+      viewport: viewport,
+      caretVisible: true,
+      into: texture,
+      viewSize: CGSize(width: 1200, height: 200),
+      scale: 2
+    )
+    let pixels = readBack(texture, width: 1200, height: 200)
+    // 光标是 4px 宽的纯白竖线；四列全白才计数，字形墨迹（≤ ~11 行）与右缘
+    // 反锯齿边缘不会整列全白，阈值 20 可区分。
+    var whiteRows = 0
+    for y in 0..<200 {
+      var allWhite = true
+      for x in 1176..<1180 {
+        let i = (y * 1200 + x) * 4
+        if pixels[i] <= 200 || pixels[i + 1] <= 200 || pixels[i + 2] <= 200 {
+          allWhite = false
+        }
+      }
+      if allWhite {
+        whiteRows += 1
+      }
+    }
+    XCTAssertGreaterThan(whiteRows, 20, "末尾光标必须渲染在右缘 12pt 留白内（BUG-006）")
+  }
+
   /// 回归（BUG-004）：组合期间光标渲染在组合文本末尾，而不是组合起点。
   func testCaretFollowsCompositionEnd() throws {
     guard let device = MTLCreateSystemDefaultDevice() else {

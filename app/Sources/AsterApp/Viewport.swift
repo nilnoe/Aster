@@ -36,10 +36,13 @@ struct Viewport {
     scrollY = min(max(0, scrollY), max(0, contentSize.height - viewportSize.height))
   }
 
-  /// 把光标带进视野：横向移出右边缘时滚到可见（ADR-019 决策 1）；
-  /// 纵向行为与原实现一致（ADR-017）。
+  /// 把光标带进视野：横向必须停在左右边缘的留白内（BUG-006：贴边时 2pt 宽的
+  /// 光标 quad 在视口外，行末光标会整体消失；左侧无留白则回车后行首贴 x=0，
+  /// 左边距被滚出视口）。留白与渲染层一致（TextRenderer.leftPadPts /
+  /// rightPadPts，均为 12pt）。纵向行为与原实现一致（ADR-017）。
   mutating func ensureCursorVisible(
     cursorX: CGFloat, lineTop: CGFloat, lineHeightPts: CGFloat,
+    leftPadPts: CGFloat, rightPadPts: CGFloat,
     contentSize: CGSize, viewportSize: CGSize
   ) {
     if lineTop < scrollY {
@@ -49,11 +52,11 @@ struct Viewport {
     if lineBottom > scrollY + viewportSize.height {
       scrollY = lineBottom - viewportSize.height
     }
-    if cursorX < scrollX {
-      scrollX = cursorX
+    if cursorX < scrollX + leftPadPts {
+      scrollX = cursorX - leftPadPts
     }
-    if cursorX > scrollX + viewportSize.width {
-      scrollX = cursorX - viewportSize.width
+    if cursorX > scrollX + viewportSize.width - rightPadPts {
+      scrollX = cursorX - (viewportSize.width - rightPadPts)
     }
     clamp(contentSize: contentSize, viewportSize: viewportSize)
   }
