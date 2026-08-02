@@ -72,4 +72,16 @@ final class SnapshotBridgeTests: XCTestCase {
       "恢复入口可读回内容"
     )
   }
+
+  /// T-045（ADR-013 v1.3）：合并 / 丢弃后缓冲行删除，幂等且不再枚举。
+  func testDeleteScratchRemovesRowAfterCommit() throws {
+    let dir = makeTempDir("delete")
+    var buffer = try store_open_buffer(dir)
+    try store_save_scratch(buffer, 8, "已提交内容")
+    XCTAssertTrue(try store_delete_scratch(buffer, 8), "删除存在的行返回 true")
+
+    XCTAssertFalse(try store_delete_scratch(buffer, 8), "再次删除幂等返回 false")
+    XCTAssertTrue(Array(store_scratch_ids(buffer)).isEmpty, "缓冲已无该文档")
+    XCTAssertThrowsError(try store_load_scratch(buffer, 8), "删除后读回必须报错")
+  }
 }

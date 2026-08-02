@@ -151,6 +151,19 @@
 - docs(roadmap)：新增 T-044（本切片）；守则 b 约束 T-029 必须消费 session 表，
   守则 c 记录快照原子写为已识别改进（未排期）
 
+### Changed — 2026-08-02（T-045 缓冲生命周期，ADR-013 v1.3）
+
+- **厘清缓冲生命周期**（此前只写不删，`delete_scratch` 是死代码）：保留 = 未提交
+  且未明确丢弃（含崩溃后未处理 / 恢复「忽略」/ 干净退出不删数据）；删除 = 三个
+  明确时机——① Cmd+S 合并成功（内容已固化到快照）② 崩溃恢复载入后（旧行让位
+  给新 id）③ 退出提示「不保存」（用户明确丢弃）；不变量：缓冲行存在 ⟺ 存在
+  未提交且未明确丢弃的编辑
+- feat(bridge)：`store_delete_scratch` FFI（幂等）；App 三个删除时机接线
+- refactor（Rule 3）：AppDelegate 334 行超限 → 拆 `AppDelegate+Storage.swift`
+  （存储 / 保存 / 恢复扩展，T-018 同款模式）；bridge.rs 308 行超限 → Store /
+  Snapshot 适配移入 `bridge_store.rs` 子模块（swift-bridge 宏按名解析验证通过）
+- test：Bridge +1（删除幂等 + 不再枚举 + 读回报错）；App 59 全绿（行为不变）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

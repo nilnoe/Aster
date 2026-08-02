@@ -7,6 +7,7 @@
 //! `BufferError` 精确表达失败原因。
 
 mod bridge;
+mod bridge_store;
 mod buffer;
 mod command;
 mod document_manager;

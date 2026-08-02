@@ -59,6 +59,7 @@
 
 - [x] T-043 崩溃恢复 v1（ADR-013 v1.1）：缓冲哨兵（clean_exit）+ 启动检测 + 恢复提示；缓冲文档载回编辑器
 - [x] T-044 SQLite 保留论证入文档（ADR-013 v1.2 + 总纲 §5 边界）：文档 = 文本文件、SQLite = 内部状态；三条保留论据 + 拆除条件 + 三条守则；决议保留
+- [x] T-045 缓冲数据生命周期（ADR-013 v1.3）：保留 = 未提交且未明确丢弃（含崩溃后 / 忽略 / 干净退出）；删除 = Cmd+S 合并成功 / 恢复载入 / 退出「不保存」三时机；AppDelegate 334 行与 bridge.rs 308 行超 Rule 3 → 拆 AppDelegate+Storage.swift 与 bridge_store.rs
 - [ ] T-029 Crash Recovery 与 Session 恢复（T-043 已交付缓冲恢复 v1；剩余：多文档会话完整恢复、窗口状态，接线 Store session）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）

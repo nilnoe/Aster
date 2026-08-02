@@ -12,7 +12,7 @@
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
-  - bridge/：swift-bridge 绑定 Swift Package（18 个 XCTest 全绿；生成代码与 .a
+  - bridge/：swift-bridge 绑定 Swift Package（19 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（59 个 XCTest 全绿），源码 1945 行（Rule 12
     的 Swift 预算 ≤5,000 行生效中）。
@@ -44,6 +44,8 @@
     恢复提示（载回缓冲文档）
   - T-044 SQLite 保留论证（7a1408d，ADR-013 v1.2）：文档 = 文本 / SQLite = 内部
     状态边界 + 三条保留论据 + 拆除条件；决议保留
+  - T-045 缓冲生命周期（进行中，ADR-013 v1.3）：保留 = 未提交且未明确丢弃；
+    删除 = 合并 / 恢复 / 不保存三时机；AppDelegate 与 bridge.rs Rule 3 拆分
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
     BUG-007 组合期间横向滚动（1d7dfe7）——均带回归测试
@@ -135,6 +137,7 @@
 | 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty「●」= 缓冲 ≠ 快照；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
 | 崩溃恢复 | v1（T-043，ADR-013 v1.1）：缓冲 `meta.clean_exit` 哨兵（正常退出 true / 启动清 false）；启动时哨兵非干净且有缓冲文档 → 「恢复最近一个」提示；恢复载回缓冲内容并置脏，Cmd+S 合并进新快照 | 多文档会话 / 窗口状态完整恢复在 T-029（剩余部分）；恢复内容未合并前仍在缓冲（崩溃不丢） |
 | SQLite 角色 | 边界（T-044，ADR-013 v1.2）：文档 = 文本文件（快照 .txt）；SQLite = 编辑器内部状态（缓冲 / session / 最近文件 / 工作区 / undo 持久化），永不混用；三条保留论据（崩溃保护事务性写入 / 多文档缓冲 / 总纲 §5 既定路线） | 拆除条件：砍掉会话 / 最近文件 / 工作区 / undo 路线时按 ADR 反转拆 rusqlite；session 表不许悬挂（T-029 消费）；快照原子写为已识别改进未排期 |
+| 缓冲生命周期 | 规则（T-045，ADR-013 v1.3）：保留 = 未提交且未明确丢弃（崩溃后 / 忽略 / 干净退出不删数据）；删除 = ⌘S 合并成功 / 恢复载入 / 退出「不保存」三时机；不变量：缓冲行存在 ⟺ 存在未决编辑 | 多文档未决行的完整清单随 T-029；恢复 v1 只呈现最新一个（其余行是「未决」的守恒结果，不是 bug） |
 
 ## 踩坑记录（可追加）
 
@@ -209,6 +212,8 @@
 | 2026-08-02 | T-042 | 新增模块从 store 拆快照职责 | Store = SQLite（ADR-013 SRP），快照 = 纯文本 → 独立 snapshot 模块（Rule 3）；删掉 Store 里失去消费者的 SQLite 快照 API（Rule 12/14） |
 | 2026-08-02 | T-043 | 「崩溃后如何恢复」——缓冲只保护数据，恢复流程缺失（无哨兵、无提示） | 哨兵模式：正常退出写 clean_exit=true，启动读后立即清 false；崩溃不执行终止回调 → 下次启动检测到异常退出；恢复决策抽纯函数（shouldOfferRecovery）便于单测 |
 | 2026-08-02 | T-044 | 用户质询「快照改文本后 SQLite 意义还有多大」 | 诚实区分「现有使用薄」与「角色价值」：现用仅缓冲 KV + 哨兵，但总纲 §5 的角色是内部状态存储（会话 / 最近文件 / 工作区 / undo 都在路上）；论证落 ADR-013 v1.2，决议保留；「现有使用量小」不是拆的理由，「既定路线不再需要」才是 |
+| 2026-08-02 | T-045 | 缓冲只写不删：delete_scratch 是死代码，生命周期未定义（用户要求厘清保留 / 删除时机） | 规则化：保留 4 类（未决编辑 / 崩溃未处理 / 忽略 / 干净退出），删除 3 时机（合并 / 恢复 / 明确丢弃）；「哨兵只记录退出状态，不承担数据清理」——干净退出不清缓冲，未决行跨会话守恒 |
+| 2026-08-02 | T-045 | AppDelegate 334 行、bridge.rs 308 行双双超 Rule 3 | AppDelegate 拆壳 + 存储扩展（T-018 同款）；bridge 适配拆 bridge_store 子模块——swift-bridge 宏经 `use crate::bridge_store::*` 按名解析可用（实测生成绑定 + Swift 测试通过）；每次加功能后跑 `wc -l` 复查 |
 
 ## 给下一个 agent 的提醒
 

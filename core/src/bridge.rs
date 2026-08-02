@@ -17,6 +17,7 @@
 // 输出而非手写代码，整文件允许该 lint（宪法 Rule 10：注释给出决策依据）。
 #![allow(clippy::unnecessary_cast)]
 
+use crate::bridge_store::*;
 use crate::buffer::{Buffer, BufferId};
 use crate::document_manager::{DocumentManager, DocumentSource};
 use crate::editor::{Editor, Movement};
@@ -87,80 +88,6 @@ pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
     dm.text(BufferId::new(id as u64)).unwrap_or("").to_string()
 }
 
-// --- Store 桥接面（T-040，ADR-023 v1.1） ---
-//
-// 决策依据：
-// - Cmd+S 自动保存到 SQLite（按日期轮转）是本版本的保存目标；磁盘写回（用户指定
-//   路径）Deferred 到未来文件系统切片（ADR-023 v1.1 决策 1）。
-// - id 以 usize 透传（ADR-014 惯例）；错误映射为消息字符串（ADR-014 惯例）。
-
-// --- Snapshot 桥接面（T-042，ADR-023 v1.4） ---
-//
-// 决策依据：快照是纯文本文件（用户反馈 .sqlite 无法在 Buffer 打开）；Cmd+N 创建
-// 文本快照、Cmd+S 把缓冲文本合并进当前快照；错误映射为消息字符串（ADR-014 惯例）。
-
-/// 建立快照目录句柄（App 持有 opaque）。
-pub fn snapshot_new(dir: String) -> Snapshot {
-    Snapshot::new(std::path::PathBuf::from(dir))
-}
-
-/// Cmd+N：创建当日下一个序号文本快照并返回 seq。
-pub fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String> {
-    snapshot
-        .create_next()
-        .map(|seq| seq as usize)
-        .map_err(|e| format!("{e:?}"))
-}
-
-/// Cmd+S：把缓冲文本合并（覆盖写）进指定序号快照（提交 / 固化）。
-pub fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String> {
-    snapshot
-        .write(seq as i64, &content)
-        .map_err(|e| format!("{e:?}"))
-}
-
-/// 读取快照内容（T-028 恢复 / 测试）。
-pub fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String> {
-    snapshot.read(seq as i64).map_err(|e| format!("{e:?}"))
-}
-
-/// 自动保存缓冲文件（崩溃保护；App 启动时打开并保持连接）。
-pub fn store_open_buffer(dir: String) -> Result<Store, String> {
-    Store::open_buffer(std::path::Path::new(&dir)).map_err(|e| format!("{e:?}"))
-}
-
-/// Cmd+S 保存点：把 Buffer 文本 upsert 进 scratch 表（ADR-023 v1.1 决策 6）。
-pub fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String> {
-    store
-        .save_scratch(id as u64, &content)
-        .map_err(|e| format!("{e:?}"))
-}
-
-/// 读取已保存内容（测试 / T-028 Scratch 接线用）；不存在返回错误。
-pub fn store_load_scratch(store: &Store, id: usize) -> Result<String, String> {
-    store
-        .load_scratch(id as u64)
-        .map_err(|e| format!("{e:?}"))?
-        .ok_or_else(|| format!("scratch {id} not found"))
-}
-
-/// 设置干净退出哨兵（T-043，ADR-013 v1.1：正常退出 true / 启动清 false）。
-pub fn store_set_clean_exit(store: &mut Store, clean: bool) -> Result<(), String> {
-    store.set_clean_exit(clean).map_err(|e| format!("{e:?}"))
-}
-
-/// 读取干净退出哨兵（崩溃检测）。
-pub fn store_is_clean_exit(store: &Store) -> Result<bool, String> {
-    store.is_clean_exit().map_err(|e| format!("{e:?}"))
-}
-
-/// 缓冲文档 id 列表（恢复时取最大 id = 最新文档）。
-pub fn store_scratch_ids(store: &Store) -> Vec<usize> {
-    store
-        .list_scratch()
-        .map(|rows| rows.into_iter().map(|(id, _)| id as usize).collect())
-        .unwrap_or_default()
-}
 // --- Editor 桥接面（T-013，ADR-017） ---
 //
 // 决策依据：
@@ -274,6 +201,7 @@ mod ffi {
         fn store_set_clean_exit(store: &mut Store, clean: bool) -> Result<(), String>;
         fn store_is_clean_exit(store: &Store) -> Result<bool, String>;
         fn store_scratch_ids(store: &Store) -> Vec<usize>;
+        fn store_delete_scratch(store: &mut Store, id: usize) -> Result<bool, String>;
         fn snapshot_new(dir: String) -> Snapshot;
         fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String>;
         fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String>;
