@@ -5,7 +5,7 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 
 | 切片 / 事项 | Commit | 审计项 | 结论 | 违规与处置 | 日期 |
 | --- | --- | --- | --- | --- | --- |
-| T-045 缓冲生命周期（ADR-013 v1.3） | 本切片 | 行为证据：Bridge 19 + App 59 全绿（delete 幂等 / 枚举消失 / 读回报错）；ADR-013 v1.3 生命周期规则（保留 4 类 / 删除 3 时机 / 不变量）；Rule 3（AppDelegate 334 → 209+145 拆分、bridge.rs 308 → 227+84 拆分，全部 ≤300）/ Rule 9 三问（1 FFI + 3 处接线 + 2 处拆分，0 抽象层 / 0 新依赖）/ Rule 12（delete_scratch 从死代码变真实消费） | Pass | AppDelegate / bridge.rs 超限由本切片自行拆分前置（同 T-018 先例） | 2026-08-02 |
+| T-045 缓冲生命周期（ADR-013 v1.3） | 8dacfff | 行为证据：Bridge 19 + App 59 全绿（delete 幂等 / 枚举消失 / 读回报错）；ADR-013 v1.3 生命周期规则（保留 4 类 / 删除 3 时机 / 不变量）；Rule 3（AppDelegate 334 → 209+145 拆分、bridge.rs 308 → 227+84 拆分，全部 ≤300）/ Rule 9 三问（1 FFI + 3 处接线 + 2 处拆分，0 抽象层 / 0 新依赖）/ Rule 12（delete_scratch 从死代码变真实消费） | Pass | AppDelegate / bridge.rs 超限由本切片自行拆分前置（同 T-018 先例） | 2026-08-02 |
 | T-044 SQLite 保留论证（ADR-013 v1.2） | 7a1408d | 行为证据：纯文档切片（无代码改动）；论证基于代码现状核验（scratch/meta 在用、session 表零消费者、libsqlite3.a 2.4MB、FFI 6 项）；Rule 9 三问（0 抽象层 / 0 依赖 / 0 API，仅文档）；Rule 13（守则 b 把 session 表接线义务挂到 T-029，防悬挂）；决议保留经用户确认 | Pass | 无 | 2026-08-02 |
 | T-043 崩溃恢复 v1（ADR-013 v1.1） | cab4045 | 行为证据：Core 2 + Bridge 1 + App 3 测试全绿（哨兵缺省/往返、缓冲枚举、恢复决策纯函数）；ADR-013 v1.1 修订留痕；Rule 9 三问（meta 表 1 行 + 3 方法 + 恢复提示，0 抽象层 / 0 新依赖）/ Rule 12（store.rs 288、AppDelegate 292 ≤300；core/src 2110、App 1945 在预算）/ Rule 14（3 FFI 消费者 = AppDelegate 恢复流程，同切片交付） | Pass | 无 | 2026-08-02 |
 | T-042 快照改为纯文本（ADR-023 v1.4） | b8cd54b | 行为证据：Core 4（snapshot 模块全绿）+ Bridge 3 + App 全量 56 全绿；快照 .txt 纯文本断言（Buffer 可打开，用户反馈）；ADR-023 v1.4 修订留痕；Rule 3（snapshot 独立模块而非塞进 Store——Store=SQLite SRP）/ Rule 9 三问（0 抽象层 / 0 新依赖）/ Rule 12（snapshot.rs 172、store.rs 缩减；core/src 2039、App 1882 在预算）/ Rule 14（移除无消费者的 SQLite 快照 API） | Pass | 无 | 2026-08-02 |

@@ -44,7 +44,7 @@
     恢复提示（载回缓冲文档）
   - T-044 SQLite 保留论证（7a1408d，ADR-013 v1.2）：文档 = 文本 / SQLite = 内部
     状态边界 + 三条保留论据 + 拆除条件；决议保留
-  - T-045 缓冲生命周期（进行中，ADR-013 v1.3）：保留 = 未提交且未明确丢弃；
+  - T-045 缓冲生命周期（8dacfff，ADR-013 v1.3）：保留 = 未提交且未明确丢弃；
     删除 = 合并 / 恢复 / 不保存三时机；AppDelegate 与 bridge.rs Rule 3 拆分
   - T-018 水平滚动 + 前置拆分（47c1dc2）：新增 `Viewport` / `MetalView+Input.swift` /
     `VertexBuilder.swift`（Rule 3 拆分）；随后 BUG-006 光标边缘留白（98cfb30）、
