@@ -10,6 +10,6 @@ import XCTest
 final class AppInfoTests: XCTestCase {
   func testAppInfoVersionComesFromCore() {
     XCTAssertEqual(AppInfo.name, "Aster")
-    XCTAssertEqual(AppInfo.version, "0.1.0")
+    XCTAssertEqual(AppInfo.version, "0.1.1")
   }
 }

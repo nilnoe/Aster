@@ -9,7 +9,7 @@ import XCTest
 
 final class BufferBridgeTests: XCTestCase {
   func testCoreVersionRoundTrip() {
-    XCTAssertEqual(core_version().toString(), "0.1.0")
+    XCTAssertEqual(core_version().toString(), "0.1.1")
   }
 
   func testBufferCreateInsertTextRoundTrip() throws {

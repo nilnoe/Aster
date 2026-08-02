@@ -28,6 +28,38 @@
   水平滚动为 v1 默认；软换行默认关闭的用户选项（ADR-006 修订，经用户确认）；
   视觉折行属 App 渲染层，Core Layout 边界不变（ADR-009）
 
+## [Beta V0.1.1] — 2026-08-02
+
+**补丁版：** 上一版（Beta V0.1.0）发布后的缺陷修复——渲染覆盖层不可见、
+IME 提交与光标、鼠标指针。版本号 0.1.0 → 0.1.1（core_version 单一来源）。
+
+### Fixed — 2026-08-02
+
+- fix(app)：文本区鼠标指针为箭头而非 I 型（BUG-005，根因分类：Implementation Bug）——
+  MetalView 未注册光标矩形；`resetCursorRects` 增加 `addCursorRect(bounds, .iBeam)`
+- fix(app)：IME 组合期间光标不跟随（BUG-004，根因分类：Implementation Bug）——
+  组合文本内联于光标处，光标却画在组合起点；改为画在组合文本末尾
+  （cursor + composition 长度）。回归测试：离屏渲染后断言光标竖直线出现在
+  "ab你好" 末尾列（Red→Green）
+- fix(app)：拼音组合期间回车不提交（BUG-003，根因分类：Implementation Bug）——
+  keyDown 无条件拦截 keyCode 36 直连 `typeText("\n")`（会清空组合），输入法得不到
+  回车键；数字键选词正常正因走 `interpretKeyEvents`。修复：组合激活期间所有按键
+  交还输入法。回归测试注入回车事件断言组合保留、Buffer 无换行
+- fix(app)：光标 / 选区高亮 / IME 下划线不可见（BUG-002，根因分类：Implementation Bug）——
+  图集纯白像素画在了用户坐标 y=0（对应纹理最后一行），而纯色 quad 的 UV 采样纹理
+  行 0 → 全部透明。修复：白像素画到用户 y = H-1..H（纹理行 0）；新增离屏渲染像素
+  回归测试（TextRenderer 与 on-screen 共享顶点构建与编码，`waitUntilCompleted` 后读回）
+
+### Added — 2026-08-02
+
+- feat(app)：光标闪烁（T-017，ADR-018）——MetalView 0.5s 计时器翻转相位，
+  渲染层按相位画光标；离屏渲染路径（`renderOffscreen`）供像素回归测试使用
+
+### Changed — 2026-08-02
+
+- chore(version)：core 版本 0.1.0 → 0.1.1（Beta V0.1.1 补丁版；Changelog、
+  应用版本（core_version）、git tag 三处同步）
+
 ## [Beta V0.1.0] — 2026-08-02
 
 **首个功能版本：** T-001 ~ T-013 全部落地——文档体系、Rust Core 编辑内核、
@@ -36,33 +68,12 @@ swift-bridge 桥接、AppKit 壳、Metal 文本渲染与编辑循环可用。
 
 ### Fixed — 2026-08-02
 
-- fix(app)：文本区鼠标指针为箭头而非 I 型（BUG-005，根因分类：Implementation Bug）——
-  MetalView 未注册光标矩形；`resetCursorRects` 增加 `addCursorRect(bounds, .iBeam)`
-
-- fix(app)：IME 组合期间光标不跟随（BUG-004，根因分类：Implementation Bug）——
-  组合文本内联于光标处，光标却画在组合起点；改为画在组合文本末尾
-  （cursor + composition 长度）。回归测试：离屏渲染后断言光标竖直线出现在
-  "ab你好" 末尾列（Red→Green）
-
-- fix(app)：拼音组合期间回车不提交（BUG-003，根因分类：Implementation Bug）——
-  keyDown 无条件拦截 keyCode 36 直连 `typeText("\n")`（会清空组合），输入法得不到
-  回车键；数字键选词正常正因走 `interpretKeyEvents`。修复：组合激活期间所有按键
-  交还输入法。回归测试注入回车事件断言组合保留、Buffer 无换行
-
-- fix(app)：光标 / 选区高亮 / IME 下划线不可见（BUG-002，根因分类：Implementation Bug）——
-  图集纯白像素画在了用户坐标 y=0（对应纹理最后一行），而纯色 quad 的 UV 采样纹理
-  行 0 → 全部透明。修复：白像素画到用户 y = H-1..H（纹理行 0）；新增离屏渲染像素
-  回归测试（TextRenderer 与 on-screen 共享顶点构建与编码，`waitUntilCompleted` 后读回）
-
 - fix(app)：Retina 下 Metal 文本渲染模糊（BUG-001，根因分类：Implementation Bug）——
   字形图集原按点（pt）尺寸栅格化而 quad 按像素绘制，2× 缩放 + 线性采样导致发糊；
   改为按像素尺寸栅格化（`CTFontCreateCopyWithAttributes` 按 scale 缩放），缓存键含
   pixelSize；quad 吸附像素网格 + nearest 采样；回归测试断言 2× 图集矩形大于 1×
 
 ### Added — 2026-08-02（续 T-013）
-
-- feat(app)：光标闪烁（T-017，ADR-018）——MetalView 0.5s 计时器翻转相位，
-  渲染层按相位画光标；离屏渲染路径（`renderOffscreen`）供像素回归测试使用
 
 - feat(core)：编辑循环（T-013，ADR-017）——新增 `Editor` 模块（Buffer + Selection +
   History 协调者）：`type_text`（选区替换，`EditOp::Replace` 一次 undo 撤销）、
