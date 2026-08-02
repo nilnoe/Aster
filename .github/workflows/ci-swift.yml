@@ -20,9 +20,14 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install swift-format
         run: brew install swift-format
-      - name: Format
-        run: swift-format lint --recursive Sources Tests
+      - name: Build Rust staticlib + generate bindings
+        run: ./bridge/build.sh
+      - name: Format (hand-written Swift; Sources 为生成绑定，工具产物不 lint)
+        run: swift-format lint --recursive Tests
+        working-directory: bridge
       - name: Test
         run: swift test
+        working-directory: bridge

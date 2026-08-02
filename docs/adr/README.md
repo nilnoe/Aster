@@ -29,6 +29,7 @@ Proposed → Accepted
 | ADR-011 | Command 系统与 Event 总线 | Accepted | 2026-08-02 | 4 类型 + 2 枚举 + 7 方法 | Core（command、event 模块） | [ADR-011-command-event.md](ADR-011-command-event.md) |
 | ADR-012 | Lua Runtime（mlua）与 Plugin API | Accepted | 2026-08-02 | 2 类型 + 5 方法 + Lua API | Core（lua 模块） | [ADR-012-lua-runtime.md](ADR-012-lua-runtime.md) |
 | ADR-013 | SQLite 存储层（Store） | Accepted | 2026-08-02 | 2 类型 + 7 方法 + 1 变体 | Core（store 模块） | [ADR-013-sqlite-store.md](ADR-013-sqlite-store.md) |
+| ADR-014 | Swift Bridge 接入（spike） | Accepted | 2026-08-02 | 桥接 FFI 面 5 项 + 2 依赖 | Core（bridge 模块）、bridge/ | [ADR-014-swift-bridge-spike.md](ADR-014-swift-bridge-spike.md) |
 
 ## 触发规则
 

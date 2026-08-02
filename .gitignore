@@ -7,6 +7,10 @@
 # Swift / Xcode
 DerivedData/
 build/
+bridge/artifacts/
+bridge/Sources/AsterBridge/
+bridge/Sources/CAsterBridge/*.h
+bridge/.build/
 *.xcuserstate
 xcuserdata/
 .swiftpm/

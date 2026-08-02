@@ -6,6 +6,7 @@
 //! 结构（ADR-005）：`Buffer` 是第一公民，`BufferId` 是唯一标识，
 //! `BufferError` 精确表达失败原因。
 
+mod bridge;
 mod buffer;
 mod command;
 mod document_manager;

@@ -1,0 +1,9 @@
+// swift-bridge 生成 C 头的 Clang 模块（T-010，ADR-014）。
+// 决策依据：生成的 Swift 直接调用 `__swift_bridge__$*` C 函数，
+// 需把生成头导入 Swift 作用域；`link "aster_core"` 让 SPM 链接 Rust staticlib。
+module CAsterBridge {
+    header "SwiftBridgeCore.h"
+    header "aster_core.h"
+    export *
+    link "aster_core"
+}

@@ -71,3 +71,6 @@
 - [ADR-013](../docs/adr/ADR-013-sqlite-store.md) — SQLite 存储层（rusqlite 0.40 bundled，scratch + session 两表，Accepted）
 - [ADR-001](../docs/adr/ADR-001-document-manager.md) — 备注更新：存储层由 T-009 交付，Scratch 工作流接线在 T-019、Session / Crash Recovery 编排在 T-021
 - feat(core)：SQLite 存储层（T-009，ADR-013）——`Store`（scratch upsert / session 事务整表替换）；`SessionDocument`；9 个契约测试；新增依赖 rusqlite（Rule 7 / 8 论证见 ADR-013）
+- [ADR-014](../docs/adr/ADR-014-swift-bridge-spike.md) — Swift Bridge 接入 spike（swift-bridge 0.1.59 + swift-bridge-build，Accepted）
+- feat(bridge)：swift-bridge 接入 spike（T-010，ADR-014）——core `bridge` 模块（Buffer / BufferId 桥接面 + `buffer_insert` 适配）；bridge/ Swift Package（systemLibrary C 模块 + staticlib 链接）；3 个 XCTest 契约测试；新增依赖 swift-bridge、swift-bridge-build（Rule 7 / 8 论证见 ADR-014）
+- ci(swift)：CI-Swift 作业改为先跑 `bridge/build.sh` 再 lint / test（生成绑定 + staticlib 链接进测试）

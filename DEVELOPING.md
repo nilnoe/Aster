@@ -28,6 +28,16 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
+### Bridge（swift-bridge）
+
+```text
+./bridge/build.sh   # cargo build --release + 复制生成绑定 / staticlib / 传递依赖到 Swift 包
+cd bridge && swift test
+swift-format lint --recursive Tests   # 生成绑定（Sources/AsterBridge）为工具产物，不 lint
+```
+
+生成的 Swift 绑定与 `libaster_core.a` 不提交（gitignore），`bridge/build.sh` 是唯一入口；CI-Swift 作业执行同一脚本（ADR-014）。
+
 ### Swift
 
 ```text

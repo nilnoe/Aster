@@ -5,6 +5,13 @@ edition = "2021"
 description = "Aster editor Rust core: platform-independent editing engine."
 license = "MIT"
 
+[lib]
+crate-type = ["rlib", "staticlib"]
+
 [dependencies]
 mlua = { version = "0.12.0", features = ["lua54", "vendored"] }
 rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }
+swift-bridge = "0.1.59"
+
+[build-dependencies]
+swift-bridge-build = "0.1.59"
