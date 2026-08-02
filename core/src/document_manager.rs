@@ -105,6 +105,15 @@ impl DocumentManager {
         }
         Ok(())
     }
+
+    /// 按 id 返回注册 Buffer 的文本（T-015：Bridge 读取后建 Editor 会话）。
+    ///
+    /// 决策依据：`pub(crate)` 而非 `pub`——只供 Bridge 模块使用，不构成公共
+    /// API（宪法 Rule 12：任何 `pub` 都是决策，须先 ADR）；未知 id 返回 `None`
+    /// 让调用方显式处理（ADR-004：失败可见）。
+    pub(crate) fn text(&self, id: BufferId) -> Option<&str> {
+        self.documents.get(&id).map(|doc| doc.buffer.text())
+    }
 }
 
 impl Default for DocumentManager {
@@ -186,5 +195,14 @@ mod tests {
         let id = dm.open(DocumentSource::Scratch).unwrap();
         dm.close(id).unwrap();
         assert!(!dm.documents.contains_key(&id));
+    }
+
+    #[test]
+    fn text_accessor_returns_registered_content() {
+        let mut dm = DocumentManager::new();
+        let path = temp_file("你好，世界");
+        let id = dm.open(DocumentSource::Disk(path)).unwrap();
+        assert_eq!(dm.text(id), Some("你好，世界"));
+        assert_eq!(dm.text(BufferId::new(999)), None, "未知 id 必须返回 None");
     }
 }

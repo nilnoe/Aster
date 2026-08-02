@@ -42,8 +42,23 @@
   根因分类：Implementation Bug）——`setMarkedText`（IME 每次组合更新都走这里）
   只更新组合与重绘，未调用 `scrollCursorIntoView`（与提交路径 `insertText`
   不一致），组合末尾光标（BUG-004 语义：光标 + 组合长度）超出视口。修复：
-  组合更新时同步滚动，组合末尾光标保持在右缘 12pt 留白内。回归测试：组合
+ 组合更新时同步滚动，组合末尾光标保持在右缘 12pt 留白内。回归测试：组合
   更新后 scrollX 必须增大且组合末尾光标 ≤ 视口宽 - 右留白
+
+### Added — 2026-08-02（T-015 文件打开接线）
+
+- feat(app)：文件打开接线（T-015，[ADR-001](../docs/adr/ADR-001-document-manager.md) v1.1）——
+  DocumentManager 首次进产品（Rule 14 存量处置推进）：File 菜单「打开…」（Cmd+O，
+  NSOpenPanel）与文件拖入（NSDraggingDestination，`.fileURL`）统一经
+  DocumentManager Disk 源读取内容 → 新建 Buffer + Editor 会话替换当前内容；
+  打开失败 NSAlert 可见（ADR-004），窗口标题跟随文件名
+- feat(bridge)：DocumentManager Bridge FFI 3 项（`document_manager_new` /
+  `document_manager_open_disk` / `document_manager_text`；ADR-001 v1.1）——
+  id 以 usize 透传（swift-bridge 0.1.59 的 Result C 结构命名对 u64 未实现，
+  实测 todo!() 崩溃）；Core 新增 `pub(crate)` 访问器 `DocumentManager::text(id)`
+- test(bridge)：DocumentManager 契约 2 项（Disk 打开 + CJK 往返；路径不存在
+  必须 throws）；core 单测（文本访问器 + 未知 id）；app 单测（load 替换会话 +
+  视口重置）
 
 ### Changed — 2026-08-02（Beta V0.2 规划）
 

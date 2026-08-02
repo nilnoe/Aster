@@ -2,8 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.0
-- **新增 Public API:** 2 个
+- **Version:** 1.1
+- **新增 Public API:** Core 2 方法 + Bridge FFI 3 项（v1.1，T-015）
 - **影响模块:** Buffer, Theme
 - **是否违反 Single Responsibility:** 否
 - **是否增加循环依赖:** 否
@@ -76,8 +76,32 @@ Buffer 与 Theme 不反向依赖 DocumentManager。
 
 结论：新增 1 模块、2 Public API、无抽象层，未触及红线。
 
+## T-015 修订（v1.1）
+
+### Bridge FFI 面（宪法 Rule 4）
+
+文件打开切片（T-015）接线本 ADR 的 `open(Disk)`，桥接面新增 3 个函数：
+
+| FFI | 职责 |
+| --- | --- |
+| `document_manager_new() -> DocumentManager` | 建立注册表（App 持有 opaque） |
+| `document_manager_open_disk(&mut DocumentManager, path: String) -> Result<usize, String>` | `open(Disk)` 适配；id 以 usize 透传（swift-bridge 0.1.59 的 Result C 结构命名对 u64 未实现，实测 todo!() 崩溃；usize 为既有验证路径，ADR-014 机械适配惯例）；错误映射为消息字符串 |
+| `document_manager_text(&DocumentManager, id: usize) -> String` | 按 id 取注册 Buffer 文本（App 用它建 Editor 会话）；未知 id 返回空串（调用方只查询刚由 open 返回的 id） |
+
+### App 接线与激活状态边界
+
+- 打开路径（NSOpenPanel / 拖放）经 DocumentManager Disk 源读取内容，App 以内容
+  新建 Buffer + Editor 会话（ADR-017：Editor 消费 Buffer）。
+- 注册表持有的 Buffer 副本与编辑会话分离：激活文档 / 命令上下文的统一归属随
+  T-024（Command Palette）落地，本切片不引入激活状态语义（Rule 9：不为最小
+  切片增加状态维度）。
+- 访问器 `DocumentManager::text(id)` 为 `pub(crate)`（仅 Bridge 使用，Rule 12
+  的 `pub` 才是决策）。
+
 ## 备注
 
 - 本次仅记录 ADR，不包含实现（遵循 Workflow：Architecture 阶段先记录决策，Test Design 在前，实现在后）。
 - 后续切片：为 `open` / `close` 编写测试（Red），再实现。
 - 实现顺序：T-002 实现注册与生命周期（内存态）；SQLite 存储层由 T-009（ADR-013）交付，Scratch 自动保存工作流接线在 T-019，Session / Crash Recovery 编排在 T-021；激活状态由 T-013 决定。
+- v1.1：T-015 落地文件打开接线（Disk 源首次进产品，Rule 14 存量处置推进）；
+  Bridge FFI 3 项 + App（NSOpenPanel / 拖放）。

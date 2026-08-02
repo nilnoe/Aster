@@ -52,7 +52,7 @@ cd app && swift run          # 启动编辑器：Metal 视图渲染 Core Buffer 
 cd app && swift test         # 薄测试（AppInfo / 菜单结构）
 ```
 
-app 依赖 bridge 的 AsterBridge 产品（本地包）；运行前先执行 `./bridge/build.sh` 生成绑定与 staticlib（T-011，ADR-015）。T-012 起内容视图为 MTKView（CoreText shaping → 字形图集 → Metal quad），T-013 起支持编辑循环：方向键 / 退格 / 回车、点击定位与拖选、滚轮滚动（T-018 起含横向滚动与光标横向可见性，ADR-019）、IME 组合文本内联显示与提交（经 `NSTextInputClient`），Edit 菜单撤销 / 重做 / 全选接线。
+app 依赖 bridge 的 AsterBridge 产品（本地包）；运行前先执行 `./bridge/build.sh` 生成绑定与 staticlib（T-011，ADR-015）。T-012 起内容视图为 MTKView（CoreText shaping → 字形图集 → Metal quad），T-013 起支持编辑循环：方向键 / 退格 / 回车、点击定位与拖选、滚轮滚动（T-018 起含横向滚动与光标横向可见性，ADR-019）、IME 组合文本内联显示与提交（经 `NSTextInputClient`），Edit 菜单撤销 / 重做 / 全选接线；T-015 起 File 菜单「打开…」（Cmd+O，NSOpenPanel）与文件拖入均经 DocumentManager 打开（ADR-001）。
 
 ### 构建运行
 

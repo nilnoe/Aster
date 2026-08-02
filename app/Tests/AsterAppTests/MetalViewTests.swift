@@ -183,4 +183,25 @@ final class MetalViewTests: XCTestCase {
       "组合末尾光标必须停在右缘留白内（BUG-007）"
     )
   }
+
+  /// T-015：打开文件后 load(_:) 必须替换编辑会话并重置视口（不残留旧文档的
+  /// 滚动位置；undo 历史随新 Editor 重置是预期行为）。
+  func testLoadReplacesModelAndResetsViewport() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let oldModel = EditorModel(buffer: Buffer(BufferId(40)))
+    try oldModel.typeText("hello")
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300), model: oldModel)
+    view.viewport = Viewport(scrollX: 100, scrollY: 50)
+    let newModel = EditorModel(buffer: Buffer(BufferId(41)))
+    try newModel.typeText("world")
+
+    view.load(newModel)
+
+    XCTAssertTrue(view.model === newModel, "load 必须替换编辑会话")
+    XCTAssertEqual(view.viewport.scrollX, 0, "打开后视口必须回原点")
+    XCTAssertEqual(view.viewport.scrollY, 0)
+    XCTAssertEqual(view.model.bufferText, "world")
+  }
 }

@@ -32,7 +32,7 @@
 - [x] T-012 Metal 渲染管线：文本渲染 spike（CoreText + IME + CJK）
 - [x] T-013 编辑循环：键盘输入、光标、滚动、选择
 - [ ] T-014 剪贴板：复制 / 剪切 / 粘贴 + Edit 菜单接线（系统 NSPasteboard；ADR-018）
-- [ ] T-015 拖放与文档选择器：文件拖入 Buffer、NSOpenPanel 打开；接线 DocumentManager `open`（Disk 源，ADR-001）（ADR-018）
+- [x] T-015 拖放与文档选择器：文件拖入 Buffer、NSOpenPanel 打开；接线 DocumentManager `open`（Disk 源，ADR-001）（ADR-018）
 
 > 深浅色跟随系统不在本阶段：固定深色启动态，主题可编程能力由 Lua 提供（ADR-018）。
 
@@ -72,7 +72,7 @@
 
 顺序仅供参考，具体切片可能因 Analysis 阶段的新证据调整；任何调整必须先反映在 ADR 中。
 
-当前下一步：**T-014 剪贴板（NSPasteboard，ADR-018 方向）→ 随后 T-015 拖放与文档选择器**。
+当前下一步：**T-014 剪贴板（NSPasteboard，ADR-018 方向）→ 随后 T-019 软换行**。
 
 ## 复审政策
 

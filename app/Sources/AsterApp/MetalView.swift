@@ -20,11 +20,14 @@ import MetalKit
 // actor 隔离，实现访问主 actor 状态（Swift 6.2 #ConformanceIsolation；AppKit
 // 仅在主线程回调，ADR-016 备注）。
 final class MetalView: MTKView {
-  let model: EditorModel
+  var model: EditorModel
   let renderer: TextRenderer
   /// 视口滚动状态（internal：输入扩展与测试需要读写；App 模块内封装，
   /// Rule 4 / Rule 12 在模块边界内成立）。
   var viewport = Viewport()
+  /// 文件拖入回调（T-015，ADR-001）：视图只采集拖放事件，打开逻辑由
+  /// AppDelegate 经 DocumentManager 执行（薄 UI；回调而非协议，Rule 2）。
+  var onOpenFile: ((URL) -> Void)?
   private var mouseAnchorByte = 0
   /// 光标闪烁相位（T-017）：Timer 每 0.5s 翻转，渲染层按相位决定是否画光标。
   private var caretVisible = true
@@ -39,6 +42,7 @@ final class MetalView: MTKView {
     self.model = model
     self.renderer = TextRenderer(device: device)
     super.init(frame: frame, device: device)
+    registerForDraggedTypes([.fileURL])
     clearColor = MTLClearColor(red: 0.13, green: 0.13, blue: 0.15, alpha: 1)
     enableSetNeedsDisplay = true
     isPaused = true
@@ -49,6 +53,16 @@ final class MetalView: MTKView {
   @available(*, unavailable)
   required init(coder: NSCoder) {
     fatalError("不支持 nib 创建（T-011 起程序化启动，ADR-015）")
+  }
+
+  /// 替换当前编辑会话（T-015 打开文件）：重置视口并重绘。
+  ///
+  /// 决策依据：打开文件 = 新 Buffer + 新 Editor（undo 历史随文档重置是预期
+  /// 行为）；视口回原点避免打开后停留在旧文档的滚动位置。
+  func load(_ newModel: EditorModel) {
+    model = newModel
+    viewport = Viewport()
+    needsDisplay = true
   }
 
   override func doCommand(by selector: Selector) {
@@ -123,6 +137,22 @@ final class MetalView: MTKView {
     super.resetCursorRects()
     // BUG-005：文本编辑区必须显示 I 型光标（系统能力，Principle 4）。
     addCursorRect(bounds, cursor: .iBeam)
+  }
+
+  // MARK: - 文件拖放（T-015，ADR-001：Disk 源经 DocumentManager 打开）
+  //
+  // 决策依据：NSView 已内建 NSDraggingDestination 一致性，只 override 两个
+  // 方法；拖入文件 = 打开（加载内容，不移动原文件；系统能力，Principle 4）。
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    .copy
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL]
+    guard let url = urls?.first else { return false }
+    onOpenFile?(url)
+    return true
   }
 
   // MARK: - 滚动（T-018：横向 + 纵向平移，ADR-019）

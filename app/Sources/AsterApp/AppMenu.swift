@@ -4,7 +4,7 @@
 //! - 最小集（项目哲学：空白、安静）：App（关于 / 隐藏 / 退出）、Edit（标准
 //!   编辑动作，T-013 编辑循环接线复用）、Window（最小化 / 缩放）。
 //! - 菜单与动作全部用系统能力（Principle 4：Do Not Fight The OS）。
-//! - 无 File / Sidebar / Toolbar：按后续切片按需加入，不预置占位 UI。
+//! - File（打开…，T-015）按切片需求加入；无 Sidebar / Toolbar 占位。
 
 import AppKit
 
@@ -13,6 +13,7 @@ enum AppMenu {
   static func build(aboutTarget: AnyObject) -> NSMenu {
     let main = NSMenu()
     main.addItem(appMenuItem(aboutTarget: aboutTarget))
+    main.addItem(fileMenuItem(aboutTarget: aboutTarget))
     main.addItem(editMenuItem())
     main.addItem(windowMenuItem())
     return main
@@ -66,6 +67,19 @@ enum AppMenu {
       )
     }
     let item = NSMenuItem(title: "编辑", action: nil, keyEquivalent: "")
+    item.submenu = menu
+    return item
+  }
+
+  private static func fileMenuItem(aboutTarget: AnyObject) -> NSMenuItem {
+    let menu = NSMenu(title: "文件")
+    // 打开…：target 为 AppDelegate（DocumentManager 持有者，T-015，ADR-001）。
+    menu.addItem(
+      withTitle: "打开…",
+      action: #selector(AppDelegate.openDocument(_:)),
+      keyEquivalent: "o"
+    )
+    let item = NSMenuItem(title: "文件", action: nil, keyEquivalent: "")
     item.submenu = menu
     return item
   }
