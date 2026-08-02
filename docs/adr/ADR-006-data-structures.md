@@ -29,13 +29,14 @@
 | BufferId | u64 单调递增（ADR-005 newtype） | 简单、可排序、日志友好；由 DocumentManager 分配（ADR-001） |
 | DocumentManager 注册表 | `HashMap<BufferId, Buffer>` | 按 id 查找是主路径；顺序遍历（窗口列表、Recent Files）按需补索引 |
 | 文本存储的决策机制 | 存储是 Buffer 内部实现细节；当前 `String`；替换必须有基准数据证明 | 不引入抽象层（宪法 Rule 1）；无数据换结构即猜测（Rule 9） |
+| 行索引（逻辑行） | v1：不可变索引 `Layout`（`Vec<usize>` 行起点，`build(text)` 一次性构建），编辑后由调用方重建 | String 存储下编辑本身 O(n)，索引不改变渐近复杂度；不可变快照无脏状态与失效 bug；树状索引随 Rope 在 T-020 后引入 |
+| 软换行 | v1 不做：按行渲染 + 水平滚动 | 最小化（项目哲学）；换行依赖字体度量（T-012），届时另走 ADR |
 
 ## 未确定（原因必须保留）
 
 | 数据结构 | 未定原因 |
 | --- | --- |
 | 文本存储算法（String / Gap Buffer / Rope） | 取舍（内存、复杂度、缓存局部性）取决于真实负载：大文件打开、光标附近编辑、行访问频率。当前无基准数据，选择即猜测。由 T-020 基准决定。 |
-| 行索引（`Vec<usize>` 起点 vs 平衡树） | 复杂度依赖文本存储：`String` 下增量维护 O(n)，Rope 下可 O(log n) 查行号。随存储选择而定。 |
 | 多光标 Selection 集合 | 产品范围未定（最小化 vs 编辑效率）；单光标 API 先行，集合形式可向后兼容扩展。 |
 | 大文件只读（mmap） | 依赖文本存储与文件模型（Disk File 绑定）；1MB+ 场景基准后决定。 |
 | Undo 栈持久化边界 | ADR 总纲要求 SQLite 负责 Undo History，但全量落盘拖慢编辑热路径；内存栈与持久化的边界须与 Crash Recovery（T-021）一起设计。本 ADR 不反转总纲，只细化。 |

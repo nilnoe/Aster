@@ -19,7 +19,7 @@
 
 - [x] T-003 Selection 模型（anchor / head 字节偏移，光标即 head）
 - [x] T-004 Undo / Redo（inverse-operation 栈 + 相邻 Insert 合并，ADR-008）
-- [ ] T-005 Layout：行布局引擎
+- [x] T-005 Layout：逻辑行模型（行号 ↔ 字节区间 ↔ 偏移，ADR-009）
 - [ ] T-006 Theme：主题模型 + Theme DSL
 - [ ] T-007 Command 系统 + Event 总线
 - [ ] T-008 Lua Runtime（mlua）接入 + Plugin API

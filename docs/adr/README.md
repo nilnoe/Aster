@@ -24,6 +24,7 @@ Proposed → Accepted
 | ADR-006 | 核心数据结构决策矩阵 | Accepted | 2026-08-02 | 0 | Core | [ADR-006-data-structures.md](ADR-006-data-structures.md) |
 | ADR-007 | Selection 模型（anchor / head） | Accepted | 2026-08-02 | 1 类型 + 9 方法 | Core（selection 模块） | [ADR-007-selection-model.md](ADR-007-selection-model.md) |
 | ADR-008 | Undo / Redo 模型（inverse-operation 栈） | Accepted | 2026-08-02 | 2 类型 + 6 方法 | Core（history 模块） | [ADR-008-undo-redo.md](ADR-008-undo-redo.md) |
+| ADR-009 | Layout 逻辑行模型 | Accepted | 2026-08-02 | 1 类型 + 4 方法 | Core（layout 模块） | [ADR-009-layout-model.md](ADR-009-layout-model.md) |
 
 ## 触发规则
 

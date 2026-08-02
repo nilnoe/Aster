@@ -53,6 +53,8 @@
 - [ADR-001](../docs/adr/ADR-001-document-manager.md) — 状态 Proposed → Accepted：确定 `open` / `close` 签名与支撑类型（`DocumentSource` / `DocumentManagerError`）；激活状态延迟到 T-013；SQLite 落盘延迟到 T-009 / T-021
 - feat(core)：DocumentManager `open` / `close`（T-002，ADR-001）——注册表 + 生命周期；`DocumentSource`（Disk / Scratch）；错误可见（ADR-004）；8 集成 + 5 单元测试
 - feat(core)：Undo / Redo（T-004，ADR-008）——`History` + `EditOp`（inverse-operation 栈）；相邻 Insert 合并；失败时栈不变；11 个契约测试
+- feat(core)：Layout 逻辑行模型（T-005，ADR-009）——`Layout::build` / `line_count` / `line_range` / `line_at`；不可变快照索引；10 个契约测试
+- [ADR-006](../docs/adr/ADR-006-data-structures.md) — 行索引与软换行从未确定改为已确定（v1 不可变索引、无软换行；替换触发点 T-020）
 - feat(core)：Selection 模型（T-003，ADR-007）——`anchor` + `head` 字节偏移，光标即 head，10 个契约测试
   - [docs/glossary.md](../docs/glossary.md) — 术语表
   - [ARCHITECTURE.md](../ARCHITECTURE.md) — 架构总览

@@ -10,10 +10,12 @@ mod buffer;
 mod document_manager;
 mod error;
 mod history;
+mod layout;
 mod selection;
 
 pub use buffer::{Buffer, BufferId};
 pub use document_manager::{DocumentManager, DocumentManagerError, DocumentSource};
 pub use error::BufferError;
 pub use history::{EditOp, History};
+pub use layout::Layout;
 pub use selection::Selection;
