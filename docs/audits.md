@@ -11,7 +11,7 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 | T-018 水平滚动 | 47c1dc2 | ADR-019（0 公共 API、Core 不变）/ Rule 3（MetalView 298、TextRenderer 292 贴线，拆分后 258 / 130+200）/ Rule 9 三问（1 个视口状态 + 输入平移 + 光标可见性，无抽象层 / 无依赖）/ Rule 12（全部 ≤300，App 总量 1483 < 5,000）/ Rule 14（Viewport / VertexBuilder 均 App 模块内，非公共 API） | Pass | 无；拆分前置在本切片完成 | 2026-08-02 |
 | BUG-006 光标边缘留白 | 98cfb30 | ADR-019 光标横向可见性语义落实 / Rule 9（2 个留白常量 + 2 条边界规则，无新增依赖 / 抽象）/ Rule 12（Viewport 75、TextRenderer 132 等全部 ≤300） | Pass | 无 | 2026-08-02 |
 | BUG-007 组合期间横向可见性 | 1d7dfe7 | ADR-019（组合末尾光标 = BUG-004 语义纳入可见性）/ Rule 9（1 行调用，无新增状态 / 依赖）/ Rule 12（MetalView+Input 99 行 ≤300） | Pass | 无 | 2026-08-02 |
-| T-015 文件打开接线 | 本切片 | ADR-001 v1.1（Bridge FFI 3 项已记录）/ Rule 3（全部 ≤300）/ Rule 9 三问（3 个 FFI 适配函数 + App 薄胶水，0 抽象层 / 0 依赖）/ Rule 12（pub(crate) 访问器，不构成公共 API）/ Rule 14（DocumentManager 首次进产品，真实调用方 = AppDelegate） | Pass | 无；注册表副本与会话分离的激活状态边界已记录于 ADR-001 v1.1，随 T-024 统一 | 2026-08-02 |
+| T-015 文件打开接线 | e6a7ebd | ADR-001 v1.1（Bridge FFI 3 项已记录）/ Rule 3（全部 ≤300）/ Rule 9 三问（3 个 FFI 适配函数 + App 薄胶水，0 抽象层 / 0 依赖）/ Rule 12（pub(crate) 访问器，不构成公共 API）/ Rule 14（DocumentManager 首次进产品，真实调用方 = AppDelegate） | Pass | 无；注册表副本与会话分离的激活状态边界已记录于 ADR-001 v1.1，随 T-024 统一 | 2026-08-02 |
 
 ## 规则
 
