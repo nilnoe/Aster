@@ -14,9 +14,9 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-007 | 拼音组合期间组合文本超出右缘不自动横向滚动：`setMarkedText` 只更新组合与重绘，未调用 `scrollCursorIntoView`（与 `insertText` 不一致），组合末尾光标超出视口 | Fixed | Implementation Bug | — | 1d7dfe7 | 2026-08-02 |
 | BUG-008 | 光标从 ASCII 行 ↓ 进入 CJK 行后落在字符内部（非 UTF-8 边界）：`move_cursor` 字节列目标未钳制到字符边界，后续 type_text / delete_backward 全部报 InvalidCharBoundary、按键静默丢失（违反 ADR-005 底线；属性测试差分排除 Up/Down，无覆盖） | Fixed | Implementation Bug | — | 29bdf9d | 2026-08-02 |
 | BUG-009 | 启动默认 Buffer 无 dirty「●」与退出保护：`onChange` 只在 open() 接线，makeMainWindow 创建的默认文档未接线，编辑不置脏、退出不提示（T-041 修复） | Fixed | Implementation Bug | — | c4b4710 | 2026-08-02 |
-| BUG-010 | 打开多个文件后「保存全部」互相覆盖、先打开文档内容丢失：`open(_:)` 让所有磁盘文件继承同一个 `currentSnapshotSeq`，`saveAllPending` 逐个合并到同一快照文件，后写覆盖先写（复现测试 BugReproTests：快照实际内容为「+编辑B内容B」，内容A 丢失） | Fixed | Implementation Bug | — | 本切片 | 2026-08-02 |
-| BUG-011 | 崩溃恢复后多文档保存链路断裂：恢复分支创建新文档并置脏，但**不把内容写入缓冲**（新 id 无 scratch 行）→ ⌘S / 保存全部 `store_load_scratch` 失败；同时**其余未决缓冲文档未登记快照序号** → 保存全部 guard 失败 → 退出只能选「不保存」丢弃（复现测试 BugReproTests：退出返回 terminateCancel + 保存错误提示） | Fixed | Implementation Bug | — | 本切片 | 2026-08-02 |
-| BUG-012 | undo 回退到与快照一致的内容后仍标记未保存（假 dirty）：undo/redo 无条件触发 onChange → mark + 写缓冲，不比较内容是否已与快照一致（复现测试 BugReproTests：保存后输入再 undo，pendingDocs 仍含该文档） | Fixed | Implementation Bug | — | 本切片 | 2026-08-02 |
+| BUG-010 | 打开多个文件后「保存全部」互相覆盖、先打开文档内容丢失：`open(_:)` 让所有磁盘文件继承同一个 `currentSnapshotSeq`，`saveAllPending` 逐个合并到同一快照文件，后写覆盖先写（复现测试 BugReproTests：快照实际内容为「+编辑B内容B」，内容A 丢失） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
+| BUG-011 | 崩溃恢复后多文档保存链路断裂：恢复分支创建新文档并置脏，但**不把内容写入缓冲**（新 id 无 scratch 行）→ ⌘S / 保存全部 `store_load_scratch` 失败；同时**其余未决缓冲文档未登记快照序号** → 保存全部 guard 失败 → 退出只能选「不保存」丢弃（复现测试 BugReproTests：退出返回 terminateCancel + 保存错误提示） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
+| BUG-012 | undo 回退到与快照一致的内容后仍标记未保存（假 dirty）：undo/redo 无条件触发 onChange → mark + 写缓冲，不比较内容是否已与快照一致（复现测试 BugReproTests：保存后输入再 undo，pendingDocs 仍含该文档） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则
