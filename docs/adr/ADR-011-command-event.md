@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.0
+- **Version:** 1.1
 - **新增 Public API:** 4 个公开类型（`EventBus` / `SubscriptionId` / `CommandRegistry` / `CommandContext`）+ 2 个公开枚举（`Event` / `CommandError`）+ 7 个方法
 - **影响模块:** Core（新增 command、event 模块）
 - **是否违反 Single Responsibility:** 否
@@ -26,7 +26,7 @@
 - **动态分发用 std `Fn`，不自定义 Trait：** 注册表要容纳异构处理器（内置函数、闭包、T-008 的 Lua trampoline）；固定命令枚举不可被插件扩展（ADR：Plugin 可以增加 Command），自定义 Trait 即重复造轮子（宪法 Rule 11）。
 - **订阅返回 id 且可退订：** T-008 插件卸载 / UI 重建需要，否则订阅永久泄漏。
 - **失败可见（ADR-004）：** 未知命令、重复注册都返回错误，不静默空转、不静默覆盖。
-- **处理器 v1 不可失败（无 `Result`）：** 本切片命令只负责分发与事件发出；Buffer 操作错误进入命令路径是 T-013 的事，届时修订本 ADR（公共 API 变更，Rule 4）。
+- **处理器可失败（`Result`）：** T-008 Lua 命令会在运行时失败（脚本错误），失败必须可见（ADR-004）。错误以消息字符串传递（`CommandError::HandlerFailed(String)`）；结构化错误随 T-013 类型化参数引入。
 - **单线程，不预加 `Send` / `Sync`：** ADR Performance Goals（无轮询、事件驱动）默认单循环；Lua 线程化（T-008）时再评估。
 
 ## 审计
@@ -58,17 +58,17 @@
 | API | 职责 |
 | --- | --- |
 | `CommandRegistry::new()` / `Default` | 空注册表 |
-| `register(&str, impl for<'a> Fn(&mut CommandContext<'a>) + 'static) -> Result<(), CommandError>` | 注册命令；同名失败 |
+| `register(&str, impl for<'a> Fn(&mut CommandContext<'a>) -> Result<(), CommandError> + 'static) -> Result<(), CommandError>` | 注册命令；同名失败；处理器失败可见 |
 | `execute(&str, &mut CommandContext) -> Result<(), CommandError>` | 按名执行；未知命令失败 |
 | `CommandContext::new(&mut EventBus)` | 构造上下文 |
 | `CommandContext::events() -> &mut EventBus` | 命令发出事件的通道 |
-| `CommandError::UnknownCommand(String)` / `AlreadyRegistered(String)` | 注册 / 查找期错误 |
+| `CommandError::UnknownCommand(String)` / `AlreadyRegistered(String)` / `HandlerFailed(String)` | 注册 / 查找 / 执行期错误 |
 
 ## 影响模块
 
 - **buffer** — event 仅引用 `BufferId` 类型，无行为依赖。
 - **T-008（Lua）** — 经 `register` 注册 Lua 函数命令、经 `subscribe` 订阅事件；命令名与事件表示届时评估。
-- **T-013（编辑循环）** — context 增加文档访问（active buffer）；处理器引入 `Result`；届时修订本 ADR。
+- **T-013（编辑循环）** — context 增加文档访问（active buffer）；届时修订本 ADR。
 
 ## 复杂度预算（宪法 Rule 9）
 
@@ -85,3 +85,7 @@
 - `emit` 期间处理器禁止重入总线（退订 / 再次广播），该约束作为公开契约记录（ADR-011）。
 - 命令名空串 / 规范化校验留给 T-008（Lua 命名空间）评估。
 - 需要 `Send` / `Sync` 的场景（后台任务、插件线程）出现后再评估，不预加约束。
+
+## 修订记录
+
+- **1.0 → 1.1（2026-08-02，T-008）：** 处理器签名由不可失败改为 `-> Result<(), CommandError>`；`CommandError` 新增 `HandlerFailed(String)`。原因：Lua 命令运行时失败必须可见（ADR-004），比 T-013 预期提前。公共 API 变更已记录，无决策反转。

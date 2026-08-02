@@ -4,9 +4,9 @@
 
 ## 项目现状速览（截至 2026-08-02）
 
-- **代码：** Rust Core 已完成 T-001 ~ T-007，`core/src` 共 931 行，78 个测试全绿。
-- **决策：** ADR-001 ~ ADR-011 全部 Accepted（索引见 `docs/adr/README.md`）。
-- **下一任务：** T-008（Lua Runtime（mlua）接入 + Plugin API）。
+- **代码：** Rust Core 已完成 T-001 ~ T-008，`core/src` 共 1075 行，85 个测试全绿。
+- **决策：** ADR-001 ~ ADR-012 全部 Accepted（索引见 `docs/adr/README.md`）。
+- **下一任务：** T-009（SQLite 存储：Scratch / Session / Crash Recovery）。
 - **版本：** Beta 阶段，模板 `Beta V0.0.0`（末位补丁 / 中间位功能 / 首位恒 0）。
 - **远程：** `github.com/nilnoe/Aster`，走 SSH 别名 `github-nilnoe`（`.ssh/config` 中绑定 `nilnoe_github` 密钥；不要用 `github.com` 入口，那绑定的是另一把钥匙）。
 
@@ -32,6 +32,8 @@
 8. **有序向量二分**：用 `Vec::partition_point`（Layout::line_at 的解法）。
 9. **CI 按语言拆分**：Rust 与 Swift 门禁放在两个 workflow，用 `paths` 过滤——避免只改 core 时 Swift 作业误红（代码没落地前尤其重要）。
 10. **`Box<dyn Fn>` 字段触发 clippy type_complexity**：`HashMap<String, Box<dyn Fn(...)>>` 或订阅表这类存储直接报"very complex type"。解法：**私有类型别名**（`type CommandHandler = Box<dyn Fn(...)>`）——不公开就不构成公共 API（Rule 4），无需 ADR（T-007 踩过）。
+11. **mlua 0.12 API 速记**（T-008）：`Lua::new()` 不可失败；`create_function` 回调签名是 `Fn(&Lua, A) -> Result<R>`（闭包须标注 `&Lua` 参数）；`Table::sequence_values` / `pairs` / `raw_len` 可用；从 Lua 侧回调进入 Lua 会 panic（先存表后显式桥入，勿在回调内再调 Lua）。
+12. **clippy `new_without_default` 只对无参返回 `Self` 的 `new()` 触发**：返回 `Result<Self, _>` 的构造器不会触发——**不要**为它手写含 `expect` 的 `Default`（panic 违反 ADR-004；T-008 先加了后移除）。
 
 ## 架构决策速查（勿重新讨论，除非出现新数据）
 
@@ -57,6 +59,7 @@
 | 2026-08-02 | T-004 | 连续 insert 测试被合并规则干扰 | 用前插构造非相邻 op |
 | 2026-08-02 | T-004 | 测试失败实为测试 bug | 先自查测试前提与合并语义 |
 | 2026-08-02 | T-006 | `git push github-nilnoe` 报 not a repository | remote 名是 `origin`，SSH 别名 `github-nilnoe` 只存在于 URL（`git@github-nilnoe:...`）；`git remote -v` 确认后用 `git push origin main` |
+| 2026-08-02 | T-008 | `matches!(err, Variant(msg))` 后 format `{err:?}` 报部分移动 | 用 `matches!(&err, ...)` 匹配引用，不移动 `err` |
 
 ## 给下一个 agent 的提醒
 

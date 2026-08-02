@@ -13,6 +13,7 @@ mod error;
 mod event;
 mod history;
 mod layout;
+mod lua;
 mod selection;
 mod theme;
 
@@ -23,5 +24,6 @@ pub use error::BufferError;
 pub use event::{Event, EventBus, SubscriptionId};
 pub use history::{EditOp, History};
 pub use layout::Layout;
+pub use lua::{LuaError, LuaRuntime};
 pub use selection::Selection;
 pub use theme::{Color, Theme, ThemeError};

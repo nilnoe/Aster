@@ -27,6 +27,7 @@ Proposed → Accepted
 | ADR-009 | Layout 逻辑行模型 | Accepted | 2026-08-02 | 1 类型 + 4 方法 | Core（layout 模块） | [ADR-009-layout-model.md](ADR-009-layout-model.md) |
 | ADR-010 | Theme 模型与 Theme DSL | Accepted | 2026-08-02 | 3 类型 + 1 方法 | Core（theme 模块） | [ADR-010-theme-model.md](ADR-010-theme-model.md) |
 | ADR-011 | Command 系统与 Event 总线 | Accepted | 2026-08-02 | 4 类型 + 2 枚举 + 7 方法 | Core（command、event 模块） | [ADR-011-command-event.md](ADR-011-command-event.md) |
+| ADR-012 | Lua Runtime（mlua）与 Plugin API | Accepted | 2026-08-02 | 2 类型 + 5 方法 + Lua API | Core（lua 模块） | [ADR-012-lua-runtime.md](ADR-012-lua-runtime.md) |
 
 ## 触发规则
 

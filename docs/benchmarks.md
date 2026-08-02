@@ -26,6 +26,7 @@
 | Layout 构建 1MB（ms）与 line_at 10k 次（ms） | TBD | TBD | — | T-005 / ADR-009 | 2026-08-02 | 无量化目标；O(n) 构建 |
 | Theme DSL 解析（parse 10k 次，ms） | TBD | TBD | — | T-006 / ADR-010 | 2026-08-02 | 无量化目标；行级手写解析器 |
 | Command 分发 + Event 广播（execute/emit 10k 次，ms） | TBD | TBD | — | T-007 / ADR-011 | 2026-08-02 | 无量化目标；HashMap 查表 + Vec 广播 |
+| Lua 命令分发（load 脚本 + execute 10k 次，ms） | TBD | TBD | — | T-008 / ADR-012 | 2026-08-02 | 无量化目标；mlua vendored Lua 5.4 |
 
 ## 测量规则
 

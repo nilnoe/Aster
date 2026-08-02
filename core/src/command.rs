@@ -15,7 +15,7 @@ use crate::event::EventBus;
 ///
 /// 决策依据：私有类型别名，仅用于消化 `dyn Fn` 的冗长签名（clippy
 /// type_complexity）；不公开，不构成公共 API（Rule 4）。
-type CommandHandler = Box<dyn for<'a> Fn(&mut CommandContext<'a>)>;
+type CommandHandler = Box<dyn for<'a> Fn(&mut CommandContext<'a>) -> Result<(), CommandError>>;
 
 /// Command 系统错误（v1 仅注册 / 查找错误）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +24,11 @@ pub enum CommandError {
     UnknownCommand(String),
     /// 命令名已被占用（不静默覆盖，插件冲突要可见）。
     AlreadyRegistered(String),
+    /// 处理器执行失败；v1 携带错误消息字符串。
+    ///
+    /// 决策依据（ADR-011 v1.1）：Lua 命令运行时失败必须可见（ADR-004）；
+    /// 消息字符串足够 UI 呈现，结构化错误随 T-013 类型化参数引入。
+    HandlerFailed(String),
 }
 
 /// 命令执行上下文：命令与 Core 交互的窗口。
@@ -65,7 +70,7 @@ impl CommandRegistry {
     pub fn register(
         &mut self,
         name: &str,
-        handler: impl for<'a> Fn(&mut CommandContext<'a>) + 'static,
+        handler: impl for<'a> Fn(&mut CommandContext<'a>) -> Result<(), CommandError> + 'static,
     ) -> Result<(), CommandError> {
         if self.commands.contains_key(name) {
             return Err(CommandError::AlreadyRegistered(name.to_string()));
@@ -79,8 +84,7 @@ impl CommandRegistry {
         let Some(handler) = self.commands.get(name) else {
             return Err(CommandError::UnknownCommand(name.to_string()));
         };
-        handler(ctx);
-        Ok(())
+        handler(ctx)
     }
 }
 

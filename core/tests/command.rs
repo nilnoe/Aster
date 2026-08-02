@@ -21,6 +21,7 @@ fn command_execute_vertical_thread_dispatch_to_event() {
             ctx.events().emit(&Event::BufferEdited {
                 id: BufferId::new(5),
             });
+            Ok(())
         })
         .unwrap();
 
@@ -49,13 +50,28 @@ fn command_execute_unknown_name_fails() {
 fn command_register_duplicate_name_fails() {
     let mut registry = CommandRegistry::new();
     registry
-        .register("dup", |_: &mut CommandContext| {})
+        .register("dup", |_: &mut CommandContext| Ok(()))
         .unwrap();
 
     let err = registry
-        .register("dup", |_: &mut CommandContext| {})
+        .register("dup", |_: &mut CommandContext| Ok(()))
         .unwrap_err();
     assert_eq!(err, CommandError::AlreadyRegistered("dup".to_string()));
+}
+
+#[test]
+fn command_handler_failure_propagates() {
+    let mut registry = CommandRegistry::new();
+    registry
+        .register("boom", |_: &mut CommandContext| {
+            Err(CommandError::HandlerFailed("explode".to_string()))
+        })
+        .unwrap();
+
+    let mut bus = EventBus::new();
+    let mut ctx = CommandContext::new(&mut bus);
+    let err = registry.execute("boom", &mut ctx).unwrap_err();
+    assert_eq!(err, CommandError::HandlerFailed("explode".to_string()));
 }
 
 #[test]
@@ -64,11 +80,17 @@ fn command_register_distinct_names_dispatch_independently() {
     let calls = Rc::new(RefCell::new(Vec::new()));
     let sink_a = calls.clone();
     registry
-        .register("a", move |_| sink_a.borrow_mut().push("a"))
+        .register("a", move |_| {
+            sink_a.borrow_mut().push("a");
+            Ok(())
+        })
         .unwrap();
     let sink_b = calls.clone();
     registry
-        .register("b", move |_| sink_b.borrow_mut().push("b"))
+        .register("b", move |_| {
+            sink_b.borrow_mut().push("b");
+            Ok(())
+        })
         .unwrap();
 
     let mut bus = EventBus::new();
