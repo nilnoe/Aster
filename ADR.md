@@ -223,6 +223,11 @@ SQLite 不是数据库软件，而是编辑器内部状态管理。负责：
 - Crash Recovery
 - Session
 
+**文档与内部状态的边界（T-044）**：用户文档永远是**文本文件**（Buffer 的存储目标，
+总纲第 7 节；快照 = `.txt`，ADR-023 v1.4）；SQLite 只承载编辑器**内部状态**
+（Scratch 缓冲 / Session / Recent Files / Workspace / Undo 持久化）。两者永不
+混用——论证与保留决议见 ADR-013 v1.2。
+
 - **拒绝 JSON：** 无法承担复杂状态。
 - **拒绝 YAML：** 解析慢，不适合数据库。
 

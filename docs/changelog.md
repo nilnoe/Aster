@@ -141,6 +141,16 @@
 - test：Core 2 项（哨兵缺省/往返、缓冲枚举排序）+ Bridge 1 项（恢复原语跨语言）+
   App 3 项（shouldOfferRecovery 决策纯函数）
 
+### Changed — 2026-08-02（T-044 SQLite 保留论证入文档，决议保留）
+
+- docs(adr)：ADR-013 v1.2「SQLite 的角色与保留论证」——角色边界（文档 = 文本文件 /
+  SQLite = 内部状态，永不混用）；三条保留论据（崩溃保护需事务性写入 / 缓冲是多文档
+  状态 / 总纲 §5 既定路线已排期，拆除 = 未来再装的 churn）；反面与拆除条件（砍掉
+  会话 / 最近文件 / 工作区 / Undo 路线时才拆，需 ADR 反转）；决议 **保留 rusqlite**
+- docs(adr)：总纲 §5 补充「文档与内部状态的边界」；ADR 索引同步 v1.2
+- docs(roadmap)：新增 T-044（本切片）；守则 b 约束 T-029 必须消费 session 表，
+  守则 c 记录快照原子写为已识别改进（未排期）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

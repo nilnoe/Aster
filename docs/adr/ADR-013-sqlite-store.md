@@ -7,7 +7,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.0
+- **Version:** 1.2
 - **新增 Public API:** `Store`（7 方法）+ `SessionDocument`（2 公共字段）+ `StoreError`（1 变体）+ 新增依赖 **rusqlite**（宪法 Rule 7 / 8）
 - **影响模块:** Core（新增 store 模块）
 - **是否违反 Single Responsibility:** 否
@@ -27,6 +27,44 @@ CREATE TABLE session (position INTEGER PRIMARY KEY, id INTEGER NOT NULL, path TE
 ```
 
 会话写入为**整表替换 + 单事务**（原子性）；`path` 有无即文档类型（`None` = Scratch，与 ADR-001 `Document.path` 语义一致），无需冗余 kind 列。
+
+## SQLite 的角色与保留论证（v1.2，T-044）
+
+### 角色边界
+
+- **文档 = 文本文件**：用户可打开、可编辑、可移动（快照 `.txt`，ADR-023 v1.4；
+  未来用户指定路径的磁盘文件同样是文本）。
+- **SQLite = 编辑器内部状态**：Scratch 缓冲、Session、Recent Files、Workspace、
+  Undo 持久化（总纲 §5）。两者永不混用。
+
+### 保留论证
+
+1. **崩溃保护要求事务性写入**：缓冲文件的存在意义是「防崩溃丢编辑」，而
+   `std::fs::write` 覆盖写非原子——写入中途崩溃会截断 / 损坏缓冲本身。SQLite 的
+   事务 + journal/WAL 保证缓冲任何时刻要么旧内容要么新内容，绝不半截（对比：
+   快照 `.txt` 合并写目前也非原子，属已识别改进，见守则 c）。
+2. **缓冲是多文档状态**：每个 Cmd+N 文档在 `scratch` 表一行；T-029 会话恢复要
+   恢复全部文档。纯文本方案要么 N 个文件 + 第二套命名 / 扫描约定（与快照重复造
+   文件管理，Rule 11 Rule of Three），要么自研分隔格式（Rule 11 自研轮子）。
+3. **既定路线已为 SQLite 排期**：总纲 §5 已定 SQLite 承担 Scratch / Session /
+   Recent Files / Workspace / Undo 持久化；T-028 / T-029 等待消费。现在拆 =
+   未来再装 = Rule 13 / 14 的来回 churn；rusqlite bundled 已锁定版本且 Rule 7 / 8
+   论证已付，拆除不退款，回来要再付。
+
+### 反面与拆除条件
+
+若项目所有者决定砍掉会话恢复 / 最近文件 / 工作区 / Undo 持久化路线，退化为
+「只开文本文件」的最小形态，则 SQLite 的边际价值只剩缓冲写入原子性，可用原子
+覆盖文本文件（tmp + rename）替代；届时按 ADR 反转流程拆除 rusqlite（约省
+2.4MB 静态库 + clean build 时间 + 6 个 FFI）。**2026-08-02 决议：保留。**
+
+### 守则
+
+- a) **边界永不混用**：文档走文本文件，状态走 SQLite；新切片违反此边界即架构违规。
+- b) **`session` 表不许悬挂**：T-029 必须消费（多文档会话恢复），否则显式
+  Deferred 并删表（Rule 12 / 13：死表是债务不是资产）。
+- c) **快照 `.txt` 合并写应改原子写（tmp + rename）**：已识别改进，未排期，
+  随文件系统切片或保存打磨切片评估（非 Accepted 决策，Rule 13 不触发）。
 
 ## 原因
 
