@@ -21,6 +21,10 @@ swift-bridge-build = "0.1.59"
 # 去掉 plotters（html 报告）/ rayon（并行采样）及其 wasm 依赖树——与 T-009 rusqlite
 # 依赖瘦身同一原则（Rule 9），cargo_bench_support 已满足命令行报告。
 criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+# 决策依据（ADR-022）：proptest 只需 std 即可提供生成 + shrinking；默认特性的 fork
+# （用例隔离）/ timeout（超时杀用例）是可选增强，Beta 阶段不引入 rusty-fork /
+# tempfile 等额外依赖树（同 criterion 瘦身原则，Rule 9）。
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 
 [[bench]]
 name = "bench_editor"

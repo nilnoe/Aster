@@ -60,6 +60,7 @@
 - [ ] T-029 Crash Recovery 与 Session 恢复；接线 Store session（ADR-013）
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）
+- [x] T-032 测试与审计加固：proptest 属性测试（Buffer / Editor / Layout 不变量）+ 审计记录制度（docs/audits.md，ADR-022）
 
 ## Task 编号规则
 

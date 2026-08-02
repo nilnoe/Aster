@@ -5,7 +5,7 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-017 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，108 个测试全绿；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）。
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，113 个测试全绿（含 5 个属性测试，ADR-022）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（11 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（31 个 XCTest 全绿），源码 1345 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
@@ -21,6 +21,7 @@
 ## 工作方式（验证有效，继续保持）
 
 - 每个切片严格走 WORKFLOW 11 步；**顺序不可跳**：ADR → 测试（Red）→ 实现 → 门禁 → 审计 → 文档。
+- 审计必须留痕：每切片在 docs/audits.md 追加一行（含违规与处置），无记录视为未执行（ADR-022）。
 - 公共 API 必须先 ADR（宪法 Rule 4）；不建 Trait / 抽象层，除非有证明（Rule 1 / 2）。
 - 切片完成时一次性更新：Roadmap 状态、Changelog、ADR 索引、Benchmarks——这四件套是 DoD 的一部分，容易忘。
 - Commit 用 Conventional Commits 并引用 `T-XXX` 与 `ADR-XXX`；每个切片独立 commit + push。
@@ -125,6 +126,7 @@
 | 2026-08-02 | BUG-005 | 文本区鼠标指针是箭头而非 I 型 | `resetCursorRects` + `addCursorRect(bounds, .iBeam)`（系统能力，Principle 4） |
 | 2026-08-02 | 复审 | 文档漂移漏检：ADR 索引漏登 ADR-018（changelog/roadmap 却反复引用）；experience 现状速览行数/测试数过期 | 本次补索引、校正行数；长期靠 CI 文档完整性检查（已列入修复 TODO） |
 | 2026-08-02 | T-023 | criterion bench 二进制显示 running 0 tests（libtest 壳吞掉 criterion main）；闭包内 RefCell borrow 临时值悬垂（E0716） | `[[bench]]` 显式声明 `harness = false`；借用先 `let` 绑定再传 `&mut`；另 criterion 默认特性带 plotters/rayon/wasm 依赖，关默认特性只留 cargo_bench_support（同 rusqlite 瘦身教训） |
+| 2026-08-02 | T-032 | proptest 三坑：`prop::char::range` 是两个参数（不是 Range）；`prop_assert_eq!` 消息用字面量 + 参数（`{}` 捕获式 `{op:?}` 不展开）；Editor `undo/redo` 返回 `Result<bool>` 而非 Option；`proptest_config` 属性需要 `attr-macro` 特性（没开） | 分别改为双参数 / 字面量格式串 / `while undo() {}` / 去掉属性用默认用例数（避免额外 proc-macro 依赖）；测试失败先看宏与 API 签名（老教训再次应验） |
 
 ## 给下一个 agent 的提醒
 

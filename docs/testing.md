@@ -21,9 +21,11 @@
 - Public API 的行为契约（ADR 定义）必须覆盖。
 - 测试命名：`<module>_<behavior>`，断言行为而非实现。
 
-## 工具（计划）
+## 工具（现状）
 
-- Rust：`cargo test` + proptest + criterion（benchmark）
+- Rust：`cargo test`（单元 + 集成 + 属性测试）、proptest（ADR-022，Buffer / Editor /
+  Layout 不变量，见 `core/tests/property.rs`）、criterion（ADR-021 / T-023，性能基线）
 - Swift：XCTest + swift-format
 
-首个切片落地时确认具体测试框架配置并回写本文档。
+分层策略见上表；属性测试覆盖手写用例无法穷举的边界（UTF-8 非边界偏移、任意操作
+序列、undo/redo 往返、行结构不变量），随 `cargo test` 在 CI 运行。

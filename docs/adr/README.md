@@ -37,6 +37,7 @@ Proposed → Accepted
 | ADR-019 | 视口滚动与软换行 | Accepted | 2026-08-02 | 0（视图层状态） | roadmap、app/（core 不变） | [ADR-019-viewport-scroll-and-wrap.md](ADR-019-viewport-scroll-and-wrap.md) |
 | ADR-020 | CI 发布流水线 | Accepted | 2026-08-02 | 0（CI 基础设施） | .github/workflows/ci-release.yml、release.md | [ADR-020-ci-release-pipeline.md](ADR-020-ci-release-pipeline.md) |
 | ADR-021 | 性能基准体系（criterion） | Accepted | 2026-08-02 | 0（dev-only） | core（benches）、docs/benchmarks.md | [ADR-021-performance-benchmarks.md](ADR-021-performance-benchmarks.md) |
+| ADR-022 | 属性测试（proptest）与审计记录制度 | Accepted | 2026-08-02 | 0（dev-only + 文档） | core（tests/property.rs）、docs/audits.md、WORKFLOW | [ADR-022-property-tests-audit-log.md](ADR-022-property-tests-audit-log.md) |
 
 ## 触发规则
 

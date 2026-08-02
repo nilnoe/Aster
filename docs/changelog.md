@@ -58,6 +58,18 @@
   回填首个稳定基线（criterion 0.8.2；Apple Silicon arm64 / macOS 26.5.1）；
   编辑热路径基准即为 ADR-006 存储决策的对照数据
 
+### Added — 2026-08-02（T-032 测试与审计加固）
+
+- [ADR-022](../docs/adr/ADR-022-property-tests-audit-log.md) — 属性测试（proptest）
+  与审计记录制度：回应复审「测试不足 / 审计空转」意见——proptest 覆盖 UTF-8 边界、
+  任意操作序列与 undo/redo 往返；审计结论强制落表 docs/audits.md
+- feat(test)：T-032 —— Buffer（插入边界 / 删插 round-trip）、Editor（与朴素模型
+  差分、undo/redo 往返）、Layout（行结构不变量）属性测试落地
+- docs(workflow)：WORKFLOW Audit 步骤要求审计结论写入 docs/audits.md，无记录视为
+  未执行
+- docs(audit)：新增 docs/audits.md 审计登记表（含全仓复审与 T-023 审计行，
+  ADR-022 决策 3 落地）
+
 ## [Beta V0.1.1] — 2026-08-02
 
 **补丁版：** 上一版（Beta V0.1.0）发布后的缺陷修复——渲染覆盖层不可见、
