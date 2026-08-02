@@ -36,6 +36,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   var pendingDocs = PendingDocs()
   /// 文档 id → 快照序号（⌘N / 恢复 / 打开时登记；⌘S 与退出「保存全部」合并目标）。
   var snapshotSeqByDocId: [UInt: UInt] = [:]
+  /// 文档 id → 最近一次合并进快照的文本（BUG-012，T-050 复审）。
+  ///
+  /// 决策依据：undo/redo 可能把内容回退到与快照一致的状态，仅凭「发生过编辑」
+  /// 判定 dirty 会产生假未保存提示。维护「已固化到快照的文本」作比较基线：
+  /// 内容相等 → 不置脏并删缓冲行（崩溃保护冗余）；不相等 → 置脏 + 自动保存。
+  /// 各文档创建点（启动默认 / ⌘N / 打开 / 恢复）初始化为空快照内容 `""`。
+  var committedTextByDocId: [UInt: String] = [:]
   /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
   var needsRecoveryPrompt = false
   var mainWindow: NSWindow?
@@ -152,6 +159,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
       currentSnapshotSeq = seq
       snapshotSeqByDocId[id] = seq
+      committedTextByDocId[id] = ""
       currentFileName = nil
       updateWindowTitle()
     } catch {
@@ -186,10 +194,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         view.load(model)
       }
       currentFileName = url.lastPathComponent
-      // T-046：打开的文件继承当前 Scratch 快照作为合并目标（v1 语义）。
-      if let seq = currentSnapshotSeq {
-        snapshotSeqByDocId[id] = seq
-      }
+      // BUG-010：每个打开的文件分配**独立**快照序号（不再继承当前文档序号）——
+      // 否则多个文件共享同一快照，退出「保存全部」逐个合并时后写覆盖先写，
+      // 先打开文档的内容永久丢失。create_next 失败走下方 catch（失败可见，
+      // ADR-004），文件不会进入视图（与 open_disk 读取失败同级别处置）。
+      let seq = UInt(try snapshot_create_next(snapshot))
+      snapshotSeqByDocId[id] = seq
+      committedTextByDocId[id] = ""
       updateWindowTitle()
     } catch {
       NSLog("打开文档失败：\(error)")
@@ -239,6 +250,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     if let seq = currentSnapshotSeq {
       snapshotSeqByDocId[id] = seq
     }
+    committedTextByDocId[id] = ""
     // 样例内容验证 CJK + 多行渲染链路（T-012，ADR-016）。
     let buffer = Buffer(BufferId(UInt64(id)))
     _ = try? buffer_insert(buffer, 0, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")

@@ -61,10 +61,23 @@ extension AppDelegate {
         }
         currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
         snapshotSeqByDocId[id] = currentSnapshotSeq
+        committedTextByDocId[id] = ""
         currentFileName = nil
         pendingDocs.mark(id)
         updateWindowTitle()
+        // BUG-011：恢复内容必须写入缓冲（新 id 的 scratch 行）——否则 ⌘S /
+        // 退出「保存全部」读不到内容（store_load_scratch 失败、保存必败）。
+        // 先写缓冲再删旧行：旧行删除失败时内容已在新行，不会丢。
+        try store_save_scratch(store, id, text)
         _ = try? store_delete_scratch(store, latest)
+        // BUG-011：其余未决缓冲文档（非最新）不恢复但内容守恒（ADR-013 v1.3），
+        // 必须逐个登记快照序号并置未决——否则退出「保存全部」找不到合并目标，
+        // guard 失败弹错并取消退出，用户被卡在「保存 / 不保存」二选一。
+        for other in ids where other != latest {
+          snapshotSeqByDocId[other] = UInt(try snapshot_create_next(snapshot))
+          committedTextByDocId[other] = ""
+          pendingDocs.mark(other)
+        }
       } else {
         // 忽略：内容保留在缓冲，登记为未决文档并分配快照序号（退出可合并）。
         snapshotSeqByDocId[latest] = UInt(try snapshot_create_next(snapshot))
@@ -109,6 +122,9 @@ extension AppDelegate {
     do {
       let text = try store_load_scratch(store, id).toString()
       try snapshot_write(snapshot, seq, text)
+      // BUG-012：合并成功后记录「已固化到快照的文本」，作为后续 undo/redo
+      // 判定是否真正变脏的比较基线。
+      committedTextByDocId[id] = text
       _ = try? store_delete_scratch(store, id)
       pendingDocs.commit(id)
       updateWindowTitle()
@@ -147,9 +163,20 @@ extension AppDelegate {
   /// ADR-004 精神：失败不静默，但不打断输入流）。
   func onContentChanged() {
     guard let view = mainWindow?.contentView as? MetalView else { return }
-    pendingDocs.mark(UInt(view.model.bufferIdValue))
+    let id = UInt(view.model.bufferIdValue)
+    // BUG-012：undo/redo 可能回到与快照一致的内容——此时不应标记未保存，
+    // 且缓冲行不再需要（内容已固化，崩溃保护冗余，残留会让下次崩溃恢复
+    // 提示恢复旧内容）。
+    if view.model.bufferText == committedTextByDocId[id] {
+      pendingDocs.commit(id)
+      if let store = bufferStore {
+        _ = try? store_delete_scratch(store, id)
+      }
+    } else {
+      pendingDocs.mark(id)
+      autoSaveToBuffer()
+    }
     updateWindowTitle()
-    autoSaveToBuffer()
   }
 
   /// 自动保存：当前编辑内容写入缓冲文件（崩溃保护）。

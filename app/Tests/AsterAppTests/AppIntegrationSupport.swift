@@ -25,10 +25,17 @@ class AppIntegrationTestCase: XCTestCase {
   final class SeamedAppDelegate: AppDelegate {
     var pendingDocsReply: Int?
     var recoveryReply: Int = 1
+    /// 错误提示注入：记录调用次数，避免真实 NSAlert 阻塞测试进程
+    /// （T-050 复审：saveAllPending 失败路径会弹 presentSaveError）。
+    var saveErrorCount = 0
 
     override func presentPendingDocsAlert() -> Int? { pendingDocsReply }
 
     override func presentRecoveryAlert(count: Int) -> Int { recoveryReply }
+
+    override func presentSaveError(_ message: String) {
+      saveErrorCount += 1
+    }
   }
 
   /// 当前用例的 seam 实例（注入决策入口）。
