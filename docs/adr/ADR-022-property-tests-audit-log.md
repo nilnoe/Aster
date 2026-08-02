@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.0
+- **Version:** 1.1
 - **新增 Public API:** 0（dev-dependency + 测试 + 文档制度）
 - **影响模块:** core（dev-dependencies、tests/property.rs）、docs/testing.md、
   docs/audits.md（新增）、WORKFLOW（Audit 步骤）
@@ -29,6 +29,11 @@
 4. **CI**：属性测试随 `cargo test` 运行；策略规模保持小（≤8 字符文本、≤60 步
    操作序列），用例数用 proptest 默认值（可经 `PROPTEST_CASES` 调整），不引入
    `attr-macro` 特性（避免额外 proc-macro 依赖，Rule 9）。
+5. **fuzz 语义 = 扩展属性空间（v1.1，T-033）**：不引入 cargo-fuzz / libFuzzer
+   （新依赖需 ADR-007/008，且 Editor 差分已有 proptest 骨架，Rule 9 拒绝重复
+   基建）；扩展为：emoji / CJK / 换行 / 组合字符的 UTF-8 输入空间 + 更长操作
+   序列（≤80 步），并在 CI-Rust 增加 `PROPTEST_CASES=3000` 的 property 专项
+   运行（原默认 256 例）。
 
 ## 原因
 

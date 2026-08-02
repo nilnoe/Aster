@@ -12,6 +12,7 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 | BUG-006 光标边缘留白 | 98cfb30 | ADR-019 光标横向可见性语义落实 / Rule 9（2 个留白常量 + 2 条边界规则，无新增依赖 / 抽象）/ Rule 12（Viewport 75、TextRenderer 132 等全部 ≤300） | Pass | 无 | 2026-08-02 |
 | BUG-007 组合期间横向可见性 | 1d7dfe7 | ADR-019（组合末尾光标 = BUG-004 语义纳入可见性）/ Rule 9（1 行调用，无新增状态 / 依赖）/ Rule 12（MetalView+Input 99 行 ≤300） | Pass | 无 | 2026-08-02 |
 | T-015 文件打开接线 | e6a7ebd | ADR-001 v1.1（Bridge FFI 3 项已记录）/ Rule 3（全部 ≤300）/ Rule 9 三问（3 个 FFI 适配函数 + App 薄胶水，0 抽象层 / 0 依赖）/ Rule 12（pub(crate) 访问器，不构成公共 API）/ Rule 14（DocumentManager 首次进产品，真实调用方 = AppDelegate） | Pass | 无；注册表副本与会话分离的激活状态边界已记录于 ADR-001 v1.1，随 T-024 统一 | 2026-08-02 |
+| T-033 fuzz + 基准回归告警 | 本切片 | ADR-021 v1.1（反转「CI 不跑」经用户确认）/ ADR-022 v1.1（fuzz = 属性空间扩展，0 新依赖）/ Rule 7（对比脚本仅标准库）/ Rule 9（1 脚本 + 1 CI 作业 + 基线文件，无抽象层）/ Rule 12（bench-baseline 数据非源码，不计行数） | Pass | 无；criterion 自带 baseline 对比不因回归失败退出，自建脚本补齐（已记录 ADR-021 v1.1 原因） | 2026-08-02 |
 
 ## 规则
 

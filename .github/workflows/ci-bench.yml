@@ -1,0 +1,36 @@
+name: CI-Bench
+
+# T-033（ADR-021 v1.1）：基准回归告警——cargo bench（quick）后与仓库内提交的
+# 基线对比，回归超阈值即失败。告警级门禁：阈值 / 10µs 下限吸收跨机器噪声，
+# 全量测量仍以本地 release 为准（ADR-021 决策 3 / 4）。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "bench-baseline/**"
+      - "scripts/bench-regression.py"
+      - ".github/workflows/ci-bench.yml"
+  pull_request:
+    paths:
+      - "core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "bench-baseline/**"
+      - "scripts/bench-regression.py"
+  workflow_dispatch:
+
+jobs:
+  bench-regression:
+    name: Benchmark Regression Alert
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run benchmarks (quick)
+        run: cd core && cargo bench --bench bench_editor --bench bench_pipeline -- --quick
+      - name: Compare against committed baseline
+        run: python3 scripts/bench-regression.py --baseline-dir bench-baseline --threshold 0.10 --criterion-root core/target/criterion

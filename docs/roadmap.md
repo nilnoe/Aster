@@ -61,6 +61,7 @@
 - [ ] T-030 首个正式版 V1.0.0（暂不排期，Beta 优先）
 - [ ] T-031 日志与错误可见性：os_log（App）+ tracing（Core）接线，ADR-004 落地（宪法 Rule 13 闭环）
 - [x] T-032 测试与审计加固：proptest 属性测试（Buffer / Editor / Layout 不变量）+ 审计记录制度（docs/audits.md，ADR-022）
+- [x] T-033 fuzz 扩展 + 基准回归告警：属性空间扩展到 emoji / CJK / 换行 / 组合字符（CI `PROPTEST_CASES=3000` 专项运行）；criterion 基线提交 + CI 阈值对比作业（ADR-021 v1.1，反转「CI 不跑」经用户确认）
 
 ## Task 编号规则
 

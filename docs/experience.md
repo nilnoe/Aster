@@ -2,10 +2,10 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015 完成；Beta V0.1.0 / V0.1.1 已发布）
+## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015/T-033 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023 + T-032（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，113 个测试全绿（含 5 个属性测试，ADR-022）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，116 个测试全绿（含 7 个属性测试，ADR-022 v1.1）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（13 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（47 个 XCTest 全绿），源码 1615 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-020 全部 Accepted（索引见 `docs/adr/README.md`）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 / 文档机械门禁 / 性能数据驱动）。
@@ -81,6 +81,7 @@
 | AppKit 壳 | 程序化 AppKit（无 xib），最小菜单 App/Edit/Window；部署目标 macOS 26 | T-012 换 MetalView；T-013 菜单接线编辑循环 |
 | 文本渲染 | CoreText shaping（CTLine/CTRun）→ 字形图集（RGBA8 按需栅格化，font+像素尺寸+glyph 键）→ Metal quad（32B/顶点）；IME = 系统 NSTextInputClient；行结构复用 Core Layout（bridge `layout_line_starts`） | 按需整帧重建（增量失效未做）；sRGB+gamma 在 T-016；颜色接 Theme 由 Lua 主题切片提供（ADR-018） |
 | CI 发布 | `CI-Release`：打 Beta-V* tag → 门禁 + 构建 + 打包 Aster.app zip + 附到 Release（ADR-020）；手动 dispatch 在 main 上只验证到 artifact 步骤 | 签名/公证在 V1.0.0 前按需评估 |
+| 基准体系 | 本地 release 全量测量（T-023，ADR-021）；T-033 v1.1 起 `CI-Bench` 用 `--quick` + `bench-baseline/`（提交基线）做 10% 阈值回归告警（10µs 以下跳过） | 阈值误报时调整 `--threshold` 并记录；基线随机器 / macOS 变化重新生成提交 |
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
@@ -139,6 +140,9 @@
 | 2026-08-02 | T-015 | swift-bridge 0.1.59 对 `Result<u64, String>` 生成崩溃：bridged_type.rs `to_alpha_numeric_underscore_name` 对 Result 的 ok 类型 u64 无匹配分支 → `todo!()` panic | id 以 usize 透传（既有验证路径）；生成器能力短板一律机械适配规避（ADR-014 惯例），并回写 ADR-001 v1.1 |
 | 2026-08-02 | T-015 | `extension MetalView: NSDraggingDestination` 报 redundant conformance：NSView 已内建一致性 | 只 override `draggingEntered` / `performDragOperation`，不声明一致性；override 必须留在类体 |
 | 2026-08-02 | T-015 | 生成的 `document_manager_text` 返回 `RustString` 而非 `String`，测试直接比较报类型错误 | swift-bridge 的 String 返回值一律 `.toString()` 后再断言（同 `editor_text` 惯例） |
+| 2026-08-02 | T-033 | criterion 0.8.2 的 `--baseline` 对比只打印报告，不因回归失败退出（exit 0） | 自建 `scripts/bench-regression.py`（stdlib）读 `new/estimates.json` 的 `mean.point_estimate` 对比提交基线，回归超阈值 exit 1（ADR-021 v1.1） |
+| 2026-08-02 | T-033 | `cd core && cargo bench` 产生 `core/target/`，`/target` 只忽略仓库根 | `.gitignore` 补 `core/target/`；CI-Bench 作业在 `core/` 内跑 bench，脚本经 `--criterion-root core/target/criterion` 定位结果 |
+| 2026-08-02 | T-033 | `PROPTEST_CASES=3000 cargo test --test property` 耗时 ~9s（默认 256 例 ~0.8s） | CI 专项 fuzz 步骤可接受；属性测试仍无 attr-macro 依赖（ADR-022 决策 4 不变） |
 
 ## 给下一个 agent 的提醒
 
@@ -158,10 +162,10 @@
   修复在测试自身；CI 只按路径触发（改 core 不跑 Swift，纯文档不触发）是设计行为。
 - **上下文压缩恢复**：本文件 + ADR 索引是会话记忆载体；压缩后先读本文件现状速览与
   给下一个 agent 的提醒，不要重读全部源码。
-- **会话结束未决项（2026-08-02）**：T-018（含前置拆分）与 T-015 文件打开接线
-  已完成。剩余：**T-033 fuzz + 基准回归告警**——注意其「criterion 阈值能力接
-  CI」与 ADR-021「CI 不跑基准」冲突，属反转 Accepted 决策，需用户确认 ADR
-  修订后才能实施。另外：audits.md 审计登记制度已生效，新切片必须留审计行。
+- **会话结束未决项（2026-08-02）**：遗留项全部清零——T-018（含前置拆分）、
+  T-015 文件打开接线、T-033 fuzz + 基准回归告警（ADR-021 v1.1 反转经用户确认）
+  均已完成并推送。下一步按 Roadmap 为 T-014 剪贴板。另外：audits.md 审计登记
+  制度已生效，新切片必须留审计行。
 - **T-014 前置**：剪贴板（系统 NSPasteboard，总纲 Principle 4）、拖放（NSDraggingDestination）、文档选择器（NSOpenPanel）——全部系统能力，不造轮子（Rule 11）；深浅色不跟随系统（ADR-018）；`Editor` 桥接已有 `set_selection`，剪贴板粘贴 = 选区替换（`type_text` 路径）。Command 上下文 / 激活文档接线在 T-024（Command Palette，ADR-017 备注）。
 - **T-019 前置（ADR-019）**：软换行默认关，开启后视觉折行属 App 渲染层（Layout
   逻辑行不变）；`wrapEnabled` 先做常量开关，配置系统落地后经 Config DSL / Lua 开启；

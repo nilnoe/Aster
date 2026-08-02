@@ -60,6 +60,21 @@
   必须 throws）；core 单测（文本访问器 + 未知 id）；app 单测（load 替换会话 +
   视口重置）
 
+### Added — 2026-08-02（T-033 fuzz 扩展 + 基准回归告警）
+
+- [ADR-021](../docs/adr/ADR-021-performance-benchmarks.md) v1.1 — 反转「CI 不跑
+  基准」：新增 `CI-Bench` 作业（`cargo bench -- --quick` + 仓库内基线对比，回归
+  超 10% 即红；10µs 以下项跳过；全量测量仍以本地 release 为准）。反转经用户
+  确认（T-033 遗留项）
+- [ADR-022](../docs/adr/ADR-022-property-tests-audit-log.md) v1.1 — fuzz 语义 =
+  扩展属性空间（不引入 cargo-fuzz，Rule 9）：emoji / CJK / 换行 / 组合字符输入
+  + ≤80 步操作序列；CI-Rust 增加 `PROPTEST_CASES=3000` property 专项运行
+- feat(bench)：`bench-baseline/` 提交本地 release 测量的 17 项基线（Apple M4 /
+  macOS 26.5.1）+ `scripts/bench-regression.py`（stdlib 对比脚本，criterion 自带
+  baseline 对比不因回归失败退出，0.8.2 实测）
+- feat(test)：`editor_matches_model_fuzz_unicode` / `editor_undo_redo_fuzz_multiline`
+  两个新属性测试（多行 + 多字节输入下差分与 undo/redo 往返契约）
+
 ### Changed — 2026-08-02（Beta V0.2 规划）
 
 - ci：新增 `CI-Release` 发布流水线（[ADR-020](../docs/adr/ADR-020-ci-release-pipeline.md)）——

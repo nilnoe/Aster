@@ -3,6 +3,7 @@
 
 # Rust
 /target
+core/target/
 
 # Swift / Xcode
 DerivedData/
