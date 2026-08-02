@@ -5,7 +5,7 @@
 ## 项目现状速览（截至 2026-08-02，T-001 ~ T-018 + T-015/T-033 完成；Beta V0.1.0 / V0.1.1 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1676 行，116 个测试全绿（含 7 个属性测试，ADR-022 v1.1）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035（buffer / selection / history / layout / theme / command / event / lua / store / bridge / editor），`core/src` 共 1726 行，120 个测试全绿（含 7 个属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge 0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（13 个 XCTest 全绿；生成代码与 .a 不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（47 个 XCTest 全绿），源码 1615 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-022 全部 Accepted（索引见 `docs/adr/README.md`；

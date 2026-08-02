@@ -41,7 +41,6 @@ selection 模块不依赖任何其他模块，Core 内独立。
 | `collapsed()` | 是否无选区 |
 | `set_head(at)` | 移动光标、保留锚点（Shift 扩展语义） |
 | `collapse(at)` | 折叠到 `at`（取消选区） |
-| `clamp(len)` | 按文本长度裁剪越界偏移（删除后缓冲区收缩的确定性响应） |
 
 ## 影响模块
 
@@ -57,3 +56,7 @@ selection 模块不依赖任何其他模块，Core 内独立。
 
 - 多光标（ADR-006 未定项）未来扩展为有序 `Selection` 集合，不改变本 API。
 - 越界但不越 `len` 的非字符边界位置，由调用方结合 Buffer 的错误语义校正，Selection 不猜测。
+
+  v1.1 备注（T-036，I-004）：`clamp(len)` 已移除——发布后零消费者（Rule 14 处置：
+  无消费者的公共接口接线或撤销；实际裁剪由 `Editor::set_selection` 的
+  `floor_char_boundary` 承担，选区收缩语义经 `Editor` 统一）；对应 3 个测试一并删除。

@@ -9,8 +9,9 @@ WORKFLOW 第 8 步（Architecture Audit）的强制产物。每个切片在审�
 | T-034 审查问题登记 | 440c75b | Rule 15（issues.md 入 README 索引）/ Rule 3（issues.md 单一职责）/ Rule 9 三问（0 抽象层 / 0 依赖 / 0 公共 API，纯文档） | Pass（自审） | 无 | 2026-08-02 |
 | 复审（全仓） | d996059、db053f5、bce9d05、fb82b85、aa78b6a | 文档漂移 / ADR 失约 / 零消费者模块 / 基准缺失 / 门禁缺口 | 发现并处置 | ADR-018 索引补登、宪法 V1.4（R13~16）、接线计划（T-015/016/024/028/029/031）、CI-Docs 与 CI-Release 门禁、T-023 基准落地 | 2026-08-02 |
 | T-023 性能基准体系 | aa78b6a | Rule 16 基准门禁 / Rule 3 文件 ≤300 / ADR-021 / Rule 9 三问（1 dev-dep、0 公共接口） | Pass | 无 | 2026-08-02 |
-| T-032 测试与审计加固 | 本切片 | Rule 8（proptest ADR-022）/ Rule 9 三问 / 审计留痕制度落地 | Pass（自审） | 无 | 2026-08-02 |
-| T-018 水平滚动 | 47c1dc2 | ADR-019（0 公共 API、Core 不变）/ Rule 3（MetalView 298、TextRenderer 292 贴线，拆分后 258 / 130+200）/ Rule 9 三问（1 个视口状态 + 输入平移 + 光标可见性，无抽象层 / 无依赖）/ Rule 12（全部 ≤300，App 总量 1483 < 5,000）/ Rule 14（Viewport / VertexBuilder 均 App 模块内，非公共 API） | Pass | 无；拆分前置在本切片完成 | 2026-08-02 |
+| T-032 测试与审计加固 | d867ac7 | Rule 8（proptest ADR-022）/ Rule 9 三问 / 审计留痕制度落地 | Pass（自审） | 无 | 2026-08-02 |
+| T-018 水平滚动 | 47c1dc2 | ADR-019（0 公共 API、Core 不变）/ Rule 3（MetalView 298、TextRenderer 292 贴线，拆分后 258 / 130+200）/ Rule 9 三问（1 个视口状态 + 输入平移 + 光标可见性，无抽象层 / 无依赖）/ Rule 12（全部 ≤300，App 总量 1483 < 5,000；T-036 校正：现 1615）/ Rule 14（Viewport / VertexBuilder 均 App 模块内，非公共 API） | Pass | 无；拆分前置在本切片完成 | 2026-08-02 |
+| T-036 存量清理 | 本切片 | Rule 14（`Selection::clamp` 零消费者 → 撤销，ADR-007 v1.1 记录）/ Rule 12（core/src 1726 ≤20k；死代码移除）/ Rule 15（experience / audits 计数校正；T-032 hash 回填）/ I-006 核验纠正（.DS_Store 从未入库，误报撤销）；Rule 9 三问（0 抽象层 / 0 依赖，纯删除 + 文档校正） | Pass | I-006 误报：审查依据 find 输出未区分跟踪状态，已用 git ls-files 核验纠正 | 2026-08-02 |
 | BUG-006 光标边缘留白 | 98cfb30 | ADR-019 光标横向可见性语义落实 / Rule 9（2 个留白常量 + 2 条边界规则，无新增依赖 / 抽象）/ Rule 12（Viewport 75、TextRenderer 132 等全部 ≤300） | Pass | 无 | 2026-08-02 |
 | BUG-007 组合期间横向可见性 | 1d7dfe7 | ADR-019（组合末尾光标 = BUG-004 语义纳入可见性）/ Rule 9（1 行调用，无新增状态 / 依赖）/ Rule 12（MetalView+Input 99 行 ≤300） | Pass | 无 | 2026-08-02 |
 | T-015 文件打开接线 | e6a7ebd | ADR-001 v1.1（Bridge FFI 3 项已记录）/ Rule 3（全部 ≤300）/ Rule 9 三问（3 个 FFI 适配函数 + App 薄胶水，0 抽象层 / 0 依赖）/ Rule 12（pub(crate) 访问器，不构成公共 API）/ Rule 14（DocumentManager 首次进产品，真实调用方 = AppDelegate） | Pass | 无；注册表副本与会话分离的激活状态边界已记录于 ADR-001 v1.1，随 T-024 统一 | 2026-08-02 |

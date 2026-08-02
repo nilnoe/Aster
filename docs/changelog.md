@@ -31,6 +31,17 @@
   CJK 行、Shift 扩展）+ 属性测试纳入 Up/Down 差分并显式断言「光标必须落在字符边界」
   不变量（`PROPTEST_CASES=3000` 实测通过）
 
+### Changed — 2026-08-02（T-036 存量清理，I-004 ~ I-006）
+
+- refactor(core)：撤销无消费者公共 API `Selection::clamp`（I-004，Rule 14 处置：
+  接线或撤销——实际裁剪由 `Editor::set_selection` 的 floor_char_boundary 承担；
+  [ADR-007](../docs/adr/ADR-007-selection-model.md) v1.1 备注记录移除，3 个对应测试删除）
+- docs：校正计数漂移（I-005）——experience core/src 1676 → 1726、audits App 1483 →
+  1615；T-032 审计行 commit 回填 d867ac7
+- chore(repo)：I-006 核验纠正——`.DS_Store` 从未被 git 跟踪（`git ls-files` /
+  `git log` 双重核验为空），.gitignore 早已覆盖，仅清理工作树残留；审查登记表
+  标记「误报撤销」并记录核验方法（Rule 15：证据优先，find 输出不区分跟踪状态）
+
 ### Added — 2026-08-02（T-018 水平滚动）
 
 - feat(app)：水平滚动（T-018，[ADR-019](../docs/adr/ADR-019-viewport-scroll-and-wrap.md)）——

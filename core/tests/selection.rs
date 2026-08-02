@@ -55,25 +55,6 @@ fn collapse_clears_selection() {
 }
 
 #[test]
-fn clamp_caps_offsets_at_text_length() {
-    let s = Selection::new_range(3, 100);
-    let c = s.clamp(10);
-    assert_eq!(c, Selection::new_range(3, 10));
-}
-
-#[test]
-fn clamp_keeps_offsets_within_bounds_untouched() {
-    let s = Selection::new_range(1, 9);
-    assert_eq!(s.clamp(10), s);
-}
-
-#[test]
-fn clamp_on_empty_text_collapses_to_zero() {
-    let s = Selection::new_range(5, 8);
-    assert_eq!(s.clamp(0), Selection::new(0));
-}
-
-#[test]
 fn selection_is_a_copy_value_type() {
     // 决策依据：Selection 是纯值类型；副本修改不影响原值（无共享状态）。
     let s = Selection::new(1);

@@ -62,15 +62,4 @@ impl Selection {
         self.anchor = at;
         self.head = at;
     }
-
-    /// 按文本字节长度裁剪越界偏移，返回新值。
-    ///
-    /// 决策依据：文本删除后缓冲区收缩，选区必须有一个确定性响应；
-    /// 裁剪只取 `min(offset, len)`，非边界位置由调用方结合 Buffer 错误语义校正。
-    pub fn clamp(&self, len: usize) -> Self {
-        Self {
-            anchor: self.anchor.min(len),
-            head: self.head.min(len),
-        }
-    }
 }
