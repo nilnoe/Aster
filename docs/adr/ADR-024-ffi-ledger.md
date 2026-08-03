@@ -19,7 +19,7 @@
    逐条维护，标注由本 ADR 承接；任何 FFI 增删必须同步运行脚本更新本 ADR。
 3. **T-070 起 FFI 面收敛**（ADR-025）：文档生命周期 FFI 统一为 `session_*`
    单一入口；旧 `document_manager_*`（4 项）/ `store_*`（7 项）/ `snapshot_*`
-   （5 项）撤销（Rule 14：无生产消费者）。当前 FFI 面：50 项（含 opaque
+   （5 项）撤销（Rule 14：无生产消费者）。当前 FFI 面：51 项（含 opaque
    类型方法；其中 session_* 21 项为文档生命周期面）。此数字由
    scripts/ffi-ledger.py 机械生成，CI-Docs 校验，勿手改。
 

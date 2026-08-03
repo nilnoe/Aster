@@ -58,6 +58,7 @@
 | 关闭按钮路径修复（BUG-017） | — | 无显著影响 | — | BUG-017 | 2026-08-03 | 关闭 / 退出决策重构（resolvePendingDocs 共用）：保存/丢弃/取消动作各一次，关闭频率极低（非热路径）；新增 4 项集成测试非性能路径；Rust Core 零改动，基准不重跑 |
 | 新建 Frame（T-069） | — | 无显著影响 | — | T-069 | 2026-08-03 | 多 Frame 重构（App 视图层）：帧创建低频路径（启动 / ⌘⇧N 各一次窗口 + 文档创建）；onChange 按 frame 接线 = 既有自动保存路径不变（每次编辑一次 upsert）；Rust Core 零改动，基准不重跑 |
 | Frame 关闭闪烁定时器修复（BUG-018） | — | 无显著影响 | — | BUG-018 | 2026-08-03 | 关闭路径：windowWillClose 多一次 stopCaretBlink（O(1)），修复前每 frame 泄漏的定时器每 0.5s 一次 needsDisplay（已消除）；Rust Core 零改动，基准不重跑 |
+| 行结构语义收拢（T-072，ADR-026） | — | 无显著影响 | — | T-072 | 2026-08-03 | 调用等价替换：lineRanges(of:) 的 layout_line_starts + Swift 派生 改为 layout_line_ranges（同一次 Layout::build O(n)，仅多一次扁平化 O(行数)，缓存失效时一次）；查找（lineIndex 二分）与渲染路径零改动；Core 仅新增 bridge 适配函数，Layout 内部实现未变，基准不重跑 |
 
 ## 测量规则
 

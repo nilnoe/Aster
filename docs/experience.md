@@ -14,7 +14,7 @@
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
-  - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
+  - bridge/：swift-bridge 绑定 Swift Package（22 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
   - app/：AppKit 壳 + Metal 编辑视图（**116 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
@@ -78,7 +78,7 @@
     门禁 M1/M2/M5 迁至 Core + mutate.py 产物还原（实测 M5 残留产物连环失败）；
     App 111 + Bridge 20 + Core 148 全绿
   - ADR-024 FFI 总账机械化（本切片）：scripts/ffi-ledger.py + CI-Docs 门禁
-    （当前 FFI 面 50 项），禁止手抄计数
+    （当前 FFI 面 51 项），禁止手抄计数
   - BUG-018 关闭卡死修复（本切片，三机制）：① over-release——崩溃报告
     （14:15 主线程栈 objc_release → _Block_release → NSConcretePointerArray
     dealloc → CA commit）定位 = 关窗拆毁图层树期间 in-flight drawable 双重释放
@@ -333,7 +333,7 @@
   编辑后 Session 注册表 Buffer 副本失鲜（content_changed 只写 SQLite 不回写
   注册表），必须先向用户确认方向再实现，不得擅自改动 Session 语义**。
 - **FFI 总账（ADR-024）**：改 bridge.rs 后跑 `python3 scripts/ffi-ledger.py` 更新
-  ADR-024 的「当前 FFI 面」数字（当前 50 项），CI-Docs 机械校验，禁止手抄。
+  ADR-024 的「当前 FFI 面」数字（当前 51 项），CI-Docs 机械校验，禁止手抄。
 - **mutate.py（T-070 补充）**：Rust 变异点 run 自带 bridge 重建，循环结束后自动
   还原 staticlib 产物——不要手动中断；中断后产物是变异版本，先 `./bridge/build.sh`。
 - 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、

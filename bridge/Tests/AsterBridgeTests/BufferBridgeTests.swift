@@ -57,4 +57,16 @@ final class BufferBridgeTests: XCTestCase {
   func testLayoutLineStartsEmptyText() {
     XCTAssertEqual(Array(layout_line_starts("")), [0])
   }
+
+  /// T-072（ADR-026）：行区间语义单一所有者 = Core——扁平 start/end 对，
+  /// `\n` 属前一行、末行到文本末尾（Layout::line_range 语义）。
+  func testLayoutLineRangesMixedLines() {
+    // "ab\n你好\ne"：行区间 [0,2) / [3,9) / [10,11)（你好 = 6 字节）。
+    XCTAssertEqual(Array(layout_line_ranges("ab\n你好\ne")), [0, 2, 3, 9, 10, 11])
+  }
+
+  func testLayoutLineRangesEmptyAndTrailingNewline() {
+    XCTAssertEqual(Array(layout_line_ranges("")), [0, 0])
+    XCTAssertEqual(Array(layout_line_ranges("ab\n")), [0, 2, 3, 3])
+  }
 }

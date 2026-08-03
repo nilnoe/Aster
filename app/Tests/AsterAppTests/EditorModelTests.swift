@@ -137,10 +137,13 @@ final class EditorModelTests: XCTestCase {
     XCTAssertEqual(EditorModel.byteOffset(ofUTF16: 3, in: text), 7)
   }
 
-  func testLinesAndRangesSplit() {
-    let text = "ab\n你好\n"
-    XCTAssertEqual(EditorModel.splitLines(text), ["ab", "你好", ""])
-    XCTAssertEqual(EditorModel.lineRanges(of: text), [0..<2, 3..<9, 10..<10])
+  /// T-072（ADR-026）：行区间语义单一所有者 = Core（layout_line_ranges）；
+  /// Swift 只做机械分块，不自行派生「行尾 = 下一行起点 - 1」。
+  func testLinesAndRangesSplit() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(41)))
+    try model.typeText("ab\n你好\n")
+    XCTAssertEqual(model.lineByteRanges, [0..<2, 3..<9, 10..<10])
+    XCTAssertEqual(model.lines, ["ab", "你好", ""])
   }
 
   /// T-037（ADR-023 决策 4）：内容变更（type / delete / undo / redo）触发

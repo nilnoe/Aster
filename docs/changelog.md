@@ -10,6 +10,19 @@
 
 ## [Unreleased]
 
+### Changed — 2026-08-03（T-072，行结构语义收拢，ADR-026）
+
+- feat(core)：Bridge 新增 `layout_line_ranges`（扁平 start/end 对，语义 =
+  `Layout::line_range`，ADR-009）——行号 ↔ 字节区间语义单一所有者 = Core
+  Layout（ADR-026，I-010 处置）。
+- refactor(app)：`EditorModel.lineByteRanges` 改为机械分块（`chunkRanges`），
+  删除 `lineRanges(of:)` / `splitLines` 的「行尾 = 下一行起点 - 1 / 末行到
+  文本末尾」语义复刻；`lines` 复用缓存；查找（lineIndex 标准二分）保留
+  （Rule 9 / 11：不引入逐查询桥接拷贝）。
+- test：Bridge +2（扁平区间 / 空文本与尾换行），App 1 项改写（实例断言同一
+  期望值）；Bridge 22 + App 116 + Core 148 全绿；fmt / clippy / swift-format
+  零告警；FFI 面 50 → 51（ADR-024 机械计数）。
+
 ### Added — 2026-08-03（复审整改 II 问题登记，I-009 ~ I-016）
 
 - 全仓复审（域归属 / 状态管理）登记 8 项问题至 [docs/issues.md](../docs/issues.md)：

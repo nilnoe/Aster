@@ -47,6 +47,23 @@ pub fn layout_line_starts(text: String) -> Vec<usize> {
     Layout::build(&text).line_starts().to_vec()
 }
 
+/// 全文档行字节区间（扁平 start/end 对，语义 = `Layout::line_range`，ADR-009）。
+///
+/// 决策依据（ADR-026）：行号 ↔ 字节区间语义单一所有者 = Core Layout——App 只做
+/// 机械分块，不自行派生「行尾 = 下一行起点 - 1 / 末行到文本末尾」，避免 `\n`
+/// 归属与末行边界在两端各持一份实现而漂移（I-010）。
+pub fn layout_line_ranges(text: String) -> Vec<usize> {
+    let layout = Layout::build(&text);
+    let mut out = Vec::with_capacity(layout.line_count() * 2);
+    for line in 0..layout.line_count() {
+        if let Some(range) = layout.line_range(line) {
+            out.push(range.start);
+            out.push(range.end);
+        }
+    }
+    out
+}
+
 // --- Editor 桥接面（T-013，ADR-017） ---
 //
 // 决策依据：
@@ -128,6 +145,7 @@ mod ffi {
         fn core_version() -> String;
         fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize, String>;
         fn layout_line_starts(text: String) -> Vec<usize>;
+        fn layout_line_ranges(text: String) -> Vec<usize>;
         fn session_new(dir: String) -> Session;
         fn session_store_error(session: &Session) -> String;
         fn session_is_clean_exit(session: &Session) -> Result<bool, String>;

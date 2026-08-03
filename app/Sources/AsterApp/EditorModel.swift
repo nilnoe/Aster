@@ -83,18 +83,19 @@ final class EditorModel {
   /// 不置脏（ADR-023 决策 4）。回调而非协议（Rule 2：无多实现方）。
   var onChange: (() -> Void)?
 
-  var lines: [String] { Self.splitLines(displayText) }
+  var lines: [String] { lineByteRanges.map { Self.slice(displayText, $0) } }
 
   /// 行数（渲染高度 / 视口窗口计算；T-038 起不再依赖全文 lines）。
   var lineCount: Int { lineByteRanges.count }
 
   /// 显示文本每行的字节区间（光标 / 选区 / 标记映射到行内坐标）。
   ///
-  /// 决策依据（T-038）：由 displayText 缓存派生，整份切分只在失效后首次访问时
+  /// 决策依据（T-038 / ADR-026）：语义单一所有者 = Core `Layout`
+  /// （layout_line_ranges），Swift 只做机械分块；整份切分只在失效后首次访问时
   /// 发生一次；渲染帧复用同一缓存（I-003：消除每帧 O(n)）。
   var lineByteRanges: [Range<Int>] {
     if let cached = lineRangesCache { return cached }
-    let ranges = Self.lineRanges(of: displayText)
+    let ranges = Self.chunkRanges(Array(layout_line_ranges(displayText)))
     lineRangesCache = ranges
     return ranges
   }
@@ -264,17 +265,17 @@ final class EditorModel {
     return text.utf8.distance(from: text.utf8.startIndex, to: index)
   }
 
-  static func splitLines(_ text: String) -> [String] {
-    lineRanges(of: text).map { slice(text, $0) }
-  }
-
-  static func lineRanges(of text: String) -> [Range<Int>] {
-    let starts = layout_line_starts(text)
+  /// 把 Core 返回的扁平 start/end 对机械分块为行区间（ADR-026）。
+  ///
+  /// 决策依据：只做形状转换，不含「行尾 = 下一行起点 - 1」等派生逻辑——
+  /// 语义（`\n` 归属、末行边界）唯一在 Core `Layout::line_range`（I-010）。
+  static func chunkRanges(_ flattened: [UInt]) -> [Range<Int>] {
     var result: [Range<Int>] = []
-    for i in starts.indices {
-      let start = Int(starts[i])
-      let end = i + 1 < starts.count ? Int(starts[i + 1]) - 1 : text.utf8.count
-      result.append(start..<end)
+    result.reserveCapacity(flattened.count / 2)
+    var i = 0
+    while i + 1 < flattened.count {
+      result.append(Int(flattened[i])..<Int(flattened[i + 1]))
+      i += 2
     }
     return result
   }

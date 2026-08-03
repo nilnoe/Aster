@@ -194,7 +194,7 @@
 > 执行原则：先收拢域再接线；保存域改动受 ADR-023 v1.7 冻结流程约束（先确认方向）。
 
 - [x] T-071 复审整改 II 问题登记（I-009~I-016，ADR-026 新增，2026-08-03）
-- [ ] T-072 行结构语义收拢（I-010，ADR-026）：Bridge 暴露 `layout_line_ranges`
+- [x] T-072 行结构语义收拢（I-010，ADR-026）：Bridge 暴露 `layout_line_ranges`
   （扁平 start/end 对），Swift 删除 `lineRanges` 语义复刻；App 查找保持标准二分
   （Rule 9 / 11，不引入逐查询桥接拷贝）
 - [ ] T-073 光标 / 组合几何收拢（I-011 / I-014 / I-016）：caret x/y 公式收为
