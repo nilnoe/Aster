@@ -92,10 +92,13 @@
 > 先变异 / 注入定位盲区，再补测试；0 生产代码改动不可作为验收（发现缺陷须
 > 登记 BUG 并修复）。排序按风险，可调整。
 
-- [ ] T-052 IME 契约审计：`MetalView.characterIndex(for:)` 返回字节偏移而
+- [x] T-052 IME 契约审计：`MetalView.characterIndex(for:)` 返回字节偏移而
   NSTextInputClient 契约是 UTF-16 索引（CJK 点击定位错位候选）；`setMarkedText`
   忽略 `replacementRange`（选中文本输入拼音时组合显示与选区重叠）。验收：真实
   IME / 模拟输入验证，确认缺陷 → 登记 BUG + 修复 + 回归；无缺陷 → 契约测试固化
+  （2026-08-03：两处缺陷均确认——BUG-013（characterIndex：屏幕坐标 + 字节偏移
+  双违规）/ BUG-014（replacementRange 被忽略）；模拟协议调用验证 + 5 项契约回归
+  先红后绿，变异复验旧实现报 3≠1 / 8≠1；App 91 全绿）
 - [ ] T-053 渲染层变异测试：TextRenderer / VertexBuilder / GlyphAtlas /
   AtlasPacker 关键算法变异（坐标换算、图集分配、UV 采样、缓存失效），像素读回
   测试保持全绿；全绿变体 = 盲区 → 补测试

@@ -14,9 +14,9 @@
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**86 个 XCTest 全绿**：T-050 五组集成测试 +
-    T-051 失败注入 / 状态机不变量 + BUG-010~012 回归），源码 2139 行（Rule 12
-    的 Swift 预算 ≤5,000 行生效中）。
+  - app/：AppKit 壳 + Metal 编辑视图（**91 个 XCTest 全绿**：T-050 五组集成测试 +
+    T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + BUG-010~014 回归），源码
+    2172 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
   ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
@@ -31,6 +31,9 @@
   - T-051 测试方法论强化（b4d1406）：变异测试 6 变体定位盲区（M1 合并顺序颠倒
     全绿 = 保存失败路径无测试）→ 失败注入测试（SaveFailurePathTests）+ 随机
     操作序列不变量测试（SaveStateInvariantTests，3 种子 × 50 步）；App 86 全绿
+  - T-052 IME 契约审计（本切片）：BUG-013（characterIndex 屏幕坐标 + UTF-16
+    索引双修复）+ BUG-014（setMarkedText 替换 replacementRange）；5 项契约回归
+    先红后绿 + 变异复验（旧实现 3≠1 / 8≠1）；App 91 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -254,6 +257,7 @@
 | 2026-08-02 | T-046 | 用户定调：全生命周期检查所有文件状态（打开新文件不抛弃前一个）；不弹窗（Buffer 底部 y/n）；缓冲只服务强杀 / 意外退出 | isDirty 单布尔 → PendingDocs 集合登记；退出提示覆盖全部未决（保存全部逐文档合并）；忽略 = 登记为未决并分配快照序号；弹窗标注过渡，T-026 落地移除；设计先听方向再动手，别把「以后要做的 UI」当成现在做 |
 | 2026-08-02 | T-047 | 用户加规则：空文件在进程生命周期结束后删除 | 启动即建的空快照（001）与从未输入 / 合并的 ⌘N 文档是主要累积源；prune_empty 只删零长度且 `aster-*.txt` 命名规范内，目录缺失幂等；挂 applicationWillTerminate（干净退出路径），崩溃退出下次再清 |
 | 2026-08-02 | T-048 | 发版 CI 三连红：① clippy 1.97 新 lint；② CI-Bench 结果落 workspace 根 target；③ 两处测试硬编码版本号 | ① 测试模块移到文件末尾；② `CARGO_TARGET_DIR=target` 固定落点（本地实测 16 项 0 回归）；③ 版本断言改格式校验，一致性交给 CI-Release（Rule 15）；共享 runner quick 模式噪声 +26%~+120% → 阈值 100% / 下限 100µs（ADR-021 v1.2），CI 只做数量级恶化告警 |
+| 2026-08-03 | T-052 | xctest 进程直接创建 NSWindow 挂载 MTKView 崩溃（SIGSEGV），补 `NSApplication.shared` 无效 | 窗口必须 `orderFront(nil)` 进入窗口服务器（T-050 走真实 AppDelegate 生命周期所以从未触发）；IME 契约以 SDK `NSTextInputClient.h` 原文为准：characterIndexForPoint 的 point 是屏幕坐标、返回 UTF-16 字符索引；setMarkedText 必须替换 replacementRange（选中文本输入拼音 = 组合替换选区，不是推迟到提交） |
 
 ## 给下一个 agent 的提醒
 
@@ -275,10 +279,11 @@
   计划已登记 roadmap（IME 契约 / 渲染变异 / 失败可见性 / 原子写 / 存储损坏 /
   时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 / 跨日轮转 / 变异工具化）；
   执行原则 = 先变异定位盲区再补测试，发现缺陷登记 BUG 并修复，0 生产代码改动
-  不作为验收。执行顺序按风险可调整。**当前候选风险（人工验证，未自动化）**：
-  `characterIndex(for:)` 返回字节偏移而 NSTextInputClient 契约是 UTF-16 索引
-  （CJK IME 点击定位）；`setMarkedText` 忽略 replacementRange；缓冲自动保存失败
-  仅 NSLog（用户不可见）；崩溃循环累积空快照。
+  不作为验收。执行顺序按风险可调整。**T-052 已完成**：characterIndex 屏幕坐标
+  + UTF-16 索引（BUG-013）、setMarkedText replacementRange（BUG-014）均修复带
+  回归。**剩余候选风险（人工验证，未自动化）**：缓冲自动保存失败仅 NSLog
+  （T-054）；崩溃循环累积空快照（T-060）；渲染层算法无变异保护（T-053）；
+  快照合并非原子（T-055）。
 - **数据结构评估（2026-08-03，ADR-006 v1.1）**：全仓复审结论已入 ADR-006——
   ① App 每键全量文本流（Bridge 拷贝 + 全量 upsert，O(n)/键，最大热点）；
   ② Core move_cursor 每移动全量 Layout::build（O(n)，App 已缓存而 Core 没有）；

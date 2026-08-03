@@ -48,6 +48,22 @@
   扩展、已知限制行为固化、崩溃完整测试、跨 UTC 午夜轮转、变异测试工具化。
   本轮仅登记计划，不执行（用户将专门投入各种测试）；顺带校正 T-034 状态漂移。
 
+### Fixed — 2026-08-03（T-052，BUG-013 / BUG-014，IME 契约审计）
+
+- **BUG-013（Implementation Bug，IME 点击定位错位）**：`characterIndex(for:)`
+  双重契约违规——入参按屏幕坐标换算回视图坐标（SDK `NSTextInputClient.h`
+  原文：*"point is in the screen coordinate system"*），返回值从 UTF-8 字节偏移
+  改为 UTF-16 字符索引（协议全量区间为 UTF-16 单位，ADR-017 备注；「你好」中
+  点击「好」旧实现返回字节 3，契约要求索引 1）。
+- **BUG-014（Implementation Bug，组合与选区重叠）**：`setMarkedText` 按协议
+  用 `replacementRange` 替换 Buffer 中对应区间（选中文本输入拼音时组合直接落在
+  替换位置；替换经 Core Editor 删除，可撤销）；组合更新（NSNotFound）不再触碰
+  Buffer。替换失败可见（ADR-004：NSLog 兜底）。
+- test：5 项契约回归先红后绿——EditorModel 2（UTF-16 选区替换 / 组合更新不改
+  Buffer）+ MetalView 3（视图层接线 / UTF-16 索引 / 真实窗口屏幕坐标换算）；
+  变异复验：还原旧实现后 characterIndex 用例报 3≠1 / 8≠1，确认回归有效。
+  App 全量 91 项全绿（86 → +5）；Bridge 20 + Core 127 不变；门禁零告警。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +

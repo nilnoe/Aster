@@ -184,6 +184,94 @@ final class MetalViewTests: XCTestCase {
     )
   }
 
+  /// T-052（BUG-014）：setMarkedText 必须按协议把 replacementRange 指定的
+  /// 选区替换为组合文本（视图层接线；语义测试见 EditorModelTests）。
+  func testSetMarkedTextHonorsReplacementRange() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(50)))
+    try model.typeText("abcdef")
+    model.setSelection(anchor: 2, head: 5)  // 选中 "cde"
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 400, height: 300), model: model)
+
+    view.setMarkedText(
+      "n" as NSString,
+      selectedRange: NSRange(location: 0, length: 0),
+      replacementRange: NSRange(location: 2, length: 3)
+    )
+
+    XCTAssertEqual(model.bufferText, "abf", "组合开始必须替换 replacementRange 选区")
+    XCTAssertEqual(model.cursorByte, 2)
+    XCTAssertTrue(model.hasMarkedText)
+    XCTAssertEqual(model.displayText, "abnf")
+
+    view.insertText("你" as NSString, replacementRange: NSRange(location: NSNotFound, length: 0))
+    XCTAssertEqual(model.bufferText, "ab你f", "提交后组合落在替换位置")
+  }
+
+  /// T-052（BUG-013，SDK NSTextInputClient.h）：characterIndex(for:) 必须
+  /// 返回 UTF-16 字符索引（CJK 每字 1 单位），不是 UTF-8 字节偏移。
+  func testCharacterIndexReturnsUTF16IndexForCJK() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    let model = EditorModel(buffer: Buffer(BufferId(51)))
+    try model.typeText("你好ab")
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 400, height: 300), model: model)
+    // "好" 起点 = 字节 3（"你" 占 3 字节）；契约索引 = UTF-16 1。
+    let layout = LineLayout(text: model.bufferText, font: view.renderer.font)
+    let x = view.renderer.leftPadPts + layout.xOffset(atByteOffset: 3)
+
+    let index = view.characterIndex(for: NSPoint(x: x, y: view.bounds.height * 0.5))
+
+    XCTAssertEqual(index, 1, "CJK 下必须返回 UTF-16 索引，而非字节偏移（旧实现返回 3）")
+  }
+
+  /// T-052（BUG-013）：characterIndex(for:) 的入参是屏幕坐标系（SDK 头文件
+  /// 原文），实现必须换算回视图坐标再做命中——窗口位移后索引仍正确。
+  func testCharacterIndexConvertsScreenPointToViewCoordinates() throws {
+    guard MTLCreateSystemDefaultDevice() != nil else {
+      throw XCTSkip("Metal 不可用（CI 无 GPU 时跳过）")
+    }
+    // 集成测试基类同款前置：无 NSApp 的测试进程创建真实窗口会崩溃（T-052）。
+    _ = NSApplication.shared
+    let model = EditorModel(buffer: Buffer(BufferId(52)))
+    try model.typeText("你好ab")
+    let view = MetalView(frame: NSRect(x: 0, y: 0, width: 400, height: 300), model: model)
+    let window = NSWindow(
+      contentRect: NSRect(x: 100, y: 200, width: 420, height: 340),
+      styleMask: [.titled],
+      backing: .buffered,
+      defer: false
+    )
+    window.contentView = view
+    window.orderFront(nil)
+    defer {
+      window.contentView = nil
+      window.close()
+    }
+    guard window.screen != nil else {
+      throw XCTSkip("无窗口服务器（headless 环境）")
+    }
+    // 视图内目标点：字节 3（"好" 起点）所在 x，首行带内 y。
+    let layout = LineLayout(text: model.bufferText, font: view.renderer.font)
+    let viewPoint = NSPoint(
+      x: view.renderer.leftPadPts + layout.xOffset(atByteOffset: 3),
+      y: view.bounds.height * 0.5
+    )
+    // 独立换算：窗口 frame 左下角（屏幕坐标，含标题栏）+ 标题栏高度偏移 + 视图点。
+    let titleBarHeight = window.frame.height - window.contentView!.frame.height
+    let screenPoint = NSPoint(
+      x: window.frame.minX + viewPoint.x,
+      y: window.frame.minY + titleBarHeight + viewPoint.y
+    )
+
+    let index = view.characterIndex(for: screenPoint)
+
+    XCTAssertEqual(index, 1, "屏幕坐标必须换算回视图坐标后命中「好」（UTF-16 1）")
+  }
+
   /// T-015：打开文件后 load(_:) 必须替换编辑会话并重置视口（不残留旧文档的
   /// 滚动位置；undo 历史随新 Editor 重置是预期行为）。
   func testLoadReplacesModelAndResetsViewport() throws {

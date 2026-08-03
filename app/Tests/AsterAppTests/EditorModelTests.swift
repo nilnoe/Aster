@@ -90,6 +90,45 @@ final class EditorModelTests: XCTestCase {
     XCTAssertFalse(model.hasMarkedText)
   }
 
+  /// T-052（BUG-014，SDK NSTextInputClient.h）：setMarkedText 的
+  /// replacementRange 必须替换 Buffer 中对应区间（选中文本输入拼音时组合
+  /// 直接落在替换位置，不再与选区重叠）。replacementRange 是 UTF-16 语义，
+  /// 经 byteRange(fromUTF16:) 换算成字节（ADR-017 备注）。
+  func testSetMarkedTextReplacesUTF16SelectionRange() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(8)))
+    try model.typeText("你好abc")
+    // 选中「好a」：UTF-16 [1, 3) → 字节 [3, 7)。
+    model.setSelection(anchor: 3, head: 7)
+
+    try model.setMarkedText("n", replacementUTF16: NSRange(location: 1, length: 2))
+
+    XCTAssertEqual(model.bufferText, "你bc", "组合开始必须删除被替换的选区")
+    XCTAssertEqual(model.cursorByte, 3, "光标必须折叠到替换起点（「你」之后）")
+    XCTAssertTrue(model.hasMarkedText)
+    XCTAssertEqual(model.displayText, "你nbc", "组合文本内联在替换位置")
+    XCTAssertEqual(model.markedUTF16Range, NSRange(location: 1, length: 1))
+
+    // 提交：组合文本落回 Buffer 的替换位置。
+    try model.insertText("你", replacementUTF16: model.markedUTF16Range)
+    XCTAssertEqual(model.bufferText, "你你bc")
+    XCTAssertFalse(model.hasMarkedText)
+  }
+
+  /// T-052（BUG-014）：组合已激活时 replacementRange 为 NSNotFound——
+  /// 更新组合只替换组合文本本身，不得再次改动 Buffer。
+  func testSetMarkedTextUpdateDoesNotTouchBuffer() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(9)))
+    try model.typeText("ab")
+    try model.setMarkedText("n", replacementUTF16: NSRange(location: NSNotFound, length: 0))
+    XCTAssertEqual(model.bufferText, "ab")
+
+    try model.setMarkedText("ni", replacementUTF16: NSRange(location: NSNotFound, length: 0))
+
+    XCTAssertEqual(model.bufferText, "ab", "组合更新不得改动 Buffer")
+    XCTAssertEqual(model.composition, "ni")
+    XCTAssertEqual(model.displayText, "abni")
+  }
+
   func testUTF16ByteConversions() {
     let text = "你好a"
     XCTAssertEqual(EditorModel.byteOffset(ofUTF16: 0, in: text), 0)

@@ -186,6 +186,27 @@ final class EditorModel {
     invalidateDisplayCache()
   }
 
+  /// 系统输入回调（setMarkedText 的替换语义，T-052，BUG-014）：
+  /// `replacementUTF16`（UTF-16，契约见 SDK NSTextInputClient.h）仅在尚无组合
+  /// 文本时生效——按协议把 Buffer 中该区间替换为组合文本（选中文本输入拼音的
+  /// 场景，组合显示与选区不再重叠）；组合已激活后 IME 以 NSNotFound 更新组合，
+  /// 不再触碰 Buffer（组合文本不在 Buffer 内，ADR-017 内联模型）。
+  func setMarkedText(_ text: String, replacementUTF16: NSRange?) throws {
+    if composition.isEmpty,
+      let range = replacementUTF16,
+      range.location != NSNotFound,
+      range.length > 0
+    {
+      let byteRange = byteRange(fromUTF16: range)
+      editor_set_selection(editor, UInt(byteRange.lowerBound), UInt(byteRange.upperBound))
+      // 删被替换选区（经 Core Editor，历史可撤销）；composition 此刻为空，
+      // deleteBackward 不会清组合，onChange 照常置脏。
+      try deleteBackward()
+    }
+    composition = text
+    invalidateDisplayCache()
+  }
+
   func unmarkText() {
     if !composition.isEmpty {
       composition = ""

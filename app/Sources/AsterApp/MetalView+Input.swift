@@ -24,7 +24,13 @@ extension MetalView: @MainActor NSTextInputClient {
   }
 
   func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
-    model.setMarkedText(Self.text(from: string) ?? "")
+    do {
+      // T-052（BUG-014）：按协议用 replacementRange 替换选区（选中文本输入
+      // 拼音时组合落在替换位置）；替换失败必须可见（ADR-004）。
+      try model.setMarkedText(Self.text(from: string) ?? "", replacementUTF16: replacementRange)
+    } catch {
+      NSLog("setMarkedText 替换失败：\(error)")
+    }
     // BUG-007：组合文本延伸（拼音逐字增长）必须同步滚动，组合末尾光标
     // （BUG-004 语义：光标 + 组合长度）保持在右缘留白内；此前只有提交
     // （insertText）滚动，组合期间超出右缘不自动横向滚动。
@@ -84,7 +90,13 @@ extension MetalView: @MainActor NSTextInputClient {
   }
 
   func characterIndex(for point: NSPoint) -> Int {
-    byteOffset(at: point)
+    // T-052（BUG-013）：NSTextInputClient 契约（SDK NSTextInputClient.h）——
+    // point 是屏幕坐标系，返回值是文本字符索引（协议全量区间为 UTF-16 单位，
+    // ADR-017 备注）。旧实现把屏幕点当视图点且返回 UTF-8 字节偏移：CJK 下
+    // IME 点击定位索引错位（「你好」中字节 3 应返回 UTF-16 索引 1）。
+    let viewPoint = convert(window?.convertPoint(fromScreen: point) ?? point, from: nil)
+    let byte = byteOffset(at: viewPoint)
+    return model.utf16Range(fromByteRange: byte..<byte).location
   }
 
   private static func text(from value: Any) -> String? {

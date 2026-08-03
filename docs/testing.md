@@ -66,6 +66,20 @@ AsterAppTests/` 增加进程内集成测试：在 `swift test` 进程内驱动�
 新增用例：`SaveFailurePathTests`（2）+ `SaveStateInvariantTests`（3 种子 × 50 步）。
 后续切片新增状态机逻辑时，先跑一轮变异定位盲区，再补对应失败 / 不变量测试。
 
+## IME 契约测试（T-052，2026-08-03）
+
+NSTextInputClient 的协议方法无法用真实输入法在 CI 脚本化，改用**模拟协议调用**
+固化契约（BUG-013 / BUG-014 均以 SDK 头文件原文为据）：
+
+1. `characterIndex(for:)` 的 point 是**屏幕坐标系**、返回值是 **UTF-16 字符索引**
+   （协议全量区间为 UTF-16 单位，ADR-017 备注）；实现换算顺序 = 屏幕 → 视图 →
+   byteOffset → UTF-16。回归测试含真实 NSWindow 的屏幕坐标换算（窗口必须
+   `orderFront` 进入窗口服务器，否则 xctest 挂载 MTKView 崩溃）。
+2. `setMarkedText` 必须按 `replacementRange`（UTF-16）替换 Buffer 对应区间——
+   选中文本输入拼音时组合落在替换位置；组合更新（NSNotFound）不得触碰 Buffer。
+3. 修复后再变异复验：还原旧实现跑回归，characterIndex 报 3≠1 / 8≠1，
+   确认测试确实抓到旧缺陷（T-051 方法论闭环）。
+
 ## 规则
 
 - Red → Green → Refactor（宪法 Rule 5）；Bug 回归测试见 [docs/bug-workflow.md](bug-workflow.md)。
