@@ -89,4 +89,48 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     let remaining = try XCTUnwrap(appDelegate.currentFrame)
     XCTAssertTrue(appDelegate.frames.first === remaining)
   }
+
+  /// REPRO（临时）：模拟真实关闭按钮路径 performClose → windowShouldClose →
+  /// close → windowWillClose，验证不挂起。
+  func testClosingSecondFrameViaPerformCloseDoesNotHang() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let second = appDelegate.frames[1]
+
+    second.performClose(nil)
+
+    XCTAssertEqual(appDelegate.frames.count, 1, "关闭后 frame 必须移除")
+    XCTAssertTrue(appDelegate.frames[0].isVisible)
+  }
+
+  /// REPRO（临时）：B 有未决编辑时经 performClose 关闭（走保存全部决策）。
+  func testClosingEditedSecondFrameViaPerformCloseDoesNotHang() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let second = appDelegate.frames[1]
+    let secondView = try XCTUnwrap(second.contentView as? MetalView)
+    try secondView.model.typeText("未保存编辑")
+    seamed.pendingDocsReply = 1
+
+    second.performClose(nil)
+
+    XCTAssertEqual(appDelegate.frames.count, 1)
+    XCTAssertTrue(appDelegate.pendingDocs.isEmpty, "保存全部后未决清空")
+  }
+
+  /// BUG-018：关闭的 frame 的 MetalView 光标闪烁必须停止——Timer 以 target/
+  /// selector 强持有 view（保留环）且关闭后的窗口仍被 AppKit 保留（ARC 下
+  /// isReleasedWhenClosed 不生效），旧实现定时器无限期存活（每 ⌘⇧N 泄漏一份
+  /// 渲染资源 + 永续 needsDisplay）。windowWillClose 确定性停止。
+  func testClosedFrameStopsCaretBlinkTimer() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    XCTAssertTrue(secondView.isCaretBlinkActive, "前置：光标闪烁激活")
+
+    appDelegate.frames[1].performClose(nil)
+    XCTAssertEqual(appDelegate.frames.count, 1)
+
+    XCTAssertFalse(secondView.isCaretBlinkActive, "关闭后光标闪烁必须停止（保留环打断）")
+  }
 }

@@ -55,6 +55,9 @@ extension AppDelegate {
   /// 走既有退出流程。
   func windowWillClose(_ notification: Notification) {
     guard let frame = notification.object as? NSWindow else { return }
+    // BUG-018：关闭 frame 时停止其 MetalView 光标闪烁——Timer 强持有 view
+    // （保留环）且关闭后的窗口仍被 AppKit 保留，不停止则定时器无限期存活。
+    (frame.contentView as? MetalView)?.stopCaretBlink()
     frames.removeAll { $0 === frame }
     frameFileName.removeValue(forKey: frame)
   }

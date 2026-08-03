@@ -181,6 +181,21 @@
   必须登记未决且有缓冲行」不变量（BUG-011 泛化），变异门禁 5/5 恢复。
   App 全量 110 项全绿（105 → +5）；Bridge 20 + Core 131 不变；门禁零告警。
 
+### Fixed — 2026-08-03（BUG-018，Frame 关闭卡死排查 + 光标闪烁保留环）
+
+- **用户报告**：⌘⇧N 新建窗口后再关闭会卡死。排查：进程内穷尽复现（performClose /
+  modal session / posted 真实鼠标事件到关闭按钮 / 真实 NSAlert / 真实 GPU
+  render + 循环定时器）均无法复现挂起——**挂起本身未复现，状态保持 Open，
+  待用户补充信息**（是否编辑过、弹窗是否出现、是否转菊花、控制台输出）。
+- **已确认缺陷（Fixed）**：MetalView 光标闪烁 Timer 以 target/selector 强持有
+  view 形成保留环；且实测 `isReleasedWhenClosed=true` 在 ARC 下不生效、关闭后
+  窗口仍被 AppKit 保留——每个 ⌘⇧N 泄漏一份渲染资源 + 无限期定时器对已关闭
+  frame 置 needsDisplay。修复：闪烁相位抽为 `CaretBlinker`（独立类型，Rule 3：
+  MetalView 305 → 278 + 48）；`windowWillClose` 确定性调用 `stop()` 打断保留环。
+- test：1 项回归（关闭 frame 后 `isCaretBlinkActive == false`）+ 2 项真实关闭
+  路径回归（performClose 空文档 / 未决保存全部，不挂起）。App 全量 113 项全绿
+  （110 → +3）；变异门禁 5/5；Bridge 20 + Core 131 不变；门禁零告警。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +

@@ -29,11 +29,9 @@ final class MetalView: MTKView {
   /// AppDelegate 经 DocumentManager 执行（薄 UI；回调而非协议，Rule 2）。
   var onOpenFile: ((URL) -> Void)?
   private var mouseAnchorByte = 0
-  /// 光标闪烁相位（T-017）：Timer 每 0.5s 翻转，渲染层按相位决定是否画光标。
-  private var caretVisible = true
-  /// 仅 deinit 停表使用；实际读写都在主 RunLoop（nonisolated(unsafe) 规避 Swift 6
-  /// deinit 的主 actor 隔离限制，引用不跨线程逃逸）。
-  nonisolated(unsafe) private var blinkTimer: Timer?
+  /// 光标闪烁相位状态机（T-017 / BUG-018：独立类型，Rule 3 拆分；关闭时由
+  /// windowWillClose 调 stop 打断 Timer 保留环）。
+  private let blinker = CaretBlinker()
 
   init(frame: NSRect, model: EditorModel) {
     guard let device = MTLCreateSystemDefaultDevice() else {
@@ -47,7 +45,8 @@ final class MetalView: MTKView {
     enableSetNeedsDisplay = true
     isPaused = true
     delegate = self
-    startCaretBlink()
+    blinker.onTick = { [weak self] in self?.needsDisplay = true }
+    blinker.start()
   }
 
   @available(*, unavailable)
@@ -253,31 +252,19 @@ final class MetalView: MTKView {
     )
   }
 
-  // MARK: - 光标闪烁（T-017，ADR-018）
+  // MARK: - 光标闪烁（T-017，ADR-018；CaretBlinker 管理相位，frame 关闭时
+  // windowWillClose 调用 stop——见 AppDelegate+CloseFlow）
 
-  deinit {
-    blinkTimer?.invalidate()
+  /// 停止光标闪烁（BUG-018）：Timer 以 target/selector 强持有 target 形成
+  /// 保留环，且关闭后的窗口仍被 AppKit 保留，定时器会无限期存活。由
+  /// AppDelegate.windowWillClose 在 frame 关闭时调用，确定性打断保留环。
+  /// internal：窗口关闭流程（AppDelegate+CloseFlow）调用（模块边界内封装）。
+  func stopCaretBlink() {
+    blinker.stop()
   }
 
-  private func startCaretBlink() {
-    // target/selector 走 ObjC 派发，避免 Timer block 的 @Sendable 捕获问题；
-    // 计时器必然运行在主 RunLoop（Swift 6 主 actor 安全）。视图生命周期即窗口
-    // 生命周期（关闭最后窗口即退出，ADR-015），deinit 停表。
-    let timer = Timer(
-      timeInterval: 0.5,
-      target: self,
-      selector: #selector(blinkTick),
-      userInfo: nil,
-      repeats: true
-    )
-    RunLoop.main.add(timer, forMode: .common)
-    blinkTimer = timer
-  }
-
-  @objc private func blinkTick() {
-    caretVisible.toggle()
-    needsDisplay = true
-  }
+  /// 光标闪烁是否激活（internal：Frame 关闭回归测试断言用）。
+  var isCaretBlinkActive: Bool { blinker.isActive }
 }
 
 // MARK: - MTKViewDelegate（自绘：事件驱动，仅变化后重绘）
@@ -286,6 +273,6 @@ extension MetalView: MTKViewDelegate {
   func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
   func draw(in view: MTKView) {
-    renderer.render(in: view, model: model, viewport: viewport, caretVisible: caretVisible)
+    renderer.render(in: view, model: model, viewport: viewport, caretVisible: blinker.caretVisible)
   }
 }

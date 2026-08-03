@@ -65,6 +65,9 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
     frames/currentFrame + 按 frame 接线（onChange/标题/文件名/自动保存）；
     绑定只存菜单（解耦）；变异门禁暴露 M3 盲区 → 恢复文档不变量补齐；
     App 110 全绿
+  - BUG-018 Frame 关闭卡死排查（本切片）：用户报告未复现（穷尽 performClose /
+    modal session / posted 事件 / 真实 alert / GPU render + timer）；已确认并修复
+    闪烁 Timer 保留环（CaretBlinker 抽取 + windowWillClose stop）；App 113 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -290,6 +293,7 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
 | 2026-08-02 | T-047 | 用户加规则：空文件在进程生命周期结束后删除 | 启动即建的空快照（001）与从未输入 / 合并的 ⌘N 文档是主要累积源；prune_empty 只删零长度且 `aster-*.txt` 命名规范内，目录缺失幂等；挂 applicationWillTerminate（干净退出路径），崩溃退出下次再清 |
 | 2026-08-02 | T-048 | 发版 CI 三连红：① clippy 1.97 新 lint；② CI-Bench 结果落 workspace 根 target；③ 两处测试硬编码版本号 | ① 测试模块移到文件末尾；② `CARGO_TARGET_DIR=target` 固定落点（本地实测 16 项 0 回归）；③ 版本断言改格式校验，一致性交给 CI-Release（Rule 15）；共享 runner quick 模式噪声 +26%~+120% → 阈值 100% / 下限 100µs（ADR-021 v1.2），CI 只做数量级恶化告警 |
 | 2026-08-03 | T-052 | xctest 进程直接创建 NSWindow 挂载 MTKView 崩溃（SIGSEGV），补 `NSApplication.shared` 无效 | 窗口必须 `orderFront(nil)` 进入窗口服务器（T-050 走真实 AppDelegate 生命周期所以从未触发）；IME 契约以 SDK `NSTextInputClient.h` 原文为准：characterIndexForPoint 的 point 是屏幕坐标、返回 UTF-16 字符索引；setMarkedText 必须替换 replacementRange（选中文本输入拼音 = 组合替换选区，不是推迟到提交） |
+| 2026-08-03 | BUG-018 | ① 实测 `isReleasedWhenClosed = true` 在 ARC 下不生效：close() 后窗口仍被 AppKit 内部保留（weak 探针 +0.5s 未释放）——关闭不意味着窗口对象会释放，依赖 deinit 做清理不可靠，须在 windowWillClose 显式清理；② 「新建 frame 关闭卡死」穷尽复现（dispatch performClose / beginModalSession / NSApp.postEvent 真实鼠标事件 / 真实 NSAlert / MTKView 真实 GPU render + 循环 Timer）均正常——真实点击上下文只能靠 posted 事件模拟（CGEvent 需辅助功能权限被拦截），仍无法复现时按 bug-workflow 停下反馈，请求用户补充「是否编辑过 / 弹窗是否出现 / 是否转菊花 / 控制台输出」 | windowWillClose 确定性 stop 闪烁 Timer（target/selector 强持有形成保留环，每 ⌘⇧N 泄漏一份渲染资源）；未复现问题保持 Open |
 
 ## 给下一个 agent 的提醒
 
