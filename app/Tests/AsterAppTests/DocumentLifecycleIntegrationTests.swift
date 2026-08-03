@@ -16,7 +16,8 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     appDelegate.newDocument(nil)
     appDelegate.newDocument(nil)
 
-    XCTAssertEqual(appDelegate.currentSnapshotSeq, 3)
+    let currentId = UInt((try XCTUnwrap(currentModel)).bufferIdValue)
+    XCTAssertEqual(appDelegate.snapshotSeqByDocId[currentId], 3)
     XCTAssertEqual(
       snapshotFiles(),
       [snapshotName(seq: 1), snapshotName(seq: 2), snapshotName(seq: 3)]
@@ -64,7 +65,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
   /// 文件名（不再手拼「●」前缀）。
   func testDirtyIndicatorUsesSystemDocumentEditedState() throws {
     launchApp()
-    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let window = try XCTUnwrap(appDelegate.currentFrame)
     let model = try XCTUnwrap(currentModel)
     XCTAssertFalse(window.isDocumentEdited, "初始文档不脏")
     XCTAssertEqual(window.title, "Aster", "初始标题为纯 App 名")
@@ -88,7 +89,8 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     appDelegate.open(URL(fileURLWithPath: diskFile))
 
     XCTAssertEqual(currentModel?.bufferText, "来自磁盘的内容")
-    XCTAssertEqual(appDelegate.currentFileName, "opened.txt")
+    let frame = try XCTUnwrap(appDelegate.currentFrame)
+    XCTAssertEqual(appDelegate.frameFileName[frame], "opened.txt")
   }
 
   /// T-059（T-024 前已知限制契约，ADR-013 v1.4）：打开第二个文件 = 视图切换，
@@ -212,7 +214,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
     launchApp()
     let model = try XCTUnwrap(currentModel)
     try model.typeText("未保存内容")
-    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let window = try XCTUnwrap(appDelegate.currentFrame)
     seamed.pendingDocsReply = 1
 
     let allow = appDelegate.windowShouldClose(window)
@@ -230,7 +232,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
   func testCloseWithPendingDiscardAllowsClose() throws {
     launchApp()
     try currentModel?.typeText("丢弃内容")
-    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let window = try XCTUnwrap(appDelegate.currentFrame)
     seamed.pendingDocsReply = 0
 
     XCTAssertTrue(appDelegate.windowShouldClose(window), "丢弃全部后必须允许关窗")
@@ -240,7 +242,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
   func testCloseWithPendingCancelKeepsWindowOpen() throws {
     launchApp()
     try currentModel?.typeText("取消保留")
-    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let window = try XCTUnwrap(appDelegate.currentFrame)
     seamed.pendingDocsReply = nil
 
     XCTAssertFalse(
@@ -256,7 +258,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
 
   func testCloseWithoutPendingAllowsCloseWithoutPrompt() throws {
     launchApp()
-    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let window = try XCTUnwrap(appDelegate.currentFrame)
 
     XCTAssertTrue(appDelegate.windowShouldClose(window))
     XCTAssertEqual(seamed.pendingDocsAlertCount, 0, "无未决文档时不得弹提示")

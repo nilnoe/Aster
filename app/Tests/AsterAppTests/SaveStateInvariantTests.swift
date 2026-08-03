@@ -93,9 +93,23 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
         try store_save_scratch(store, crashedId, "崩溃内容\(step)")
         try store_set_clean_exit(store, false)
         appDelegate.needsRecoveryPrompt = true
-        seamed.recoveryReply = rng.nextInt(2)
+        let restore = rng.nextInt(2)
+        seamed.recoveryReply = restore
         appDelegate.presentRecoveryIfNeeded()
         appDelegate.needsRecoveryPrompt = false
+        if restore == 1 {
+          // BUG-011 泛化（T-069 变异复验盲区）：恢复后当前视图文档必须已登记
+          // 未决且缓冲行存在——恢复内容可被 ⌘S / 保存全部读取，不静默丢失。
+          let recoveredId = UInt((try XCTUnwrap(currentModel)).bufferIdValue)
+          XCTAssertTrue(
+            appDelegate.pendingDocs.contains(recoveredId),
+            "step \(step)：恢复文档必须登记未决"
+          )
+          XCTAssertTrue(
+            store_scratch_ids(store).contains(recoveredId),
+            "step \(step)：恢复内容必须写入缓冲行"
+          )
+        }
       }
 
       // 不变量 1：每个未决文档都登记了快照序号（BUG-011 泛化——否则

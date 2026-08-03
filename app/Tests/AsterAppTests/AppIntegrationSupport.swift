@@ -77,7 +77,7 @@ class AppIntegrationTestCase: XCTestCase {
 
   /// 视图承载的 EditorModel（App 集成测试主断言入口）。
   var currentModel: EditorModel? {
-    (appDelegate.mainWindow?.contentView as? MetalView)?.model
+    (appDelegate.currentFrame?.contentView as? MetalView)?.model
   }
 
   /// 快照目录内容（按文件名排序）。

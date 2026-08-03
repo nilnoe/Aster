@@ -24,3 +24,4 @@
 | 测试接缝（Test Seam） | 为可测性抽取的 internal 方法（如 `presentPendingDocsAlert`），测试子类覆写注入决策；生产路径行为不变（T-050，docs/testing.md）。 |
 | 变异测试（Mutation Testing） | 向实现注入「常见错误变体」并跑全量测试定位盲区的方法（T-051）；变体全绿 = 该路径无测试保护。 |
 | 状态机不变量 | 保存状态机在任何操作序列后必须成立的性质：缓冲行存在 ⟺ 存在未决编辑（ADR-013 v1.3）、每个未决文档必有快照序号（BUG-011）；由固定种子随机序列测试验证（T-051）。 |
+| Frame | 广义上的窗口（当前由 AppKit NSWindow 承载）：新建 Frame = 新窗口 + 全新 Scratch 文档；未来支持窗内分窗，故用 frame 而非 window 表述（T-069）。 |

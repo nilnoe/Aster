@@ -16,10 +16,10 @@ final class AppLaunchIntegrationTests: AppIntegrationTestCase {
     launchApp()
 
     XCTAssertNotNil(appDelegate.bufferStore)
-    XCTAssertEqual(appDelegate.currentSnapshotSeq, 1)
     XCTAssertFalse(appDelegate.needsRecoveryPrompt)
-    XCTAssertNotNil(appDelegate.mainWindow)
+    XCTAssertNotNil(appDelegate.currentFrame)
     let model = try XCTUnwrap(currentModel)
+    XCTAssertEqual(appDelegate.snapshotSeqByDocId[UInt(model.bufferIdValue)], 1)
     XCTAssertEqual(model.bufferText, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
   }
 

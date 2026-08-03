@@ -28,10 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   var bufferStore: Store?
   /// 纯文本快照目录句柄（T-042，ADR-023 v1.4：Cmd+N 创建 / Cmd+S 合并）。
   let snapshot = snapshot_new(StorePaths.defaultDirectory())
-  /// 当前快照序号（Cmd+N 创建；Cmd+S 合并目标）。
-  var currentSnapshotSeq: UInt?
-  /// 当前文档文件名（标题显示；初始演示 Buffer 显示 App 名）。
-  var currentFileName: String?
   /// 多文档未提交状态（T-046，ADR-013 v1.4）：进程生命周期内全程检查，
   /// 切换文档 / 打开新文件不抛弃前一个文档的未决状态。
   var pendingDocs = PendingDocs()
@@ -49,7 +45,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 缓冲自动保存失败是否已提示（T-054，BUG-015）：失败必须可见（ADR-004），
   /// 但同一失败段落只弹一次，避免逐键阻塞输入；下一次成功保存复位。
   var bufferSaveErrorVisible = false
-  var mainWindow: NSWindow?
+  /// 全部 Frame（广义窗口，T-069）：frame = 窗口级容器，未来支持窗内分窗，
+  /// 故用 frame 表述；当前由 AppKit NSWindow 直接承载（Rule 1：不为将来抽象
+  /// 建类型）。
+  var frames: [NSWindow] = []
+  /// 每个 frame 当前文档的文件名（frame 级视图状态；Scratch 为 nil）。
+  var frameFileName: [NSWindow: String] = [:]
+
+  /// 当前 Frame：键窗口优先（⌘S / ⌘O / ⌘N 作用于用户正在操作的 frame），
+  /// 无键窗口时回退第一个（启动早期 / 测试环境）。
+  var currentFrame: NSWindow? {
+    if let key = NSApp.keyWindow, frames.contains(where: { $0 === key }) { return key }
+    return frames.first
+  }
 
   /// 崩溃恢复决策（T-043，ADR-013 v1.1）：纯函数便于单测。
   ///
@@ -61,7 +69,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.mainMenu = AppMenu.build(aboutTarget: self)
     setupStorage()
-    makeMainWindow()
+    // 启动默认 Frame（样例内容验证 CJK + 多行渲染链路，T-012，ADR-016）；
+    // 容忍快照创建失败（setupStorage 已提示存储未就绪，窗口照开，保存时再报）。
+    makeFrame(
+      seedContent: "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK",
+      tolerateSnapshotFailure: true
+    )
     presentRecoveryIfNeeded()
     NSApp.activate(ignoringOtherApps: true)
   }
@@ -97,8 +110,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   func presentPendingDocsAlert() -> Int? {
     let alert = NSAlert()
     alert.messageText = "有 \(pendingDocs.count) 个文档存在未提交更改"
+    let currentName = currentFrame.flatMap { frameFileName[$0] } ?? AppInfo.name
     alert.informativeText =
-      "包括“\(currentFileName ?? AppInfo.name)”等 \(pendingDocs.count) 个文档。"
+      "包括“\(currentName)”等 \(pendingDocs.count) 个文档。"
       + "保存全部将合并进各自的快照。"
     alert.addButton(withTitle: "保存全部")
     alert.addButton(withTitle: "全部不保存")
@@ -140,19 +154,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 缓冲内容按 id 隔离自动保存；旧文档未提交编辑仍在缓冲（崩溃保护），合并由
   /// 用户回到对应会话时执行（激活文档随 T-024 统一）。
   @objc func newDocument(_ sender: Any?) {
+    guard let frame = currentFrame else { return }
     do {
-      let seq = UInt(try snapshot_create_next(snapshot))
-      let id = try document_manager_open_scratch(documentManager)
-      let buffer = Buffer(BufferId(UInt64(id)))
-      let model = makeModel(buffer)
-      if let view = mainWindow?.contentView as? MetalView {
+      let model = try makeScratchModel(in: frame)
+      if let view = frame.contentView as? MetalView {
         view.load(model)
       }
-      currentSnapshotSeq = seq
-      snapshotSeqByDocId[id] = seq
-      committedTextByDocId[id] = ""
-      currentFileName = nil
-      updateWindowTitle()
+      frameFileName[frame] = nil
+      updateWindowTitle(frame)
     } catch {
       NSLog("新建文档失败：\(error)")
       presentSaveError("\(error)")
@@ -175,16 +184,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 决策依据（T-015，ADR-001 v1.1）：注册表持有的 Buffer 副本与编辑会话分离，
   /// 激活文档统一归属随 T-024（Command Palette）落地，本切片不引入激活状态。
   func open(_ url: URL) {
+    guard let frame = currentFrame else { return }
     do {
       let id = try document_manager_open_disk(documentManager, url.path)
       let text = document_manager_text(documentManager, id).toString()
       let buffer = Buffer(BufferId(UInt64(id)))
       _ = try buffer_insert(buffer, 0, text)
-      let model = makeModel(buffer)
-      if let view = mainWindow?.contentView as? MetalView {
+      let model = makeModel(buffer, in: frame)
+      if let view = frame.contentView as? MetalView {
         view.load(model)
       }
-      currentFileName = url.lastPathComponent
+      frameFileName[frame] = url.lastPathComponent
       // BUG-010：每个打开的文件分配**独立**快照序号（不再继承当前文档序号）——
       // 否则多个文件共享同一快照，退出「保存全部」逐个合并时后写覆盖先写，
       // 先打开文档的内容永久丢失。create_next 失败走下方 catch（失败可见，
@@ -192,37 +202,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       let seq = UInt(try snapshot_create_next(snapshot))
       snapshotSeqByDocId[id] = seq
       committedTextByDocId[id] = ""
-      updateWindowTitle()
+      updateWindowTitle(frame)
     } catch {
       NSLog("打开文档失败：\(error)")
       presentOpenError(error)
     }
   }
 
-  /// 统一创建 EditorModel 并接线内容变更回调（onChange → onContentChanged）。
+  /// 统一创建 EditorModel 并接线内容变更回调（onChange → onContentChanged，
+  /// 按 frame 接线，T-069）。
   ///
   /// 决策依据（T-041）：启动默认 Buffer 与打开的文件都走同一接线，杜绝此前
-  /// 只在 open() 接线导致的「默认文档无 dirty ● / 无退出保护」。
-  func makeModel(_ buffer: Buffer) -> EditorModel {
+  /// 只在 open() 接线导致的「默认文档无 dirty / 无退出保护」；T-069 多 Frame
+  /// 下弱捕获 frame，编辑各自文档状态互不污染，且避免 frame→view→model→
+  /// closure→frame 循环保留。
+  func makeModel(_ buffer: Buffer, in frame: NSWindow) -> EditorModel {
     let model = EditorModel(buffer: buffer)
-    model.onChange = { [weak self] in self?.onContentChanged() }
+    model.onChange = { [weak self, weak frame] in
+      guard let frame else { return }
+      self?.onContentChanged(in: frame)
+    }
     return model
   }
 
-  /// 标题 = 文件名（初始演示 Buffer 显示 App 名）；未保存指示用系统原生
-  /// `isDocumentEdited`（关闭按钮红点，T-067）。
+  /// 标题 = 该 frame 的文件名（Scratch 显示 App 名）；未保存指示用系统原生
+  /// `isDocumentEdited`（关闭按钮红点，T-067）。T-069 起按 frame 刷新——
+  /// 每个 frame 反映自己的文档状态。
   ///
   /// 决策依据（T-067）：旧实现手拼「● 」前缀进标题文本；macOS 文档编辑状态的
   /// 平台约定是 `NSWindow.isDocumentEdited`——AppKit 自动在左上角关闭按钮内
   /// 画 dirty 点（TextEdit / Pages 同款），与总纲 Principle 4（不 fight 系统）
   /// 和宪法 Rule 11（系统能力优先）一致，并删除自研前缀渲染。
-  func updateWindowTitle() {
-    let base = currentFileName ?? AppInfo.name
+  func updateWindowTitle(_ frame: NSWindow) {
+    let base = frameFileName[frame] ?? AppInfo.name
     let currentDirty =
-      (mainWindow?.contentView as? MetalView)
+      (frame.contentView as? MetalView)
       .map { pendingDocs.contains(UInt($0.model.bufferIdValue)) } ?? false
-    mainWindow?.title = base
-    mainWindow?.isDocumentEdited = currentDirty
+    frame.title = base
+    frame.isDocumentEdited = currentDirty
+  }
+
+  /// 刷新全部 frame 标题（保存全部 / 丢弃后，各 frame 反映各自文档状态，T-069）。
+  func refreshFrameTitles() {
+    frames.forEach(updateWindowTitle)
   }
 
   func presentSaveError(_ message: String) {
@@ -231,37 +253,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     alert.informativeText = message
     alert.alertStyle = .warning
     alert.runModal()
-  }
-
-  private func makeMainWindow() {
-    let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
-      styleMask: [.titled, .closable, .miniaturizable, .resizable],
-      backing: .buffered,
-      defer: false
-    )
-    window.title = AppInfo.name
-    // BUG-017：关闭按钮必须经 windowShouldClose 拦截未决文档决策，
-    // 否则窗口先关、提示后弹，取消后无窗口导致终止流程反复重触发。
-    window.delegate = self
-    // 启动默认文档 = 首个 Scratch（DM 分配唯一 id，作保存键；ADR-001 v1.2）。
-    // Scratch 打开不可失败（无 IO）；兜底 id 1 仅为结构完整性（ADR-004 不静默）。
-    let id = (try? document_manager_open_scratch(documentManager)) ?? 1
-    // T-046：启动默认文档登记快照序号（合并目标）。
-    if let seq = currentSnapshotSeq {
-      snapshotSeqByDocId[id] = seq
-    }
-    committedTextByDocId[id] = ""
-    // 样例内容验证 CJK + 多行渲染链路（T-012，ADR-016）。
-    let buffer = Buffer(BufferId(UInt64(id)))
-    _ = try? buffer_insert(buffer, 0, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
-    let model = makeModel(buffer)
-    let view = MetalView(frame: window.contentLayoutRect, model: model)
-    view.onOpenFile = { [weak self] url in self?.open(url) }
-    window.contentView = view
-    mainWindow = window
-    window.center()
-    window.makeKeyAndOrderFront(nil)
   }
 
   /// 打开失败必须可见（ADR-004），不静默回退到空文档。

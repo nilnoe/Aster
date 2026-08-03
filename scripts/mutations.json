@@ -23,12 +23,12 @@
     },
     {
       "id": "M3",
-      "label": "崩溃恢复漏写缓冲（新 id 无 scratch 行）",
+      "label": "崩溃恢复漏写缓冲（恢复内容不进缓冲行）",
       "file": "app/Sources/AsterApp/AppDelegate+Storage.swift",
-      "old": "        try store_save_scratch(store, id, text)",
+      "old": "        try model.typeText(text)",
       "new": "        // MUTATION: 恢复漏写缓冲（T-062 自动注入，立即还原）",
       "expected": "caught",
-      "note": "BUG-011 回归：恢复后 ⌘S / 保存全部读不到内容；SaveStateInvariantTests 种子 7 已验证能捕获（T-058 变异复验）。",
+      "note": "BUG-011 回归（T-069 重构后变异点漂移：恢复分支改为 makeScratchModel + typeText 链路，缓冲写入由按 frame 的 onChange 自动完成——移除 typeText 即恢复内容不进缓冲）；SaveStateInvariantTests 种子 7 已验证能捕获（T-058 变异复验）。",
       "run": { "cwd": "app", "cmd": ["swift", "test", "--filter", "SaveStateInvariantTests"] }
     },
     {

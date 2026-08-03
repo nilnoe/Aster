@@ -22,7 +22,6 @@ extension AppDelegate {
       let dir = StorePaths.defaultDirectory()
       let store = try store_open_buffer(dir)
       bufferStore = store
-      currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
       // T-043：先读哨兵（上次是否异常退出），随即清哨兵（本次运行期间的崩溃
       // 检测基准）；再枚举缓冲文档决定是否提示恢复。
       let cleanExit = try store_is_clean_exit(store)
@@ -55,23 +54,16 @@ extension AppDelegate {
       if restore {
         // 恢复：内容载入新文档（新 id 接管自动保存），删除被恢复的旧行。
         let text = try store_load_scratch(store, latest).toString()
-        let id = try document_manager_open_scratch(documentManager)
-        let buffer = Buffer(BufferId(UInt64(id)))
-        _ = try buffer_insert(buffer, 0, text)
-        let model = makeModel(buffer)
-        if let view = mainWindow?.contentView as? MetalView {
+        guard let frame = currentFrame else { return }
+        let model = try makeScratchModel(in: frame)
+        if let view = frame.contentView as? MetalView {
           view.load(model)
         }
-        currentSnapshotSeq = UInt(try snapshot_create_next(snapshot))
-        snapshotSeqByDocId[id] = currentSnapshotSeq
-        committedTextByDocId[id] = ""
-        currentFileName = nil
-        pendingDocs.mark(id)
-        updateWindowTitle()
-        // BUG-011：恢复内容必须写入缓冲（新 id 的 scratch 行）——否则 ⌘S /
-        // 退出「保存全部」读不到内容（store_load_scratch 失败、保存必败）。
-        // 先写缓冲再删旧行：旧行删除失败时内容已在新行，不会丢。
-        try store_save_scratch(store, id, text)
+        frameFileName[frame] = nil
+        // 恢复内容 = 光标处输入（T-069 起经 makeScratchModel 的按 frame
+        // onChange 接线：typeText 触发置脏 + 自动写缓冲，BUG-011 的「先写
+        // 缓冲再删旧行」由同一链路保证，旧行删除失败时内容已在新行）。
+        try model.typeText(text)
         _ = try? store_delete_scratch(store, latest)
         // BUG-011：其余未决缓冲文档（非最新）不恢复但内容守恒（ADR-013 v1.3），
         // 必须逐个登记快照序号并置未决——否则退出「保存全部」找不到合并目标，
@@ -108,7 +100,7 @@ extension AppDelegate {
 
   @discardableResult
   func saveCurrentDocument() -> Bool {
-    guard let view = mainWindow?.contentView as? MetalView else {
+    guard let frame = currentFrame, let view = frame.contentView as? MetalView else {
       presentSaveError("没有可保存的视图")
       return false
     }
@@ -142,7 +134,7 @@ extension AppDelegate {
       committedTextByDocId[id] = text
       _ = try? store_delete_scratch(store, id)
       pendingDocs.commit(id)
-      updateWindowTitle()
+      refreshFrameTitles()
       return true
     } catch {
       NSLog("保存文档 \(id) 失败：\(error)")
@@ -168,16 +160,18 @@ extension AppDelegate {
       _ = try? store_delete_scratch(store, id)
     }
     pendingDocs.discardAll()
-    updateWindowTitle()
+    refreshFrameTitles()
   }
 
-  /// 内容变更：置脏 + 更新标题 + 自动写缓冲（ADR-023 v1.3）。
+  /// 内容变更（按 frame，T-069）：置脏 + 更新该 frame 标题 + 自动写缓冲
+  /// （ADR-023 v1.3）。
   ///
   /// 决策依据：EditorModel.onChange 在 makeModel 统一接线（修复启动默认 Buffer
   /// 未接线导致无 dirty / 退出保护失效的 bug）；缓冲写失败不阻塞编辑（日志可见，
-  /// ADR-004 精神：失败不静默，但不打断输入流）。
-  func onContentChanged() {
-    guard let view = mainWindow?.contentView as? MetalView else { return }
+  /// ADR-004 精神：失败不静默，但不打断输入流）；多 Frame 下只更新触发编辑的
+  /// 那个 frame（编辑 frame B 不得污染 frame A 的标题 / dirty）。
+  func onContentChanged(in frame: NSWindow) {
+    guard let view = frame.contentView as? MetalView else { return }
     let id = UInt(view.model.bufferIdValue)
     // BUG-012：undo/redo 可能回到与快照一致的内容——此时不应标记未保存，
     // 且缓冲行不再需要（内容已固化，崩溃保护冗余，残留会让下次崩溃恢复
@@ -189,15 +183,15 @@ extension AppDelegate {
       }
     } else {
       pendingDocs.mark(id)
-      autoSaveToBuffer()
+      autoSaveToBuffer(in: frame)
     }
-    updateWindowTitle()
+    updateWindowTitle(frame)
   }
 
-  /// 自动保存：当前编辑内容写入缓冲文件（崩溃保护）。
-  func autoSaveToBuffer() {
+  /// 自动保存（按 frame，T-069）：该 frame 文档内容写入缓冲文件（崩溃保护）。
+  func autoSaveToBuffer(in frame: NSWindow) {
     guard let store = bufferStore,
-      let view = mainWindow?.contentView as? MetalView
+      let view = frame.contentView as? MetalView
     else { return }
     do {
       try store_save_scratch(store, UInt(view.model.bufferIdValue), view.model.bufferText)

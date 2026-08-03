@@ -49,4 +49,13 @@ extension AppDelegate {
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     resolvePendingDocs()
   }
+
+  /// Frame 关闭后从登记移除（T-069）：closed 窗口不再参与 currentFrame 回退
+  /// 与标题刷新；最后一个 frame 关闭仍由 shouldTerminateAfterLastWindowClosed
+  /// 走既有退出流程。
+  func windowWillClose(_ notification: Notification) {
+    guard let frame = notification.object as? NSWindow else { return }
+    frames.removeAll { $0 === frame }
+    frameFileName.removeValue(forKey: frame)
+  }
 }

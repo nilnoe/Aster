@@ -138,6 +138,19 @@ Core 层契约测试固化 ADR-013 的存储底线：
    关闭按钮共用，两路径行为一致。
 3. 无未决文档时关窗不得弹提示（接缝计数断言 pendingDocsAlertCount == 0）。
 
+## Frame 契约（T-069，2026-08-03）
+
+多 Frame（广义窗口）行为契约：
+
+1. **状态隔离**：onChange 按 frame 接线——编辑 frame B 只置 B 的文档未决 /
+   dirty / 缓冲行，frame A 不受污染（跨 frame 断言）。
+2. **独立文档**：⌘⇧N 新建的 frame 持有全新 BufferId + 独立快照序号，自动保存
+   到自己缓冲行；启动与 ⌘⇧N 共用 `makeFrame` 单一创建路径。
+3. **登记生命周期**：`windowWillClose` 后 frame 从 `frames` 移除；最后窗口
+   关闭仍退出（applicationShouldTerminateAfterLastWindowClosed）。
+4. **绑定解耦**：⌘⇧N 只定义在 File 菜单（单一来源——按键将来可改，与动作
+   解耦），动作是普通 selector，keyDown 不处理菜单快捷键。
+
 ## 变异测试工具化（T-062，2026-08-03）
 
 T-051 的手工变异流程（注入变体 → 跑全量测试 → 全绿 = 盲区 → 补测试）脚本化：

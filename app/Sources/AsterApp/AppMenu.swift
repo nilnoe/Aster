@@ -79,6 +79,16 @@ enum AppMenu {
       action: #selector(AppDelegate.newDocument(_:)),
       keyEquivalent: "n"
     )
+    // 新建 Frame（⌘⇧N，T-069）：frame = 广义窗口（未来窗内分窗）。绑定只在
+    // 此菜单定义——按键将来可改，与动作解耦（动作是普通 selector，keyDown
+    // 不处理菜单快捷键），且与「新建」⌘N 修饰键不同，不冲突。
+    let newFrameItem = NSMenuItem(
+      title: "新建 Frame",
+      action: #selector(AppDelegate.newFrame(_:)),
+      keyEquivalent: "N"
+    )
+    newFrameItem.keyEquivalentModifierMask = [.command, .shift]
+    menu.addItem(newFrameItem)
     // 打开…：target 为 AppDelegate（DocumentManager 持有者，T-015，ADR-001）。
     menu.addItem(
       withTitle: "打开…",

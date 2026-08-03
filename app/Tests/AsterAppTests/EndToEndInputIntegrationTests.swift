@@ -12,7 +12,7 @@ import XCTest
 
 final class EndToEndInputIntegrationTests: AppIntegrationTestCase {
   private func synthesizeKeyDown(_ character: String) -> NSEvent? {
-    guard let window = appDelegate.mainWindow else { return nil }
+    guard let window = appDelegate.currentFrame else { return nil }
     return NSEvent.keyEvent(
       with: .keyDown,
       location: .zero,
@@ -36,7 +36,7 @@ final class EndToEndInputIntegrationTests: AppIntegrationTestCase {
     let id = UInt(model.bufferIdValue)
     let event = try XCTUnwrap(synthesizeKeyDown("x"))
 
-    (appDelegate.mainWindow?.contentView as? MetalView)?.keyDown(with: event)
+    (appDelegate.currentFrame?.contentView as? MetalView)?.keyDown(with: event)
 
     XCTAssertEqual(model.bufferText, "x你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
     XCTAssertTrue(appDelegate.pendingDocs.contains(id))

@@ -49,6 +49,11 @@
 - [x] T-067 未保存指示迁移系统原生：dirty「●」从标题文本手拼改为
   `NSWindow.isDocumentEdited`（关闭按钮红点，总纲 Principle 4 / 宪法 Rule 11；
   标题恢复纯文件名；2026-08-03 追加，编号顺延）
+- [x] T-069 新建 Frame（⌘⇧N，2026-08-03 追加）：frame = 广义窗口（未来窗内
+  分窗，故不用 window 表述）——多 Frame 状态隔离（按 frame 接线 onChange /
+  标题 / 文件名 / 自动保存，编辑 frame B 不污染 frame A）；启动与 ⌘⇧N 共用
+  makeFrame 单一创建路径；绑定只存在于 File 菜单（按键将来可改、与动作解耦）；
+  关闭 frame 从登记移除，最后窗口关闭仍退出
 
 ## Phase 4 — Overlay 生态
 

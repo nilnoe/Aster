@@ -15,10 +15,11 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**105 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**110 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
     T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + T-067 关闭流程 +
-    BUG-010~017 回归），源码 2247 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+    T-069 Frame + BUG-010~017 回归），源码 2340 行（Rule 12 的 Swift 预算
+    ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
   ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
@@ -60,6 +61,10 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
   - BUG-017 关闭按钮路径死循环 / 卡死（本切片）：根因 = 先关窗后决策 + 无窗口
     重触发终止（独立 repro 复现取消连续弹窗）；修复 = windowShouldClose 拦截
     + resolvePendingDocs 共用决策；App 105 全绿
+  - T-069 新建 Frame（本切片）：⌘⇧N 新窗口 + 独立文档；单窗口假设重构为
+    frames/currentFrame + 按 frame 接线（onChange/标题/文件名/自动保存）；
+    绑定只存菜单（解耦）；变异门禁暴露 M3 盲区 → 恢复文档不变量补齐；
+    App 110 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -186,6 +191,7 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
 | 基准体系 | 本地 release 全量测量（T-023，ADR-021）；`CI-Bench` 用 `--quick` + `bench-baseline/`（提交基线）做粗告警（v1.3：median 对比 + 阈值 200% / 下限 100µs——共享 runner 噪声最高 +120%，100% 仍偶发误报；精确回归以本地为准） | 阈值再误报时调整并记录（ADR-021 v1.3 备注 1）；基线随机器 / macOS 变化重新生成提交；本地命令 `cd core && CARGO_TARGET_DIR=target cargo bench` |
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
+| Frame（窗口） | 多 Frame 模型（T-069）：`frames` 数组 + `currentFrame`（键窗口优先）；启动与 ⌘⇧N 共用 `makeFrame`；onChange / 标题 / isDocumentEdited / 文件名 / 自动保存按 frame 接线；关闭后从登记移除，最后窗口关闭即退出 | 窗内分窗（同一窗口内多 frame）随未来决策；多文档激活 / 窗口状态随 T-024 / T-029；关闭单个 frame 的按文档提示随 T-024 细化 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
 | 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty = 缓冲 ≠ 快照，指示用 `isDocumentEdited`（关闭按钮红点，T-067）；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
 | 保存（BUG-010/012 修订，435e3a0） | **每个打开的文件分配独立快照序号**（不再继承当前文档序号，多文件保存互不覆盖）；`committedTextByDocId` 记录各文档最近一次合并进快照的文本——undo/redo 回快照内容时不再标记未保存（内容比较基线，非「发生编辑即脏」）；合并成功**先写快照再删缓冲行**（顺序不可颠倒，快照写失败必须保全缓冲行，T-051 变异验证） | 自动保存节流（合并连续按键）已排 T-065，**反转 ADR-023「每次内容变更写入」粒度需用户确认**；快照合并写非原子属已识别改进（T-055 原子写） |

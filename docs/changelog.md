@@ -161,6 +161,26 @@
   无未决不弹提示直接放行）；App 全量 105 项全绿（101 → +4）；变异门禁 5/5
   仍全捕获；Bridge 20 + Core 131 不变；门禁零告警。
 
+### Added — 2026-08-03（T-069，新建 Frame ⌘⇧N）
+
+- feat(app)：File 菜单「新建 Frame」（⌘⇧N）——新窗口 + 全新 Scratch 文档
+  （独立快照序号）。frame = 广义窗口（未来窗内分窗，故不用 window 表述）；
+  **绑定只存在于菜单**（按键将来可改，与动作解耦：动作是普通 selector，
+  keyDown 不处理菜单快捷键），与「新建」⌘N 修饰键不同不冲突。
+- refactor(app)：AppDelegate 单窗口假设 → 多 Frame——`frames: [NSWindow]` +
+  `currentFrame`（键窗口优先）；onChange / 标题 / isDocumentEdited / 文件名 /
+  自动保存全部按 frame 接线（编辑 frame B 不污染 frame A）；启动与 ⌘⇧N 共用
+  `makeFrame` 单一创建路径；`windowWillClose` 关闭后从登记移除（最后窗口关闭
+  仍退出）；⌘N / ⌘O / ⌘S 作用于当前 Frame；恢复分支改经 makeScratchModel +
+  typeText（按 frame 的 onChange 自动置脏 + 写缓冲，BUG-011 语义保持）。
+  Rule 3：AppDelegate 343 → 266 + Frame 88 拆分（新增 AppDelegate+Frame.swift）。
+- test：5 项新用例先红后绿（菜单绑定 ⌘⇧N + 修饰键；新建 Frame 产生第二窗口
+  独立文档 / 快照；跨 frame 编辑状态隔离；frame B 自动保存到自己的缓冲行；
+  关闭 frame 从登记移除）；存量测试迁移到 currentFrame。变异门禁暴露重构盲区
+  （M3 恢复漏写缓冲在新链路下存活）→ SaveStateInvariantTests 增加「恢复文档
+  必须登记未决且有缓冲行」不变量（BUG-011 泛化），变异门禁 5/5 恢复。
+  App 全量 110 项全绿（105 → +5）；Bridge 20 + Core 131 不变；门禁零告警。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +
