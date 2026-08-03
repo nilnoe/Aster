@@ -117,6 +117,21 @@
 - 结果：未发现新缺陷（负结果如实记录）；App 全量 100 项（99 → +1）、Core 131
   （127 → +4）、Bridge 20 全绿；门禁零告警。
 
+### Added — 2026-08-03（T-062，变异测试工具化）
+
+- feat(scripts)：`scripts/mutate.py`（stdlib，Rule 7）+ `scripts/mutations.json`
+  变异点清单——T-051 手工变异流程脚本化：自动注入 / 跑目标测试 / 恢复 /
+  结果记录；old 必须唯一匹配（漂移即失败，防注入错位置）；expected 判定
+  （caught = 测试失败捕获 / survives = 全绿存活 = 盲区）；M6（挂起变体）
+  不可自动化已注明。
+- 清单 5 个确定性变异点：M1 合并顺序颠倒（T-051 盲区，SaveFailurePathTests
+  补齐后必捕获）、M2 dirty 比较反转（BUG-012 回归）、M3 恢复漏写缓冲
+  （BUG-011 回归，SaveStateInvariantTests 种子 7 捕获）、M5 丢弃不清缓冲行
+  （ADR-013 v1.3 删除时机 3）、M-charIndex 字节偏移回归（BUG-013）。
+- 实测：5/5 变异点全部被预期捕获（~10s）；新增状态机逻辑前先跑一轮确认无
+  盲区（T-051 方法论闭环，docs/testing.md）。App 100 + Core 131 + Bridge 20
+  全绿（本切片 0 生产代码改动）。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +

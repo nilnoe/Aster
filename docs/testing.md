@@ -126,6 +126,19 @@ Core 层契约测试固化 ADR-013 的存储底线：
 4. **多实例**：两个连接打开同一 buffer.sqlite，已提交行跨连接可见（SQLite
    文件锁串行化；App 单线程主 actor 顺序操作，ADR-015）。
 
+## 变异测试工具化（T-062，2026-08-03）
+
+T-051 的手工变异流程（注入变体 → 跑全量测试 → 全绿 = 盲区 → 补测试）脚本化：
+
+- `scripts/mutations.json`：变异点清单（old / new 精确文本 + 目标测试 +
+  expected 判定）。当前 5 个确定性变异点：M1 合并顺序颠倒、M2 dirty 比较
+  反转、M3 恢复漏写缓冲、M5 丢弃不清缓冲行、M-charIndex 字节偏移回归；
+  M6（挂起变体）不可自动化，不纳入。
+- `scripts/mutate.py`：自动注入 / 跑目标测试 / 恢复 / 结果记录；`old` 必须
+  唯一匹配（漂移即失败，防注入错位置）；退出码 0 = 无盲区存活。
+- **每切片门禁**：新增状态机逻辑后先 `python3 scripts/mutate.py` 跑一轮，
+  确认没有「全绿变体」= 没有未保护的路径；实测 5/5 全被捕获（~10s）。
+
 ## 规则
 
 - Red → Green → Refactor（宪法 Rule 5）；Bug 回归测试见 [docs/bug-workflow.md](bug-workflow.md)。
