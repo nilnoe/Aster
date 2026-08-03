@@ -93,6 +93,15 @@ NSTextInputClient 的协议方法无法用真实输入法在 CI 脚本化，改�
 3. 提示经既有 `presentSaveError` 接缝注入（测试子类覆写计数 + 记录文本，
    生产路径 NSAlert 为过渡实现，随 T-026 统一为底部 y/n 提示）。
 
+## 状态机不变量扩展（T-058，2026-08-03）
+
+`SaveStateInvariantTests` 的操作空间从 4 类扩展到 9 类：打开 / **同名打开** /
+新建 / 编辑 / **undo** / **redo** / 保存 / **丢弃全部** / **崩溃恢复**（恢复与
+忽略两分支，`presentRecoveryIfNeeded` 中途播种触发）；种子 3 → 6、步数 50 → 60。
+新增不变量 3：**快照序号全局唯一**（BUG-010 泛化）。6 种子 × 60 步全绿 = 保存
+状态机对新操作泛化成立（负结果如实记录）；变异复验（还原 BUG-011 修复）seed 7
+立即失败——扩展测试保持历史缺陷捕获能力。
+
 ## 规则
 
 - Red → Green → Refactor（宪法 Rule 5）；Bug 回归测试见 [docs/bug-workflow.md](bug-workflow.md)。

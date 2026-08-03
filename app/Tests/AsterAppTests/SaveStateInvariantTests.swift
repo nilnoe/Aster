@@ -1,9 +1,10 @@
-//! 保存状态机不变量测试（T-050 复审：属性化替代手写场景）。
+//! 保存状态机不变量测试（T-050 复审：属性化替代手写场景；T-058 扩展操作空间）。
 //!
 //! 决策依据：手写用例永远追不上组合路径（BUG-010/011/012 都藏在组合里）。
-//! 本文件用固定种子随机操作序列（打开 / 新建 / 编辑 / 保存）驱动**真实
-//! AppDelegate**，每步断言守恒不变量（ADR-013 v1.3 / BUG-011 泛化），
-//! 随机探索状态空间而非枚举场景；种子固定 → 确定性可复现。
+//! 本文件用固定种子随机操作序列驱动**真实 AppDelegate**，每步断言守恒不变量
+//! （ADR-013 v1.3 / BUG-011 泛化 / BUG-010 泛化），随机探索状态空间而非枚举
+//! 场景；种子固定 → 确定性可复现。T-058：操作类型扩展到 undo / redo /
+//! 丢弃全部 / 崩溃恢复（恢复与忽略两分支）/ 打开同名路径，种子 3 → 6。
 
 import AsterBridge
 import XCTest
@@ -38,25 +39,63 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
     try assertSaveInvariants(seed: 2026)
   }
 
-  /// 随机操作序列（打开 / 新建 / 编辑 / 保存）下验证保存状态机守恒。
+  func testSaveInvariantsSeed7() throws {
+    try assertSaveInvariants(seed: 7)
+  }
+
+  func testSaveInvariantsSeed12345() throws {
+    try assertSaveInvariants(seed: 12_345)
+  }
+
+  func testSaveInvariantsSeed20260803() throws {
+    try assertSaveInvariants(seed: 20_260_803)
+  }
+
+  /// 随机操作序列（打开 / 同名打开 / 新建 / 编辑 / undo / redo / 保存 /
+  /// 丢弃全部 / 崩溃恢复）下验证保存状态机守恒。
   private func assertSaveInvariants(seed: UInt64) throws {
     launchApp()
     let store = try XCTUnwrap(appDelegate.bufferStore)
     var rng = SeededGenerator(seed: seed)
+    var lastOpenedPath: String?
 
-    for step in 0..<50 {
-      switch rng.nextInt(4) {
+    for step in 0..<60 {
+      switch rng.nextInt(9) {
       case 0:  // 打开一个新磁盘文件（切换当前文档）
         let path = storeDir + "/f\(rng.nextInt(1000)).txt"
         try "文件内容\(rng.nextInt(1000))".write(
           toFile: path, atomically: true, encoding: .utf8)
         appDelegate.open(URL(fileURLWithPath: path))
-      case 1:  // ⌘N 新建文档
+        lastOpenedPath = path
+      case 1:  // 打开同名路径（BUG-010：每个打开必须独立快照序号，互不覆盖）
+        if let path = lastOpenedPath {
+          appDelegate.open(URL(fileURLWithPath: path))
+        } else {
+          let path = storeDir + "/f\(rng.nextInt(1000)).txt"
+          try "同名内容".write(toFile: path, atomically: true, encoding: .utf8)
+          appDelegate.open(URL(fileURLWithPath: path))
+          lastOpenedPath = path
+        }
+      case 2:  // ⌘N 新建文档
         appDelegate.newDocument(nil)
-      case 2:  // 编辑当前文档
+      case 3:  // 编辑当前文档
         try currentModel?.typeText("x")
-      default:  // 保存当前文档
+      case 4:  // undo（可能回退到已固化文本 → BUG-012 比较基线路径）
+        try currentModel?.undo()
+      case 5:  // redo
+        try currentModel?.redo()
+      case 6:  // 保存当前文档
         _ = appDelegate.saveCurrentDocument()
+      case 7:  // 丢弃全部未决（退出「全部不保存」同款，ADR-013 v1.3 删除时机 3）
+        appDelegate.discardAllPending()
+      default:  // 崩溃恢复：播种异常退出 + 新缓冲文档，恢复 / 忽略随机
+        let crashedId = UInt(10_000 + step)
+        try store_save_scratch(store, crashedId, "崩溃内容\(step)")
+        try store_set_clean_exit(store, false)
+        appDelegate.needsRecoveryPrompt = true
+        seamed.recoveryReply = rng.nextInt(2)
+        appDelegate.presentRecoveryIfNeeded()
+        appDelegate.needsRecoveryPrompt = false
       }
 
       // 不变量 1：每个未决文档都登记了快照序号（BUG-011 泛化——否则
@@ -73,6 +112,13 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
       XCTAssertEqual(
         scratchIds, appDelegate.pendingDocs.ids,
         "step \(step)：缓冲行与未决登记不一致"
+      )
+      // 不变量 3：快照序号全局唯一（BUG-010 泛化——两个文档共享同一快照
+      // 时「保存全部」后写覆盖先写，先打开文档内容丢失）。
+      XCTAssertEqual(
+        Set(appDelegate.snapshotSeqByDocId.values).count,
+        appDelegate.snapshotSeqByDocId.count,
+        "step \(step)：快照序号必须唯一"
       )
     }
 
