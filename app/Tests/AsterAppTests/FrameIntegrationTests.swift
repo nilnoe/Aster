@@ -148,4 +148,36 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
 
     XCTAssertFalse(secondView.isCaretBlinkActive, "关闭后光标闪烁必须停止（保留环打断）")
   }
+
+  /// BUG-018（2026-08-03 崩溃报告：CA 提交 over-release）：关窗**放行**时必须
+  /// 立即停笔（beginClosing = 停定时器 + 禁止后续绘制）——窗口图层树拆毁期间
+  /// 不得再有 in-flight drawable（只关新建 frame 崩、关最后窗口不崩与此吻合）。
+  func testWindowShouldCloseAllowStopsRenderingBeforeTeardown() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    XCTAssertTrue(secondView.isCaretBlinkActive, "前置：新 frame 光标闪烁激活")
+
+    let allow = appDelegate.windowShouldClose(appDelegate.frames[1])
+
+    XCTAssertTrue(allow, "无未决时关窗必须放行")
+    XCTAssertTrue(secondView.isClosing, "放行后必须置关闭态（禁止渲染）")
+    XCTAssertFalse(secondView.isCaretBlinkActive, "放行后必须停掉光标定时器")
+  }
+
+  /// BUG-018 同机制：取消关窗（保窗）时**不**停笔——窗口继续运行，光标闪烁
+  /// 与渲染必须保持（否则取消后光标冻结）。
+  func testWindowShouldCloseCancelKeepsRenderingAlive() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    try secondView.model.typeText("未保存")
+    seamed.pendingDocsReply = nil  // 取消
+
+    let allow = appDelegate.windowShouldClose(appDelegate.frames[1])
+
+    XCTAssertFalse(allow, "取消必须保窗")
+    XCTAssertFalse(secondView.isClosing, "取消后不得进入关闭态")
+    XCTAssertTrue(secondView.isCaretBlinkActive, "取消后光标闪烁必须保持")
+  }
 }

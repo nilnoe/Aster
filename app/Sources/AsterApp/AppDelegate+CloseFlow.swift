@@ -54,23 +54,35 @@ extension AppDelegate {
   ///   丢弃成功则关窗后终止流程无未决可弹（干净 terminateNow）。
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     guard let session else { return true }
+    let allow: Bool
     if frames.count <= 1 {
-      return resolvePendingDocs()
+      allow = resolvePendingDocs()
+    } else {
+      guard let view = sender.contentView as? MetalView else { return true }
+      let id = UInt(view.model.bufferIdValue)
+      if session_is_pending(session, id) {
+        closeDecisionDocId = id
+        defer { closeDecisionDocId = nil }
+        switch presentPendingDocsAlert() {
+        case 1:
+          allow = mergePendingDoc(id)
+        case 0:
+          discardPendingDoc(id)
+          allow = true
+        default:
+          allow = false
+        }
+      } else {
+        allow = true
+      }
     }
-    guard let view = sender.contentView as? MetalView else { return true }
-    let id = UInt(view.model.bufferIdValue)
-    guard session_is_pending(session, id) else { return true }
-    closeDecisionDocId = id
-    defer { closeDecisionDocId = nil }
-    switch presentPendingDocsAlert() {
-    case 1:
-      return mergePendingDoc(id)
-    case 0:
-      discardPendingDoc(id)
-      return true
-    default:
-      return false
+    // BUG-018（2026-08-03 崩溃报告）：关窗放行时立即「停笔」——停光标定时器
+    // 并禁止后续绘制。窗口图层树拆毁期间不得再有 in-flight drawable
+    // （CA 事务提交在 autorelease 里双重释放 = objc_release 坏指针崩溃）。
+    if allow {
+      (sender.contentView as? MetalView)?.beginClosing()
     }
+    return allow
   }
 
   /// Frame 关闭后从登记移除（T-069）：closed 窗口不再参与 currentFrame 回退

@@ -32,6 +32,11 @@ final class MetalView: MTKView {
   /// 光标闪烁相位状态机（T-017 / BUG-018：独立类型，Rule 3 拆分；关闭时由
   /// windowWillClose 调 stop 打断 Timer 保留环）。
   private let blinker = CaretBlinker()
+  /// 窗口关闭中（BUG-018 2026-08-03 崩溃报告定位）：关闭放行后禁止再渲染——
+  /// 光标定时器每 0.5s 触发一帧绘制，若窗口图层树拆毁时仍有 in-flight drawable，
+  /// CA 事务提交会在 autorelease 里双重释放（objc_release 坏指针）。
+  /// 只关新建 frame 崩溃（App 继续运行）、关最后窗口不崩（进程退出）与此吻合。
+  private(set) var isClosing = false
 
   init(frame: NSRect, model: EditorModel) {
     guard let device = MTLCreateSystemDefaultDevice() else {
@@ -263,6 +268,13 @@ final class MetalView: MTKView {
     blinker.stop()
   }
 
+  /// 关闭放行（windowShouldClose 返回 true）时调用：停笔 + 停定时器，
+  /// 确保窗口拆毁期间不再产生新绘制（BUG-018 over-release 修复）。
+  func beginClosing() {
+    isClosing = true
+    blinker.stop()
+  }
+
   /// 光标闪烁是否激活（internal：Frame 关闭回归测试断言用）。
   var isCaretBlinkActive: Bool { blinker.isActive }
 }
@@ -273,6 +285,10 @@ extension MetalView: MTKViewDelegate {
   func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
   func draw(in view: MTKView) {
+    // BUG-018：关闭中禁止渲染——即使有残留 needsDisplay / 定时器竞态，
+    // 也不再触碰 currentDrawable（in-flight drawable 是 CA teardown 双重
+    // 释放的源头）。
+    guard !isClosing else { return }
     renderer.render(in: view, model: model, viewport: viewport, caretVisible: blinker.caretVisible)
   }
 }

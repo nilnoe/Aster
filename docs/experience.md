@@ -16,11 +16,11 @@
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**114 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**116 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
     T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + T-067 关闭流程 +
     T-069 Frame + T-070 生命周期收拢 + BUG-010~023 回归 + BUG-018 关闭卡死 +
-    看门狗），源码 2411 行（Rule 12 的 Swift 预算
+    看门狗），源码 2439 行（Rule 12 的 Swift 预算
     ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-025 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1+ 修订：ADR-001 / ADR-006 / ADR-013 / ADR-021 / ADR-022 / ADR-023 /
@@ -79,11 +79,13 @@
     App 111 + Bridge 20 + Core 148 全绿
   - ADR-024 FFI 总账机械化（本切片）：scripts/ffi-ledger.py + CI-Docs 门禁
     （当前 FFI 面 50 项），禁止手抄计数
-  - BUG-018 ① 关闭卡死修复（本切片）：用户补充「菊花旋转」= 主线程卡死——
-    根因 = 关最后窗口只按窗口文档决策，孤儿未决（⌘N/⌘O 替换模型遗留）漏过 →
-    关窗后终止再弹提示 → 取消无窗口 → 反复重触发终止（BUG-017 同机制另一入口；
-    Red→Green 2 项回归）；修复 = 最后窗口走全局决策；新增 MainThreadWatchdog
-    诊断兜底（后台探针 + 主线程心跳，block 弱引用 Timer）；App 114 全绿
+  - BUG-018 关闭卡死修复（本切片，三机制）：① over-release——崩溃报告
+    （14:15 主线程栈 objc_release → _Block_release → NSConcretePointerArray
+    dealloc → CA commit）定位 = 关窗拆毁图层树期间 in-flight drawable 双重释放
+    （光标定时器每 0.5s 一帧绘制）；修复 = beginClosing 停笔（放行时停定时器 +
+    isClosing，draw 关闭态返回）；② 孤儿未决 × 关最后窗口 × 取消 = 终止重触发
+    循环（BUG-017 同机制），修复 = 最后窗口走全局决策；③ 保留环（前已修）。
+    MainThreadWatchdog 诊断兜底；App 116 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
