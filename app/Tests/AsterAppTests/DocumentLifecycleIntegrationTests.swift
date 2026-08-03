@@ -34,7 +34,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
 
     let id = UInt(model.bufferIdValue)
     XCTAssertEqual(
-      try session_load_buffered(appSession, id).toString(),
+      try bufferedContent(id),
       "X你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK"
     )
     XCTAssertTrue(pendingSet().contains(id))
@@ -93,6 +93,28 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     XCTAssertEqual(appDelegate.frameFileName(frame), "opened.txt")
   }
 
+  /// T-065（ADR-023 v1.8）：自动保存防抖契约——编辑后（未冲刷）不立即写缓冲 /
+  /// 不置未决；flushAutosave() 后落盘（「崩溃最多丢 ~200ms 编辑」的语义依据）。
+  func testAutosaveDebounceFlushesOnDemand() throws {
+    launchApp()
+    let id = UInt((try XCTUnwrap(currentModel)).bufferIdValue)
+    try currentModel?.typeText("防抖内容")
+
+    XCTAssertFalse(
+      Set(session_pending_ids(appSession).map { UInt($0) }).contains(id),
+      "防抖窗口内不得立即写缓冲（T-065 粒度反转）"
+    )
+    appDelegate.flushAutosave()
+    XCTAssertTrue(
+      Set(session_pending_ids(appSession).map { UInt($0) }).contains(id),
+      "冲刷后必须落盘并置未决"
+    )
+    XCTAssertTrue(
+      try bufferedContent(id).hasPrefix("防抖内容"),
+      "冲刷后缓冲行必须包含防抖窗口内的编辑（启动样例文本在前）"
+    )
+  }
+
   /// T-059（T-024 前已知限制契约，ADR-013 v1.4）：打开第二个文件 = 视图切换，
   /// 但前一个文档的未决状态 / 缓冲行 / 快照序号必须保留——打开不得丢未保存
   /// 编辑；退出「保存全部」仍覆盖前一个文档。
@@ -113,7 +135,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
       "打开第二个文件不得丢失前一个文档的未决状态"
     )
     XCTAssertEqual(
-      try session_load_buffered(appSession, firstId).toString(),
+      try bufferedContent(firstId),
       "第一个文档的未保存编辑你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK",
       "前一个文档的缓冲行必须保留"
     )

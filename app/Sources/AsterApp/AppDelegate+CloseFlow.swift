@@ -27,6 +27,9 @@ extension AppDelegate {
   /// 未决文档决策（退出路径，全局）：返回 true = 可以继续（无未决，或已保存 /
   /// 丢弃全部成功）；false = 用户取消。
   func resolvePendingDocs() -> Bool {
+    // T-065：防抖窗口内的编辑必须先落地，退出决策才看得到未决文档——否则
+    // 刚输入后立即 Cmd+Q 会带着未冲刷编辑直接终止（静默丢失）。
+    flushAutosave()
     guard let session, !session_pending_ids(session).isEmpty else { return true }
     switch presentPendingDocsAlert() {
     case 1:
@@ -53,6 +56,9 @@ extension AppDelegate {
   ///   BUG-017 同机制）。全局决策在关窗前完成：取消保窗（不进循环），保存 /
   ///   丢弃成功则关窗后终止流程无未决可弹（干净 terminateNow）。
   func windowShouldClose(_ sender: NSWindow) -> Bool {
+    // T-065：关窗决策前先冲刷——防抖窗口内的编辑先落盘，未决才可见
+    // （否则编辑后立即关窗会漏过未决决策，直接放行丢编辑）。
+    flushAutosave()
     guard let session else { return true }
     let allow: Bool
     if frameDocs.count <= 1 {

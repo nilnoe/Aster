@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.7
+- **Version:** 1.8
 - **新增 Public API:** v1.4：`Snapshot` 类型 5 方法 + Bridge FFI 5 项（snapshot_new /
   snapshot_create_next / snapshot_write / snapshot_read + 缓冲 store_open_buffer /
   store_save_scratch / store_load_scratch）
@@ -19,6 +19,14 @@
 > 既有行为」，经确认并修订本 ADR 后才允许实现（实现先行 = 违规，T-037 /
 > T-040 / T-042 前例）。FFI 面自 T-070 起收敛为 `Session` 统一入口（ADR-025），
 > 本 ADR 头部的 store / snapshot FFI 计数由 ADR-025 / ADR-024 承接。
+
+> **v1.8 备注（T-065，2026-08-03，冻结期第二次方向确认）**：自动保存粒度反转
+> ——缓冲写入从「每次内容变更」改为 **200ms 防抖**。用户 2026-08-03 指示
+> 「性能第一、参考 Phase 8」确认方向。语义：连续输入只写一次缓冲（崩溃最多丢
+> ~200ms 编辑，旧语义 ~0ms）；保存 / 关闭 / 退出前强制冲刷（flushAutosave），
+> 读取缓冲行前语义不变（写仍全量覆盖当前活文，ADR-027 单 Buffer）。实现位置：
+> **App 层防抖**（一次性 Timer + 脏 id 集合）——Core Session 写透语义与
+> 「未决 ⟺ 缓冲行」不变量不变（对比 Core 侧批处理需改不变量，Rule 9 拒绝）。
 
 ## 决策
 

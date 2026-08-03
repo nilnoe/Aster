@@ -62,7 +62,7 @@ final class BugReproTests: AppIntegrationTestCase {
     // BUG-011 修复：恢复的文档内容已写入缓冲（新 id 的 scratch 行）。
     let restoredId = UInt(try XCTUnwrap(currentModel).bufferIdValue)
     XCTAssertEqual(
-      try session_load_buffered(appSession, restoredId).toString(), "最新文档内容")
+      try bufferedContent(restoredId), "最新文档内容")
     // 其余未决文档（id=旧文档）登记了快照序号并置为未决。
     let older = crashed[0]
     _ = try snapshotSeq(older)

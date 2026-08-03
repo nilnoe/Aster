@@ -116,6 +116,8 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
         }
       }
 
+      appDelegate.flushAutosave()  // T-065：防抖窗口内的编辑先落盘再验不变量
+
       // 不变量 1：每个未决文档都登记了快照序号（BUG-011 泛化——否则
       // 退出「保存全部」找不到合并目标）。
       let pending = Set(session_pending_ids(session).map { UInt($0) })

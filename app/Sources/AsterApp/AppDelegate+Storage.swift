@@ -80,6 +80,9 @@ extension AppDelegate {
         for other in ids where other != latest {
           _ = try session_register_buffered(session, other)
         }
+        // T-065：恢复内容经 typeText（onChange → 防抖调度）——断言 / 后续 ⌘S
+        // 需要缓冲行已落盘，此处强制冲刷（BUG-011「恢复内容必进缓冲」契约）。
+        flushAutosave()
       } else {
         // 忽略：**全部**缓冲文档登记为未决（ADR-013 v1.4：不留「没被问过」
         // 的文档——旧实现只登记 latest，BUG-016）。
@@ -103,6 +106,8 @@ extension AppDelegate {
 
   @discardableResult
   func saveCurrentDocument() -> Bool {
+    // T-065：防抖窗口内的编辑必须先冲刷，⌘S 才能看到「未决」并读到最新缓冲行。
+    flushAutosave()
     guard let frame = currentFrame, let id = frameDocumentId(for: frame) else {
       presentSaveError("没有可保存的视图")
       return false
@@ -122,6 +127,8 @@ extension AppDelegate {
       presentSaveError("存储未就绪，无法保存（存储初始化失败）")
       return false
     }
+    // T-065：窗口关闭 / 退出路径直接调本方法——读缓冲行前强制冲刷。
+    flushAutosave()
     do {
       try session_save(session, id)
       refreshFrameTitles()
@@ -137,6 +144,8 @@ extension AppDelegate {
   @discardableResult
   func saveAllPending() -> Bool {
     guard let session else { return true }
+    // T-065：退出「保存全部」先冲刷防抖窗口内的编辑。
+    flushAutosave()
     guard !session_pending_ids(session).isEmpty else { return true }
     do {
       try session_save_all(session)
@@ -184,14 +193,40 @@ extension AppDelegate {
   /// 旧全局布尔跨文档吞提示）。
   func onContentChanged(in frame: NSWindow) {
     guard let id = frameDocumentId(for: frame), let session else { return }
-    do {
-      // T-075（ADR-027）：内容直接读注册表活文（共享 Buffer）——不再把全文
-      // 推过 Bridge（消除每键 O(n) 桥接拷贝）。
-      try session_content_changed(session, id)
-    } catch {
-      NSLog("缓冲自动保存失败：\(error)")
-      presentSaveError("自动保存失败：\(errorText(error))。当前编辑内容只存在于内存，崩溃或意外退出将丢失。")
-    }
+    // T-065（ADR-023 v1.8）：自动保存从每键写入改为 200ms 防抖——登记待冲刷
+    // 文档 + 调度定时器；实际写入在 flushAutosave（T-075 单 Buffer 语义不变：
+    // 冲刷时读注册表活文，全量覆盖缓冲行）。
+    autosaveDirtyIds.insert(id)
+    scheduleAutosave()
     updateWindowTitle(frame)
+  }
+
+  private func scheduleAutosave() {
+    autosaveTimer?.invalidate()
+    let timer = Timer(timeInterval: autosaveDebounceInterval, repeats: false) { [weak self] _ in
+      self?.flushAutosave()
+    }
+    RunLoop.main.add(timer, forMode: .common)
+    autosaveTimer = timer
+  }
+
+  /// 强制冲刷全部待存文档（T-065）：保存 / 关闭 / 退出 / 测试断言前调用。
+  /// 错误按文档只提示一次（T-054：同段落不逐键弹窗；成功复位由下一次编辑重置）。
+  func flushAutosave() {
+    autosaveTimer?.invalidate()
+    autosaveTimer = nil
+    guard let session else {
+      autosaveDirtyIds.removeAll()
+      return
+    }
+    for id in autosaveDirtyIds {
+      do {
+        try session_content_changed(session, id)
+      } catch {
+        NSLog("缓冲自动保存失败：\(error)")
+        presentSaveError("自动保存失败：\(errorText(error))。当前编辑内容只存在于内存，崩溃或意外退出将丢失。")
+      }
+      autosaveDirtyIds.remove(id)
+    }
   }
 }

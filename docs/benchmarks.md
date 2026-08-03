@@ -65,6 +65,7 @@
 | 编辑热路径基准扩展（T-063，ADR-006 v1.1） | — | 建立基线 | 中间 insert 77.6ms / 中间 delete 76.5ms（1MB 文档各 10k 次）；移动 1k 次 309ms（改造前） | T-063 | 2026-08-03 | 补齐 ADR-006 v1.1 缺口数据（此前只测末尾）：1MB 文档 10k 次中间 insert/delete ≈ 77ms（String memmove 实测）——Gap Buffer / Rope 决策的缺失数据；移动基准供 T-064 前后对比（Rule 16）；短测量 1s / 样本 10 |
 | move_cursor 行索引缓存（T-064，ADR-006 v1.1 热点 2） | 309ms → 378µs（−99.88%） | 显著改善 | editor_move_down_1k_1mb：改造前 309ms（每步全量 Layout::build O(n)）→ 改造后 378µs（首建 O(n) + 复用 O(log n)）；criterion 同配置（1s / 样本 10）前后对比 | T-064 | 2026-08-03 | 不改变 ADR-006「不可变快照」决策，仅重建时机更优：编辑（type/delete/undo/redo）失效置 None（不变量由方法保证，Rule 18，含单测），移动复用；编辑热路径 type_text / delete 不受影响 |
 | SQLite WAL + synchronous=NORMAL（T-066，ADR-013 v1.6） | 小写 −96.5%；大 blob +57% | 整体显著改善 | store_file_save_10k：rollback journal 1.683s → WAL 59ms（−96.48%）；store_file_big_blob_1mb：784µs → 1.19ms（+56.9%，criterion change 报告） | T-066 | 2026-08-03 | 写放大缓解按编辑真实模式（每键小 upsert）量化：WAL 顺序追加替代整页 journal 双写；大 blob 一次性写变慢是 WAL 周期性 checkpoint（默认 4MB）摊还噪声，非编辑热路径；崩溃保护复核：进程级 kill 后 -wal 持久、重开自动恢复（store 单测 + T-056 全绿）；文件型基准为新名，CI 对无基线项跳过 |
+| 自动保存防抖（T-065，ADR-023 v1.8） | — | 结构性改进 | 写频率：每键 1 次 → 每次输入停顿 1 次（连续 10 键 ≈ 1 写） | T-065 | 2026-08-03 | 与 T-066 WAL 叠加：小写路径（save_10k 59ms）按停顿次数调用；崩溃窗口 ≤200ms（语义反转经用户确认，ADR-023 v1.8 冻结留痕）；App 层实现，Core 零改动（Session 写透语义与不变量不变），基准不重跑 |
 
 ## 测量规则
 

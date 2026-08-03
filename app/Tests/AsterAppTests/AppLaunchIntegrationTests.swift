@@ -74,7 +74,7 @@ final class AppRecoveryIntegrationTests: AppIntegrationTestCase {
     XCTAssertTrue(pendingSet().contains(UInt(model.bufferIdValue)))
     // BUG-023：新文档行必须存在（旧实现先写后删，id 复用时行被误删）。
     XCTAssertEqual(
-      try session_load_buffered(appSession, UInt(model.bufferIdValue)).toString(),
+      try bufferedContent(UInt(model.bufferIdValue)),
       "崩溃前的编辑内容"
     )
     // 恢复后 ⌘S 必须成功（BUG-023 回归：旧实现报 scratch not found）。
@@ -89,7 +89,7 @@ final class AppRecoveryIntegrationTests: AppIntegrationTestCase {
     launchApp()
 
     let id = crashed[0]
-    XCTAssertEqual(try session_load_buffered(appSession, id).toString(), "保留在缓冲的内容")
+    XCTAssertEqual(try bufferedContent(id), "保留在缓冲的内容")
     XCTAssertTrue(pendingSet().contains(id))
   }
 
@@ -109,8 +109,8 @@ final class AppRecoveryIntegrationTests: AppIntegrationTestCase {
       _ = try snapshotSeq(id)
       XCTAssertTrue(pendingSet().contains(id), "id \(id) 必须登记未决")
     }
-    XCTAssertEqual(try session_load_buffered(appSession, crashed[0]).toString(), "文档A内容")
-    XCTAssertEqual(try session_load_buffered(appSession, crashed[1]).toString(), "文档B内容")
+    XCTAssertEqual(try bufferedContent(crashed[0]), "文档A内容")
+    XCTAssertEqual(try bufferedContent(crashed[1]), "文档B内容")
 
     seamed.pendingDocsReply = 1
     XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)

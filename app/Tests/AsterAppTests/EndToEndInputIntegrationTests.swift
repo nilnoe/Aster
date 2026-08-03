@@ -41,7 +41,7 @@ final class EndToEndInputIntegrationTests: AppIntegrationTestCase {
     XCTAssertEqual(model.bufferText, "x你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
     XCTAssertTrue(pendingSet().contains(id))
     XCTAssertEqual(
-      try session_load_buffered(appSession, id).toString(),
+      try bufferedContent(id),
       "x你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK"
     )
   }

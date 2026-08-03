@@ -32,7 +32,7 @@ final class SaveFailurePathTests: AppIntegrationTestCase {
     // 数据保全：缓冲行与未决状态一个都不能少。
     XCTAssertTrue(pendingSet().contains(id), "未决状态必须保留")
     XCTAssertEqual(
-      try session_load_buffered(appSession, id).toString(),
+      try bufferedContent(id),
       "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK必须不丢的内容",
       "缓冲行必须保留（崩溃恢复的最后防线）"
     )
@@ -83,8 +83,10 @@ final class SaveFailurePathTests: AppIntegrationTestCase {
     }
 
     try model.typeText("追加一")
+    appDelegate.flushAutosave()  // T-065：错误在冲刷时可见
     XCTAssertEqual(seamed.saveErrorCount, 1, "自动保存失败必须可见一次")
     try model.typeText("追加二")
+    appDelegate.flushAutosave()
     XCTAssertEqual(seamed.saveErrorCount, 1, "同一失败段落内不逐键弹窗")
     XCTAssertTrue(pendingSet().contains(id), "失败不丢失未决标记")
 
@@ -92,10 +94,12 @@ final class SaveFailurePathTests: AppIntegrationTestCase {
     try FileManager.default.setAttributes(
       [.posixPermissions: 0o755], ofItemAtPath: storeDir)
     try model.typeText("恢复后")
+    appDelegate.flushAutosave()
     XCTAssertEqual(seamed.saveErrorCount, 1, "成功保存不提示")
     try FileManager.default.setAttributes(
       [.posixPermissions: 0o555], ofItemAtPath: storeDir)
     try model.typeText("再次失败")
+    appDelegate.flushAutosave()
     XCTAssertEqual(seamed.saveErrorCount, 2, "新失败段落必须再次可见")
     XCTAssertEqual(
       seamed.lastSaveErrorMessage?.contains("自动保存失败"), true,

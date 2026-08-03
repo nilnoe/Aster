@@ -10,6 +10,21 @@
 
 ## [Unreleased]
 
+### Changed — 2026-08-03（T-065，自动保存防抖，ADR-023 v1.8）
+
+- feat(app)：缓冲自动保存从每键写入改为 **200ms 防抖**（一次性 Timer + 脏 id
+  集合）——连续输入只写一次；保存 / 关闭 / 退出（resolvePendingDocs /
+  windowShouldClose / saveCurrentDocument / mergePendingDoc / saveAllPending /
+  applicationWillTerminate）全部先 `flushAutosave()` 强制冲刷；标题脏态 =
+  已冲刷未决 ∨ 待冲刷（updateWindowTitle 合并，不另建账本）。
+- 语义反转（冻结期第二次方向确认）：崩溃最多丢 ~200ms 编辑（用户 2026-08-03
+  确认性能优先方向）；Core Session 写透语义与「未决 ⟺ 缓冲行」不变量不变。
+- refactor(app)：AppDelegate 308 行超限 → 菜单动作 / 打开 / 标题组拆至
+  AppDelegate+MenuActions（弹窗 seam 因测试覆写留在类体，Rule 3 拆分前置）。
+- test：+1 防抖契约（编辑后未冲刷不落盘 / flushAutosave 后落盘）；SaveFailure
+  失败可见性按防抖语义在冲刷点断言（T-054 同段落一次不变）；App 122 全绿；
+  Core 零改动。
+
 ### Perf — 2026-08-03（T-066，SQLite WAL + synchronous=NORMAL，ADR-013 v1.6）
 
 - feat(core)：文件库启用 `journal_mode=WAL` + `synchronous=NORMAL`（内存库

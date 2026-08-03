@@ -83,14 +83,24 @@ class AppIntegrationTestCase: XCTestCase {
     (appDelegate.currentFrame?.contentView as? MetalView)?.model
   }
 
-  /// 未决 id 集合（Session 查询，单一事实来源）。
+  /// 未决 id 集合（Session 查询，单一事实来源）。T-065：查询前强制冲刷——
+  /// 防抖窗口内的编辑先落盘，断言看到的是持久化契约（与生产「读缓冲前先
+  /// 冲刷」一致）。
   func pendingSet() -> Set<UInt> {
-    Set(session_pending_ids(appSession).map { UInt($0) })
+    appDelegate.flushAutosave()
+    return Set(session_pending_ids(appSession).map { UInt($0) })
   }
 
-  /// 缓冲行 id 集合（Session 查询）。
+  /// 缓冲行 id 集合（Session 查询）。T-065：同上，查询前冲刷。
   func bufferedSet() -> Set<UInt> {
-    Set(session_buffered_ids(appSession).map { UInt($0) })
+    appDelegate.flushAutosave()
+    return Set(session_buffered_ids(appSession).map { UInt($0) })
+  }
+
+  /// 缓冲行内容（T-065：查询前冲刷，读取到防抖落盘后的最新行）。
+  func bufferedContent(_ id: UInt) throws -> String {
+    appDelegate.flushAutosave()
+    return try session_load_buffered(appSession, id).toString()
   }
 
   /// 快照序号（未登记抛错）。

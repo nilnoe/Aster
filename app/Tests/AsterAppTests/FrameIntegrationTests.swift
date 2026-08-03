@@ -68,7 +68,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     let id = UInt(secondView.model.bufferIdValue)
 
     XCTAssertEqual(
-      try session_load_buffered(appSession, id).toString(),
+      try bufferedContent(id),
       "自动保存内容",
       "frame B 的文档必须自动保存到自己的缓冲行"
     )

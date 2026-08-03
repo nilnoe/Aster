@@ -36,6 +36,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 主线程卡死看门狗（BUG-018 诊断：菊花 = 主线程阻塞，复现难；下次卡死
   /// 由后台探针 NSLog 卡死时间窗，控制台可直接定位）。
   private let watchdog = MainThreadWatchdog()
+  /// 自动保存防抖（T-065，ADR-023 v1.8）：缓冲自动保存从「每次内容变更写入」
+  /// 改为 200ms 防抖（反转粒度，用户 2026-08-03 确认性能优先方向）——连续输入
+  /// 只写一次，崩溃最多丢 ~200ms 编辑；保存 / 关闭 / 退出前必须 flushAutosave()
+  /// 强制冲刷，读取缓冲行前语义不变（写仍全量覆盖当前活文，ADR-027 单 Buffer）。
+  /// internal：AppDelegate+Storage 跨文件扩展访问（模块边界内封装）。
+  var autosaveTimer: Timer?
+  /// 有未冲刷编辑的文档（onChange 记录；冲刷成功移除——唯一写入口在
+  /// flushAutosave，Rule 18 不变量由方法保证）。
+  /// internal：AppDelegate+Storage 跨文件扩展访问（模块边界内封装）。
+  var autosaveDirtyIds: Set<UInt> = []
+  /// 防抖窗口（秒）。internal：测试可缩短（模块内封装，非公共 API）。
+  var autosaveDebounceInterval: TimeInterval = 0.2
 
   deinit {
     // BUG-018：Timer 保留环教训——看门狗退出时确定性停止（测试 teardown 与
@@ -101,6 +113,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// kill / 崩溃不调用，哨兵保持非干净。哨兵不承担数据清理（ADR-013 v1.3）。
   func applicationWillTerminate(_ notification: Notification) {
     watchdog.stop()
+    // T-065：退出前强制冲刷（防抖窗口内的编辑不得静默丢失）。
+    flushAutosave()
     guard let session else { return }
     _ = try? session_set_clean_exit(session, true)
     // T-047（ADR-023 v1.6）：进程干净退出时删除空快照文件（启动即建 / 从未
@@ -170,108 +184,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     return alert.runModal() == .alertFirstButtonReturn ? 1 : 0
   }
 
-  @objc func showAbout(_ sender: Any?) {
-    NSApp.orderFrontStandardAboutPanel(options: [
-      .applicationName: AppInfo.name,
-      .applicationVersion: AppInfo.version,
-    ])
-  }
-
-  /// File 菜单「新建」（⌘N）：创建当日下一个快照文件 + 新的空白 Scratch 文档。
-  ///
-  /// 决策依据（T-041，ADR-001 v1.2 / ADR-023 v1.3）：新文档 = 新快照（日期+序号），
-  /// 缓冲内容按 id 隔离自动保存；旧文档未提交编辑仍在缓冲（崩溃保护），合并由
-  /// 用户回到对应会话时执行（激活文档随 T-024 统一）。
-  @objc func newDocument(_ sender: Any?) {
-    guard let frame = currentFrame else { return }
-    do {
-      let model = try makeScratchModel(in: frame)
-      if let view = frame.contentView as? MetalView {
-        view.load(model)
-      }
-      setFrameDocument(frame, documentId: UInt(model.bufferIdValue), fileName: nil)
-      updateWindowTitle(frame)
-    } catch {
-      NSLog("新建文档失败：\(error)")
-      presentSaveError(errorText(error))
-    }
-  }
-
-  /// File 菜单「打开…」：NSOpenPanel 选文件（系统能力，Principle 4）。
-  @objc func openDocument(_ sender: Any?) {
-    let panel = NSOpenPanel()
-    panel.canChooseDirectories = false
-    panel.allowsMultipleSelection = false
-    panel.begin { [weak self] response in
-      guard response == .OK, let url = panel.url else { return }
-      self?.open(url)
-    }
-  }
-
-  /// 打开文件：DocumentManager Disk 源读入 → 新建 Editor 会话 → 替换当前内容。
-  ///
-  /// 决策依据（T-015，ADR-001 v1.1）：注册表持有的 Buffer 副本与编辑会话分离，
-  /// 激活文档统一归属随 T-024（Command Palette）落地，本切片不引入激活状态。
-  func open(_ url: URL) {
-    guard let frame = currentFrame, let session else { return }
-    do {
-      let id = UInt(try session_open_disk(session, url.path))
-      let editor = try session_editor(session, id)
-      let model = makeModel(editor, bufferId: id, in: frame)
-      if let view = frame.contentView as? MetalView {
-        view.load(model)
-      }
-      setFrameDocument(
-        frame, documentId: UInt(model.bufferIdValue), fileName: url.lastPathComponent)
-      updateWindowTitle(frame)
-    } catch {
-      NSLog("打开文档失败：\(error)")
-      presentOpenError(errorText(error))
-    }
-  }
-
-  /// 统一创建 EditorModel 并接线内容变更回调（onChange → onContentChanged，
-  /// 按 frame 接线，T-069）。
-  ///
-  /// 决策依据（T-041）：启动默认 Buffer 与打开的文件都走同一接线，杜绝此前
-  /// 只在 open() 接线导致的「默认文档无 dirty / 无退出保护」；T-069 多 Frame
-  /// 下弱捕获 frame，编辑各自文档状态互不污染，且避免 frame→view→model→
-  /// closure→frame 循环保留。
-  func makeModel(_ editor: Editor, bufferId: UInt, in frame: NSWindow) -> EditorModel {
-    let model = EditorModel(editor: editor, bufferId: UInt64(bufferId))
-    model.onChange = { [weak self, weak frame] in
-      guard let frame else { return }
-      self?.onContentChanged(in: frame)
-    }
-    return model
-  }
-
-  /// 标题 = 该 frame 的文件名（Scratch 显示 App 名）；未保存指示用系统原生
-  /// `isDocumentEdited`（关闭按钮红点，T-067）。T-069 起按 frame 刷新——
-  /// 每个 frame 反映自己的文档状态。
-  ///
-  /// 决策依据（T-067）：旧实现手拼「● 」前缀进标题文本；macOS 文档编辑状态的
-  /// 平台约定是 `NSWindow.isDocumentEdited`——AppKit 自动在左上角关闭按钮内
-  /// 画 dirty 点（TextEdit / Pages 同款），与总纲 Principle 4（不 fight 系统）
-  /// 和宪法 Rule 11（系统能力优先）一致，并删除自研前缀渲染。
-  func updateWindowTitle(_ frame: NSWindow) {
-    let base = frameFileName(frame) ?? AppInfo.name
-    let currentDirty =
-      frameDocumentId(for: frame)
-      .map { id -> Bool in
-        session.map { session_is_pending($0, id) } ?? false
-      } ?? false
-    frame.title = base
-    frame.isDocumentEdited = currentDirty
-  }
-
-  /// 刷新全部 frame 标题（保存全部 / 丢弃后，各 frame 反映各自文档状态，T-069）。
-  func refreshFrameTitles() {
-    for frameDoc in frameDocs {
-      updateWindowTitle(frameDoc.window)
-    }
-  }
-
   func presentSaveError(_ message: String) {
     let alert = NSAlert()
     alert.messageText = "无法保存文档"
@@ -280,12 +192,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     alert.runModal()
   }
 
-  /// 打开失败必须可见（ADR-004），不静默回退到空文档。
-  private func presentOpenError(_ message: String) {
-    let alert = NSAlert()
-    alert.messageText = "无法打开文档"
-    alert.informativeText = message
-    alert.alertStyle = .warning
-    alert.runModal()
-  }
 }
