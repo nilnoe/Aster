@@ -59,6 +59,27 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     }
   }
 
+  /// T-067：未保存指示必须用系统原生 `isDocumentEdited`（关闭按钮红点，
+  /// Principle 4 / Rule 11）——编辑后为 true、保存后恢复 false；标题保持纯
+  /// 文件名（不再手拼「●」前缀）。
+  func testDirtyIndicatorUsesSystemDocumentEditedState() throws {
+    launchApp()
+    let window = try XCTUnwrap(appDelegate.mainWindow)
+    let model = try XCTUnwrap(currentModel)
+    XCTAssertFalse(window.isDocumentEdited, "初始文档不脏")
+    XCTAssertEqual(window.title, "Aster", "初始标题为纯 App 名")
+
+    try model.typeText("x")
+
+    XCTAssertTrue(window.isDocumentEdited, "编辑后关闭按钮必须显示系统 dirty 点")
+    XCTAssertEqual(window.title, "Aster", "标题不得手拼「●」前缀")
+
+    XCTAssertTrue(appDelegate.saveCurrentDocument())
+
+    XCTAssertFalse(window.isDocumentEdited, "保存后 dirty 指示必须复位")
+    XCTAssertEqual(window.title, "Aster")
+  }
+
   func testOpenDiskFileReplacesEditorContent() throws {
     launchApp()
     let diskFile = storeDir + "/opened.txt"

@@ -5,8 +5,9 @@
 //! - 关于面板用系统 orderFrontStandardAboutPanel，版本号来自 Core
 //!   （App → Bridge → Core 单一路径，版本单一来源，ADR-015）。
 //! - 保存模型（ADR-023 v1.3）：Cmd+N 建快照（日期+序号文本文件）；内容变更
-//!   自动写入缓冲文件（崩溃保护）；Cmd+S 把缓冲合并进当前快照；dirty「●」与
-//!   退出保护基于「缓冲 ≠ 快照」的未提交编辑。
+//!   自动写入缓冲文件（崩溃保护）；Cmd+S 把缓冲合并进当前快照；dirty 指示用
+//!   系统原生 isDocumentEdited（关闭按钮红点，T-067），退出保护基于「缓冲 ≠
+//!   快照」的未提交编辑。
 //! - 存储 / 保存 / 崩溃恢复逻辑在 `AppDelegate+Storage.swift`（Rule 3 拆分，
 //!   MetalView + MetalView+Input 同一模式）。
 
@@ -221,13 +222,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     return model
   }
 
-  /// 标题 = [● ] + 文件名（初始演示 Buffer 显示 App 名）。
+  /// 标题 = 文件名（初始演示 Buffer 显示 App 名）；未保存指示用系统原生
+  /// `isDocumentEdited`（关闭按钮红点，T-067）。
+  ///
+  /// 决策依据（T-067）：旧实现手拼「● 」前缀进标题文本；macOS 文档编辑状态的
+  /// 平台约定是 `NSWindow.isDocumentEdited`——AppKit 自动在左上角关闭按钮内
+  /// 画 dirty 点（TextEdit / Pages 同款），与总纲 Principle 4（不 fight 系统）
+  /// 和宪法 Rule 11（系统能力优先）一致，并删除自研前缀渲染。
   func updateWindowTitle() {
     let base = currentFileName ?? AppInfo.name
     let currentDirty =
       (mainWindow?.contentView as? MetalView)
       .map { pendingDocs.contains(UInt($0.model.bufferIdValue)) } ?? false
-    mainWindow?.title = currentDirty ? "● \(base)" : base
+    mainWindow?.title = base
+    mainWindow?.isDocumentEdited = currentDirty
   }
 
   func presentSaveError(_ message: String) {

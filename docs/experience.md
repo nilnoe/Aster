@@ -15,10 +15,10 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**100 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**101 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
     T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + BUG-010~016 回归），
-    源码 2197 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+    源码 2204 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
   ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
@@ -54,6 +54,9 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
   - T-062 变异测试工具化（baadd05）：`scripts/mutate.py` + `mutations.json`
     清单 5 点——T-051 手工变异流程脚本化（自动注入/恢复/记录，old 唯一性
     校验）；实测 5/5 全被捕获 ~10s；新增状态机逻辑前先跑变异门禁
+  - T-067 未保存指示迁移系统原生（本切片）：dirty「●」标题手拼 →
+    `NSWindow.isDocumentEdited`（关闭按钮红点，Principle 4 / Rule 11）——
+    契约测试先红后绿；App 101 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -181,7 +184,7 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
 | 深浅色 | 固定深色启动态，不跟随系统 appearance；主题可编程能力由 Lua 提供（ADR-018） | Lua 主题切片（ADR-010 Theme 模型已就绪） |
 | 编辑会话 | Core `Editor`（Buffer+Selection+History 协调者，ADR-017）：type/delete/move/undo/redo/selectAll/setSelection；IME 组合文本内联光标处；滚动是视图状态 | 命令上下文 / 激活文档随 T-024（Command Palette）；剪贴板 T-014 / 拖放 T-015 |
 | DocumentManager | 首次进产品（T-015，ADR-001 v1.1）：File 菜单「打开…」与文件拖入统一经 `open(Disk)`；Bridge FFI 3 项（id 以 usize 透传）；注册表 Buffer 副本与编辑会话分离（激活文档统一归属随 T-024，Rule 9 边界） | 激活文档 / 命令上下文随 T-024；Scratch 工作流 T-028 |
-| 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty「●」= 缓冲 ≠ 快照；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
+| 保存 | 双文件模型（T-042，ADR-023 v1.4）：Cmd+N 建「日期+序号」**纯文本**快照（`aster-YYYY-MM-DD-<seq>.txt`，Buffer 可打开）；内容变更自动写缓冲 `buffer.sqlite`（SQLite 崩溃保护）；Cmd+S 合并缓冲 → 当前快照（提交）；dirty = 缓冲 ≠ 快照，指示用 `isDocumentEdited`（关闭按钮红点，T-067）；默认目录 `~/Library/Application Support/Aster`（`ASTER_STORE_DIR` 覆盖） | 磁盘写回（用户指定路径）Deferred 到未来文件系统切片；保留期 / 自动清理随配置系统；T-028 读回 latest 恢复会话 |
 | 保存（BUG-010/012 修订，435e3a0） | **每个打开的文件分配独立快照序号**（不再继承当前文档序号，多文件保存互不覆盖）；`committedTextByDocId` 记录各文档最近一次合并进快照的文本——undo/redo 回快照内容时不再标记未保存（内容比较基线，非「发生编辑即脏」）；合并成功**先写快照再删缓冲行**（顺序不可颠倒，快照写失败必须保全缓冲行，T-051 变异验证） | 自动保存节流（合并连续按键）已排 T-065，**反转 ADR-023「每次内容变更写入」粒度需用户确认**；快照合并写非原子属已识别改进（T-055 原子写） |
 | 崩溃恢复 | v1（T-043，ADR-013 v1.1）：缓冲 `meta.clean_exit` 哨兵（正常退出 true / 启动清 false）；启动时哨兵非干净且有缓冲文档 → 「恢复最近一个」提示；恢复载回缓冲内容并置脏，Cmd+S 合并进新快照 | 多文档会话 / 窗口状态完整恢复在 T-029（剩余部分）；恢复内容未合并前仍在缓冲（崩溃不丢） |
 | SQLite 角色 | 边界（T-044，ADR-013 v1.2）：文档 = 文本文件（快照 .txt）；SQLite = 编辑器内部状态（缓冲 / session / 最近文件 / 工作区 / undo 持久化），永不混用；三条保留论据（崩溃保护事务性写入 / 多文档缓冲 / 总纲 §5 既定路线） | 拆除条件：砍掉会话 / 最近文件 / 工作区 / undo 路线时按 ADR 反转拆 rusqlite；session 表不许悬挂（T-029 消费）；快照原子写为已识别改进未排期 |

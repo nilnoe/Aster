@@ -132,6 +132,17 @@
   盲区（T-051 方法论闭环，docs/testing.md）。App 100 + Core 131 + Bridge 20
   全绿（本切片 0 生产代码改动）。
 
+### Changed — 2026-08-03（T-067，未保存指示迁移系统原生）
+
+- refactor(app)：dirty 指示从标题手拼「● 文件名」改为 `NSWindow.isDocumentEdited`
+  ——AppKit 自动在左上角关闭按钮内画 dirty 点（TextEdit / Pages 同款平台约定），
+  标题恢复纯文件名。决策依据：总纲 Principle 4（不 fight 系统）与宪法 Rule 11
+  （系统能力优先于自研），删除自研前缀渲染；`updateWindowTitle` 单点接线，
+  编辑 / 保存 / 打开 / 新建 / 丢弃 / 恢复路径行为不变（退出保护仍走 PendingDocs）。
+- test(app)：1 项契约测试——编辑后 `isDocumentEdited == true`、保存后复位
+  false、标题恒为纯文件名（无「●」前缀）；先红后绿（旧实现报「● Aster」）。
+  App 全量 101 项全绿（100 → +1）；Bridge 20 + Core 131 不变；门禁零告警。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +
