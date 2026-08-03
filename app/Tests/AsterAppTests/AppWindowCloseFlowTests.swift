@@ -74,8 +74,8 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
   func testClosingSecondFrameOnlyResolvesItsOwnDocument() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let first = appDelegate.frames[0]
-    let second = appDelegate.frames[1]
+    let first = appDelegate.frameDocs[0].window
+    let second = appDelegate.frameDocs[1].window
     let firstId = UInt(
       (first.contentView as? MetalView)?.model.bufferIdValue ?? 0)
     let secondId = UInt(
@@ -105,7 +105,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
     try "替代文档".write(toFile: diskFile, atomically: true, encoding: .utf8)
     appDelegate.open(URL(fileURLWithPath: diskFile))
     XCTAssertTrue(pendingSet().contains(orphanId), "前置：旧文档必须是无窗口未决孤儿")
-    XCTAssertEqual(appDelegate.frames.count, 1, "前置：当前只有一个 frame")
+    XCTAssertEqual(appDelegate.frameDocs.count, 1, "前置：当前只有一个 frame")
 
     let window = try XCTUnwrap(appDelegate.currentFrame)
     seamed.pendingDocsReply = nil  // 用户点「取消」

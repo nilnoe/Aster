@@ -28,15 +28,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   var session: Session?
   /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
   var needsRecoveryPrompt = false
-  /// 全部 Frame（广义窗口，T-069）：frame = 窗口级容器，未来支持窗内分窗，
-  /// 故用 frame 表述；当前由 AppKit NSWindow 直接承载（Rule 1：不为将来抽象
-  /// 建类型）。
-  var frames: [NSWindow] = []
-  /// 每个 frame 当前文档的文件名（frame 级视图状态；Scratch 为 nil）。
-  var frameFileName: [NSWindow: String] = [:]
-  /// 关闭决策上下文的文档 id（windowShouldClose 时设置；nil = 全局退出决策）。
-  /// T-070 修正：关 frame B 只决策 B 的文档，不再弹 frame A 的未决提示。
-  var closeDecisionDocId: UInt?
+  /// 全部 Frame 及其文档关联（T-069 / T-074）：frame = 窗口级容器（当前由
+  /// AppKit NSWindow 直接承载，Rule 1：不为将来抽象建类型）；frame ↔ 文档
+  /// 关联收拢为 `FrameDocument` 单一登记（I-013，替换旧 frames 数组 +
+  /// frameFileName 字典两套平行结构）。
+  var frameDocs: [FrameDocument] = []
   /// 主线程卡死看门狗（BUG-018 诊断：菊花 = 主线程阻塞，复现难；下次卡死
   /// 由后台探针 NSLog 卡死时间窗，控制台可直接定位）。
   private let watchdog = MainThreadWatchdog()
@@ -50,8 +46,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 当前 Frame：键窗口优先（⌘S / ⌘O / ⌘N 作用于用户正在操作的 frame），
   /// 无键窗口时回退第一个（启动早期 / 测试环境）。
   var currentFrame: NSWindow? {
-    if let key = NSApp.keyWindow, frames.contains(where: { $0 === key }) { return key }
-    return frames.first
+    if let key = NSApp.keyWindow, frameDocs.contains(where: { $0.window === key }) {
+      return key
+    }
+    return frameDocs.first?.window
+  }
+
+  /// frame → 当前文档 id（T-074：FrameDocument 单一所有者，I-013）。
+  func frameDocumentId(for frame: NSWindow) -> UInt? {
+    frameDocs.first { $0.window === frame }?.documentId
+  }
+
+  /// frame 的当前文件名（标题用；Scratch 为 nil）。
+  func frameFileName(_ frame: NSWindow) -> String? {
+    frameDocs.first { $0.window === frame }?.fileName
+  }
+
+  /// frame 登记当前文档（新建 / 打开 / 恢复共用）。同一 frame 只保留一条登记
+  /// ——不变量由本方法保证（Rule 18）；调用方负责与 view.model 使用同一 id。
+  func setFrameDocument(_ frame: NSWindow, documentId: UInt, fileName: String?) {
+    if let i = frameDocs.firstIndex(where: { $0.window === frame }) {
+      frameDocs[i] = FrameDocument(window: frame, documentId: documentId, fileName: fileName)
+    } else {
+      frameDocs.append(FrameDocument(window: frame, documentId: documentId, fileName: fileName))
+    }
   }
 
   /// 未决文档总数（Session 单一事实来源；退出提示文案用）。
@@ -106,13 +124,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 选择」抽为 internal 方法，测试子类覆写注入决策；生产路径行为不变
   /// （Rule 9：1 个方法而非抽象层；无依赖注入框架）。
   /// 返回 `Int?`：1 = 保存全部；0 = 全部不保存；nil = 取消。
-  /// 关闭窗口路径只决策该窗口的文档（closeDecisionDocId 非 nil）；退出路径
+  /// 关闭窗口路径只决策该窗口的文档（closeDocumentId 非 nil）；退出路径
   /// 决策全部未决（T-070 修正：旧实现全局决策，关 frame B 会弹 frame A 的
-  /// 未决提示）。
-  func presentPendingDocsAlert() -> Int? {
+  /// 未决提示）。T-074（I-012）：关闭决策上下文改为**显式参数**，不再存
+  /// AppDelegate 实例字段（Rule 17 同型模式回潮处置）。
+  func presentPendingDocsAlert(closeDocumentId: UInt? = nil) -> Int? {
     let alert = NSAlert()
-    let currentName = currentFrame.flatMap { frameFileName[$0] } ?? AppInfo.name
-    if closeDecisionDocId != nil {
+    let currentName = currentFrame.flatMap { frameFileName($0) } ?? AppInfo.name
+    if closeDocumentId != nil {
       alert.messageText = "文档存在未提交更改"
       alert.informativeText =
         "“\(currentName)”存在未保存的更改。保存将合并进其快照；不保存将丢弃更改。"
@@ -170,7 +189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       if let view = frame.contentView as? MetalView {
         view.load(model)
       }
-      frameFileName[frame] = nil
+      setFrameDocument(frame, documentId: UInt(model.bufferIdValue), fileName: nil)
       updateWindowTitle(frame)
     } catch {
       NSLog("新建文档失败：\(error)")
@@ -204,7 +223,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       if let view = frame.contentView as? MetalView {
         view.load(model)
       }
-      frameFileName[frame] = url.lastPathComponent
+      setFrameDocument(
+        frame, documentId: UInt(model.bufferIdValue), fileName: url.lastPathComponent)
       updateWindowTitle(frame)
     } catch {
       NSLog("打开文档失败：\(error)")
@@ -237,11 +257,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 画 dirty 点（TextEdit / Pages 同款），与总纲 Principle 4（不 fight 系统）
   /// 和宪法 Rule 11（系统能力优先）一致，并删除自研前缀渲染。
   func updateWindowTitle(_ frame: NSWindow) {
-    let base = frameFileName[frame] ?? AppInfo.name
+    let base = frameFileName(frame) ?? AppInfo.name
     let currentDirty =
-      (frame.contentView as? MetalView)
-      .map { view -> Bool in
-        session.map { session_is_pending($0, UInt(view.model.bufferIdValue)) } ?? false
+      frameDocumentId(for: frame)
+      .map { id -> Bool in
+        session.map { session_is_pending($0, id) } ?? false
       } ?? false
     frame.title = base
     frame.isDocumentEdited = currentDirty
@@ -249,7 +269,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
   /// 刷新全部 frame 标题（保存全部 / 丢弃后，各 frame 反映各自文档状态，T-069）。
   func refreshFrameTitles() {
-    frames.forEach(updateWindowTitle)
+    for frameDoc in frameDocs {
+      updateWindowTitle(frameDoc.window)
+    }
   }
 
   func presentSaveError(_ message: String) {

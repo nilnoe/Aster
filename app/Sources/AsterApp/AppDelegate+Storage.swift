@@ -72,7 +72,7 @@ extension AppDelegate {
         if let view = frame.contentView as? MetalView {
           view.load(model)
         }
-        frameFileName[frame] = nil
+        setFrameDocument(frame, documentId: UInt(model.bufferIdValue), fileName: nil)
         // 恢复内容 = 光标处输入（按 frame 的 onChange 接线：typeText 触发置脏 +
         // 自动写缓冲——BUG-011 保证「恢复内容必进缓冲」，可被 ⌘S 读取）。
         try model.typeText(text)
@@ -103,11 +103,10 @@ extension AppDelegate {
 
   @discardableResult
   func saveCurrentDocument() -> Bool {
-    guard let frame = currentFrame, let view = frame.contentView as? MetalView else {
+    guard let frame = currentFrame, let id = frameDocumentId(for: frame) else {
       presentSaveError("没有可保存的视图")
       return false
     }
-    let id = UInt(view.model.bufferIdValue)
     // 无未提交更改时 ⌘S 是空操作（不报错）。
     guard let session, session_is_pending(session, id) else { return true }
     return mergePendingDoc(id)
@@ -184,8 +183,8 @@ extension AppDelegate {
   /// 并呈现失败；Session 按**文档**只提示一次（T-054 防逐键弹窗，T-070 修正
   /// 旧全局布尔跨文档吞提示）。
   func onContentChanged(in frame: NSWindow) {
-    guard let view = frame.contentView as? MetalView, let session else { return }
-    let id = UInt(view.model.bufferIdValue)
+    guard let id = frameDocumentId(for: frame), let session else { return }
+    guard let view = frame.contentView as? MetalView else { return }
     do {
       try session_content_changed(session, id, view.model.bufferText)
     } catch {

@@ -10,6 +10,20 @@
 
 ## [Unreleased]
 
+### Changed — 2026-08-03（T-074，frame 域收拢，I-012 / I-013）
+
+- refactor(app)：新增 `FrameDocument`（frame + documentId + fileName）——
+  frame ↔ 文档关联单一登记，替换旧 `frames` 数组 + `frameFileName` 字典两套
+  平行结构；`setFrameDocument` / `windowWillClose` 方法保证「一 frame 一条
+  登记」不变量（Rule 17 / 18）。
+- refactor(app)：`closeDecisionDocId` 实例字段撤销——关闭决策上下文改为
+  `presentPendingDocsAlert(closeDocumentId:)` 显式参数（Rule 17 同型模式回潮
+  处置，I-012）；标题 / 保存 / 关闭决策 / 窗口关闭 / 内容变更统一走
+  `frameDocumentId(for:)`。
+- test：+1（FrameDocument 登记 / 更新契约）；既有 Frame / 关闭流集成测试改为
+  经 `frameDocs` 断言（同一行为）；App 121 全绿；swift-format 零告警；Core
+  零改动（148 不变）。
+
 ### Changed — 2026-08-03（T-073，光标 / 组合几何收拢，I-011 / I-014 / I-016）
 
 - refactor(app)：新增 `CaretGeometry` 纯几何类型（行顶 y + 光标 x 内容坐标）——

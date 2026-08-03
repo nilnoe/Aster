@@ -60,6 +60,7 @@
 | Frame 关闭闪烁定时器修复（BUG-018） | — | 无显著影响 | — | BUG-018 | 2026-08-03 | 关闭路径：windowWillClose 多一次 stopCaretBlink（O(1)），修复前每 frame 泄漏的定时器每 0.5s 一次 needsDisplay（已消除）；Rust Core 零改动，基准不重跑 |
 | 行结构语义收拢（T-072，ADR-026） | — | 无显著影响 | — | T-072 | 2026-08-03 | 调用等价替换：lineRanges(of:) 的 layout_line_starts + Swift 派生 改为 layout_line_ranges（同一次 Layout::build O(n)，仅多一次扁平化 O(行数)，缓存失效时一次）；查找（lineIndex 二分）与渲染路径零改动；Core 仅新增 bridge 适配函数，Layout 内部实现未变，基准不重跑 |
 | 光标 / 组合几何收拢（T-073，I-011 / I-014 / I-016） | — | 无显著影响 | — | T-073 | 2026-08-03 | 滚动路径减少重复 shaping：宽度测量按 contentVersion + 可见行窗口缓存，内容未变时复用（滚动事件由每事件全量 shaping 降为缓存命中）；渲染 / 编辑热路径算法不变（caret x/y 换算等价替换）；Core 零改动，基准不重跑 |
+| frame 域收拢（T-074，I-012 / I-013） | — | 无显著影响 | — | T-074 | 2026-08-03 | 纯 App 视图层重构：frame ↔ 文档关联从两套平行结构收拢为单一登记（查询 / 更新 O(frame 数)，窗口事件低频）；关闭决策上下文从实例字段改参数（零运行时变化）；Core 零改动，基准不重跑 |
 
 ## 测量规则
 

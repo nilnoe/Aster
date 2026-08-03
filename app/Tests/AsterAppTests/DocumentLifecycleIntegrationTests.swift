@@ -90,7 +90,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
 
     XCTAssertEqual(currentModel?.bufferText, "来自磁盘的内容")
     let frame = try XCTUnwrap(appDelegate.currentFrame)
-    XCTAssertEqual(appDelegate.frameFileName[frame], "opened.txt")
+    XCTAssertEqual(appDelegate.frameFileName(frame), "opened.txt")
   }
 
   /// T-059（T-024 前已知限制契约，ADR-013 v1.4）：打开第二个文件 = 视图切换，

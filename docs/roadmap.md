@@ -200,7 +200,7 @@
 - [x] T-073 光标 / 组合几何收拢（I-011 / I-014 / I-016）：caret x/y 公式收为
   一个 App 层纯函数（消除三文件四处重复 + scrollX 补偿不一致）；内容宽度测量与
   渲染共享 shaping 缓存；`EditorModel.lines` 标注测试专用或删除（Rule 12）
-- [ ] T-074 frame 域收拢（I-012 / I-013）：`FrameDocument`（frame + docId +
+- [x] T-074 frame 域收拢（I-012 / I-013）：`FrameDocument`（frame + docId +
   fileName）单一所有者；`closeDecisionDocId` 改显式参数（Rule 17 同型模式回潮
   处置）
 - [ ] T-075 文档内容单一事实来源（I-009，P0）：编辑会话 Buffer 与 Session 注册表

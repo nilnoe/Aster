@@ -33,7 +33,7 @@ class AppIntegrationTestCase: XCTestCase {
     /// 未决文档提示调用次数（BUG-017：无未决时关窗不得弹提示）。
     var pendingDocsAlertCount = 0
 
-    override func presentPendingDocsAlert() -> Int? {
+    override func presentPendingDocsAlert(closeDocumentId: UInt?) -> Int? {
       pendingDocsAlertCount += 1
       return pendingDocsReply
     }

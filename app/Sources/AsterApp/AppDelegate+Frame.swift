@@ -71,7 +71,7 @@ extension AppDelegate {
     let view = MetalView(frame: window.contentLayoutRect, model: model)
     view.onOpenFile = { [weak self] url in self?.open(url) }
     window.contentView = view
-    frames.append(window)
+    frameDocs.append(FrameDocument(window: window, documentId: id, fileName: nil))
     updateWindowTitle(window)
     window.center()
     window.makeKeyAndOrderFront(nil)

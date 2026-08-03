@@ -20,11 +20,11 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
 
     appDelegate.newFrame(nil)
 
-    XCTAssertEqual(appDelegate.frames.count, 2, "新建 Frame 后必须有两个 frame")
+    XCTAssertEqual(appDelegate.frameDocs.count, 2, "新建 Frame 后必须有两个 frame")
     // 测试进程不跑 run loop，makeKeyAndOrderFront 不更新 NSApp.keyWindow——
     // currentFrame 回退到第一个；这里显式取第二个 frame（生产环境 keyWindow
     // 即新 frame，语义一致）。
-    let second = appDelegate.frames[1]
+    let second = appDelegate.frameDocs[1].window
     XCTAssertFalse(second === first, "新 frame 必须是不同窗口")
     XCTAssertTrue(second.isVisible)
     let secondView = try XCTUnwrap(second.contentView as? MetalView)
@@ -44,7 +44,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     let first = try XCTUnwrap(appDelegate.currentFrame)
     let firstView = try XCTUnwrap(first.contentView as? MetalView)
     appDelegate.newFrame(nil)
-    let second = appDelegate.frames[1]
+    let second = appDelegate.frameDocs[1].window
     let secondView = try XCTUnwrap(second.contentView as? MetalView)
     let secondId = UInt(secondView.model.bufferIdValue)
 
@@ -63,7 +63,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testNewFrameDocumentAutoSavesToItsOwnBufferRow() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    let secondView = try XCTUnwrap(appDelegate.frameDocs[1].window.contentView as? MetalView)
     try secondView.model.typeText("自动保存内容")
     let id = UInt(secondView.model.bufferIdValue)
 
@@ -74,19 +74,19 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     )
   }
 
-  /// 关闭 frame 必须从 frames 登记移除（最后窗口关闭仍退出，既有语义）。
+  /// 关闭 frame 必须从 frameDocs 登记移除（最后窗口关闭仍退出，既有语义）。
   func testClosingFrameRemovesItFromFrames() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let second = appDelegate.frames[1]
-    XCTAssertEqual(appDelegate.frames.count, 2)
+    let second = appDelegate.frameDocs[1].window
+    XCTAssertEqual(appDelegate.frameDocs.count, 2)
 
     appDelegate.windowWillClose(
       Notification(name: NSWindow.willCloseNotification, object: second))
 
-    XCTAssertEqual(appDelegate.frames.count, 1, "关闭后 frame 必须从登记移除")
+    XCTAssertEqual(appDelegate.frameDocs.count, 1, "关闭后 frame 必须从登记移除")
     let remaining = try XCTUnwrap(appDelegate.currentFrame)
-    XCTAssertTrue(appDelegate.frames.first === remaining)
+    XCTAssertTrue(appDelegate.frameDocs.first?.window === remaining)
   }
 
   /// T-070（ADR-025）：关闭 frame 同时关闭其文档（Session 注册表移除）——
@@ -94,7 +94,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testClosingFrameClosesItsDocument() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let second = appDelegate.frames[1]
+    let second = appDelegate.frameDocs[1].window
     let secondId = UInt(
       (second.contentView as? MetalView)?.model.bufferIdValue ?? 0)
 
@@ -110,26 +110,26 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testClosingSecondFrameViaPerformCloseDoesNotHang() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let second = appDelegate.frames[1]
+    let second = appDelegate.frameDocs[1].window
 
     second.performClose(nil)
 
-    XCTAssertEqual(appDelegate.frames.count, 1, "关闭后 frame 必须移除")
-    XCTAssertTrue(appDelegate.frames[0].isVisible)
+    XCTAssertEqual(appDelegate.frameDocs.count, 1, "关闭后 frame 必须移除")
+    XCTAssertTrue(appDelegate.frameDocs[0].window.isVisible)
   }
 
   /// REPRO（临时）：B 有未决编辑时经 performClose 关闭（走保存决策）。
   func testClosingEditedSecondFrameViaPerformCloseDoesNotHang() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let second = appDelegate.frames[1]
+    let second = appDelegate.frameDocs[1].window
     let secondView = try XCTUnwrap(second.contentView as? MetalView)
     try secondView.model.typeText("未保存编辑")
     seamed.pendingDocsReply = 1
 
     second.performClose(nil)
 
-    XCTAssertEqual(appDelegate.frames.count, 1)
+    XCTAssertEqual(appDelegate.frameDocs.count, 1)
     XCTAssertTrue(pendingSet().isEmpty, "保存后未决清空")
   }
 
@@ -140,11 +140,11 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testClosedFrameStopsCaretBlinkTimer() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    let secondView = try XCTUnwrap(appDelegate.frameDocs[1].window.contentView as? MetalView)
     XCTAssertTrue(secondView.isCaretBlinkActive, "前置：光标闪烁激活")
 
-    appDelegate.frames[1].performClose(nil)
-    XCTAssertEqual(appDelegate.frames.count, 1)
+    appDelegate.frameDocs[1].window.performClose(nil)
+    XCTAssertEqual(appDelegate.frameDocs.count, 1)
 
     XCTAssertFalse(secondView.isCaretBlinkActive, "关闭后光标闪烁必须停止（保留环打断）")
   }
@@ -155,10 +155,10 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testWindowShouldCloseAllowStopsRenderingBeforeTeardown() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    let secondView = try XCTUnwrap(appDelegate.frameDocs[1].window.contentView as? MetalView)
     XCTAssertTrue(secondView.isCaretBlinkActive, "前置：新 frame 光标闪烁激活")
 
-    let allow = appDelegate.windowShouldClose(appDelegate.frames[1])
+    let allow = appDelegate.windowShouldClose(appDelegate.frameDocs[1].window)
 
     XCTAssertTrue(allow, "无未决时关窗必须放行")
     XCTAssertTrue(secondView.isClosing, "放行后必须置关闭态（禁止渲染）")
@@ -170,11 +170,11 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
   func testWindowShouldCloseCancelKeepsRenderingAlive() throws {
     launchApp()
     appDelegate.newFrame(nil)
-    let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
+    let secondView = try XCTUnwrap(appDelegate.frameDocs[1].window.contentView as? MetalView)
     try secondView.model.typeText("未保存")
     seamed.pendingDocsReply = nil  // 取消
 
-    let allow = appDelegate.windowShouldClose(appDelegate.frames[1])
+    let allow = appDelegate.windowShouldClose(appDelegate.frameDocs[1].window)
 
     XCTAssertFalse(allow, "取消必须保窗")
     XCTAssertFalse(secondView.isClosing, "取消后不得进入关闭态")

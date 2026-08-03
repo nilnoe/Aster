@@ -43,8 +43,8 @@ extension AppDelegate {
   ///
   /// 决策依据：close 由 AppKit 在本方法返回 true 后执行；取消返回 false 时窗口
   /// 保持打开，未决状态与缓冲行原样保留。
-  /// - 非最后窗口（T-070，BUG-019）：只决策该窗口的文档（closeDecisionDocId
-  ///   上下文），其他 frame 的未决不受本窗口关闭影响（关 B 只问 B）。
+  /// - 非最后窗口（T-070，BUG-019）：只决策该窗口的文档（closeDocumentId
+  ///   显式参数，T-074），其他 frame 的未决不受本窗口关闭影响（关 B 只问 B）。
   /// - **最后窗口（BUG-018 修复，2026-08-03）**：关最后一个窗口 = 退出，走
   ///   **全局**未决决策（含无窗口的孤儿未决——⌘N / ⌘O 替换当前模型后遗留、
   ///   崩溃忽略登记）。旧实现只检查该窗口文档，孤儿漏过：窗口先关 → 终止流程
@@ -55,15 +55,12 @@ extension AppDelegate {
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     guard let session else { return true }
     let allow: Bool
-    if frames.count <= 1 {
+    if frameDocs.count <= 1 {
       allow = resolvePendingDocs()
     } else {
-      guard let view = sender.contentView as? MetalView else { return true }
-      let id = UInt(view.model.bufferIdValue)
+      guard let id = frameDocumentId(for: sender) else { return true }
       if session_is_pending(session, id) {
-        closeDecisionDocId = id
-        defer { closeDecisionDocId = nil }
-        switch presentPendingDocsAlert() {
+        switch presentPendingDocsAlert(closeDocumentId: id) {
         case 1:
           allow = mergePendingDoc(id)
         case 0:
@@ -90,15 +87,16 @@ extension AppDelegate {
   /// 走既有退出流程。
   func windowWillClose(_ notification: Notification) {
     guard let frame = notification.object as? NSWindow else { return }
+    // T-074（I-013）：先取关闭文档 id 再移除登记（登记不变量由方法保证）。
+    let closingId = frameDocumentId(for: frame)
     // BUG-018：关闭 frame 时停止其 MetalView 光标闪烁——Timer 强持有 view
     // （保留环）且关闭后的窗口仍被 AppKit 保留，不停止则定时器无限期存活。
     (frame.contentView as? MetalView)?.stopCaretBlink()
-    frames.removeAll { $0 === frame }
-    frameFileName.removeValue(forKey: frame)
+    frameDocs.removeAll { $0.window === frame }
     // T-070（ADR-025）：关闭 frame = 文档生命周期结束——从 Session 注册表移除
     // （旧实现 DM 注册表随每次新建 / 打开永久增长，从不关闭）。
-    if let view = frame.contentView as? MetalView, let session {
-      _ = try? session_close_document(session, UInt(view.model.bufferIdValue))
+    if let closingId, let session {
+      _ = try? session_close_document(session, closingId)
     }
   }
 }
