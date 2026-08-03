@@ -77,7 +77,7 @@ pub fn editor_new(buffer: Buffer) -> Editor {
     Editor::new(buffer)
 }
 
-pub fn editor_text(editor: &Editor) -> &str {
+pub fn editor_text(editor: &Editor) -> String {
     editor.text()
 }
 
@@ -151,14 +151,11 @@ mod ffi {
         fn session_is_clean_exit(session: &Session) -> Result<bool, String>;
         fn session_set_clean_exit(session: &mut Session, clean: bool) -> Result<(), String>;
         fn session_buffered_ids(session: &Session) -> Vec<usize>;
-        fn session_open_scratch(session: &mut Session) -> Result<usize, String>;
+        fn session_open_scratch(session: &mut Session, seed: String) -> Result<usize, String>;
         fn session_open_disk(session: &mut Session, path: String) -> Result<usize, String>;
         fn session_text(session: &Session, id: usize) -> Result<String, String>;
-        fn session_content_changed(
-            session: &mut Session,
-            id: usize,
-            content: String,
-        ) -> Result<(), String>;
+        fn session_editor(session: &Session, id: usize) -> Result<Editor, String>;
+        fn session_content_changed(session: &mut Session, id: usize) -> Result<(), String>;
         fn session_save(session: &mut Session, id: usize) -> Result<(), String>;
         fn session_save_all(session: &mut Session) -> Result<(), String>;
         fn session_discard(session: &mut Session, id: usize) -> Result<(), String>;
@@ -172,7 +169,7 @@ mod ffi {
         fn session_prune_empty(session: &Session) -> Result<usize, String>;
         fn session_close_document(session: &mut Session, id: usize) -> Result<(), String>;
         fn editor_new(buffer: Buffer) -> Editor;
-        fn editor_text(editor: &Editor) -> &str;
+        fn editor_text(editor: &Editor) -> String;
         fn editor_selection_start(editor: &Editor) -> usize;
         fn editor_selection_end(editor: &Editor) -> usize;
         fn editor_selection_head(editor: &Editor) -> usize;

@@ -9,6 +9,7 @@
 //! - 错误映射为消息字符串（ADR-014 惯例）；`session_err` 保持关键短语稳定
 //!   （「存储未就绪」「文档没有可合并的快照」「not found」被 App 测试断言）。
 
+use crate::editor::Editor;
 use crate::session::Session;
 use crate::session_error::SessionError;
 
@@ -55,10 +56,11 @@ pub fn session_buffered_ids(session: &Session) -> Vec<usize> {
         .collect()
 }
 
-/// Cmd+N / 新 Frame / 恢复：注册 Scratch 文档并分配快照序号。
-pub fn session_open_scratch(session: &mut Session) -> Result<usize, String> {
+/// Cmd+N / 新 Frame / 恢复：注册 Scratch 文档并分配快照序号；`seed` 为启动
+/// 样例文本（Core 注入共享缓冲，不进历史 / 不置脏，ADR-027）。
+pub fn session_open_scratch(session: &mut Session, seed: String) -> Result<usize, String> {
     session
-        .open_scratch()
+        .open_scratch(&seed)
         .map(|id| id as usize)
         .map_err(session_err)
 }
@@ -73,21 +75,18 @@ pub fn session_open_disk(session: &mut Session, path: String) -> Result<usize, S
 
 /// 按 id 取注册文本（App 建 Editor 会话）；未知 id 显式报错。
 pub fn session_text(session: &Session, id: usize) -> Result<String, String> {
-    session
-        .text(id as u64)
-        .map(str::to_string)
-        .map_err(session_err)
+    session.text(id as u64).map_err(session_err)
 }
 
-/// 内容变更（onChange 唯一入口）：未决标记 + 缓冲自动保存（ADR-023 v1.3）。
-pub fn session_content_changed(
-    session: &mut Session,
-    id: usize,
-    content: String,
-) -> Result<(), String> {
-    session
-        .content_changed(id as u64, &content)
-        .map_err(session_err)
+/// 取文档编辑会话句柄（ADR-027）：与注册表共享 Buffer——编辑即注册表内容。
+pub fn session_editor(session: &Session, id: usize) -> Result<Editor, String> {
+    session.editor(id as u64).map_err(session_err)
+}
+
+/// 内容变更（onChange 唯一入口）：未决标记 + 缓冲自动保存（ADR-023 v1.3）；
+/// 内容直接读注册表活文（ADR-027：App 不再推全文过 Bridge）。
+pub fn session_content_changed(session: &mut Session, id: usize) -> Result<(), String> {
+    session.content_changed(id as u64).map_err(session_err)
 }
 
 /// Cmd+S：合并缓冲内容 → 当前快照（提交 / 固化）。

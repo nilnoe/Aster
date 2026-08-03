@@ -216,10 +216,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     guard let frame = currentFrame, let session else { return }
     do {
       let id = UInt(try session_open_disk(session, url.path))
-      let text = try session_text(session, id).toString()
-      let buffer = Buffer(BufferId(UInt64(id)))
-      _ = try buffer_insert(buffer, 0, text)
-      let model = makeModel(buffer, in: frame)
+      let editor = try session_editor(session, id)
+      let model = makeModel(editor, bufferId: id, in: frame)
       if let view = frame.contentView as? MetalView {
         view.load(model)
       }
@@ -239,8 +237,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 只在 open() 接线导致的「默认文档无 dirty / 无退出保护」；T-069 多 Frame
   /// 下弱捕获 frame，编辑各自文档状态互不污染，且避免 frame→view→model→
   /// closure→frame 循环保留。
-  func makeModel(_ buffer: Buffer, in frame: NSWindow) -> EditorModel {
-    let model = EditorModel(buffer: buffer)
+  func makeModel(_ editor: Editor, bufferId: UInt, in frame: NSWindow) -> EditorModel {
+    let model = EditorModel(editor: editor, bufferId: UInt64(bufferId))
     model.onChange = { [weak self, weak frame] in
       guard let frame else { return }
       self?.onContentChanged(in: frame)

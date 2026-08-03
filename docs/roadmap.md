@@ -203,7 +203,7 @@
 - [x] T-074 frame 域收拢（I-012 / I-013）：`FrameDocument`（frame + docId +
   fileName）单一所有者；`closeDecisionDocId` 改显式参数（Rule 17 同型模式回潮
   处置）
-- [~] T-075 文档内容单一事实来源（I-009，P0，ADR-027；用户 2026-08-03 确认
+- [x] T-075 文档内容单一事实来源（I-009，P0，ADR-027；用户 2026-08-03 确认
   方向②）：注册表与编辑会话共享同一 Buffer（`Rc<RefCell<Buffer>>`），结构上
   消除双副本失鲜；`content_changed` 删文本参数（Core 读活文，消除每键全量文本
   流）；App 不再构造 Buffer（`session_open_scratch(seed)` / `session_editor`）；

@@ -91,8 +91,10 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
         appDelegate.discardAllPending()
       default:  // 崩溃恢复：经 Session 真实路径播种（T-070：不开假 id）——
         // 新文档编辑写缓冲 → 哨兵置非干净 → 恢复 / 忽略随机。
-        let docId = UInt(try session_open_scratch(session))
-        try session_content_changed(session, docId, "崩溃内容\(step)")
+        let docId = UInt(try session_open_scratch(session, ""))
+        let editor = try session_editor(session, docId)
+        _ = try editor_type_text(editor, "崩溃内容\(step)")
+        try session_content_changed(session, docId)
         try session_set_clean_exit(session, false)
         appDelegate.needsRecoveryPrompt = true
         let restore = rng.nextInt(2)

@@ -50,8 +50,8 @@ fn replace_snapshot_with_dir(dir: &PathBuf, seq: i64) {
 fn open_scratch_assigns_unique_snapshot_and_stays_clean() {
     let dir = temp_dir("scratch");
     let mut s = Session::open(&dir);
-    let a = s.open_scratch().unwrap();
-    let b = s.open_scratch().unwrap();
+    let a = s.open_scratch("").unwrap();
+    let b = s.open_scratch("").unwrap();
     assert_eq!(s.snapshot_seq(a).unwrap(), 1);
     assert_eq!(s.snapshot_seq(b).unwrap(), 2);
     assert!(s.pending_ids().is_empty(), "新文档不置脏");
@@ -62,8 +62,10 @@ fn open_scratch_assigns_unique_snapshot_and_stays_clean() {
 fn content_changed_marks_pending_and_writes_buffer_row() {
     let dir = temp_dir("dirty");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "编辑内容").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("编辑内容").unwrap();
+    s.content_changed(id).unwrap();
     assert_eq!(s.pending_ids(), vec![id], "编辑后必须未决");
     assert_eq!(s.buffered_ids(), vec![id], "不变量：未决 ⟺ 缓冲行");
     assert_eq!(s.load_buffered(id).unwrap(), "编辑内容");
@@ -73,10 +75,13 @@ fn content_changed_marks_pending_and_writes_buffer_row() {
 fn content_changed_back_to_committed_clears_pending_and_row() {
     let dir = temp_dir("undo");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "X").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("X").unwrap();
+    s.content_changed(id).unwrap();
     // undo 回到与快照一致的 ""（BUG-012：内容 == 基线 → 不置脏）。
-    s.content_changed(id, "").unwrap();
+    editor.undo().unwrap();
+    s.content_changed(id).unwrap();
     assert!(s.pending_ids().is_empty(), "回到基线不得假 dirty");
     assert!(s.buffered_ids().is_empty(), "冗余缓冲行必须删除");
 }
@@ -85,8 +90,10 @@ fn content_changed_back_to_committed_clears_pending_and_row() {
 fn save_merges_buffer_into_snapshot_and_clears_state() {
     let dir = temp_dir("save");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "保存的内容").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("保存的内容").unwrap();
+    s.content_changed(id).unwrap();
     s.save(id).unwrap();
     assert!(s.pending_ids().is_empty());
     assert!(s.buffered_ids().is_empty());
@@ -103,8 +110,10 @@ fn save_merges_buffer_into_snapshot_and_clears_state() {
 fn save_failure_preserves_buffer_row_and_pending() {
     let dir = temp_dir("savefail");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "必须不丢").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("必须不丢").unwrap();
+    s.content_changed(id).unwrap();
     let seq = s.snapshot_seq(id).unwrap() as i64;
     replace_snapshot_with_dir(&dir, seq);
 
@@ -117,10 +126,14 @@ fn save_failure_preserves_buffer_row_and_pending() {
 fn save_all_merges_multiple_docs_in_id_order() {
     let dir = temp_dir("saveall");
     let mut s = Session::open(&dir);
-    let a = s.open_scratch().unwrap();
-    let b = s.open_scratch().unwrap();
-    s.content_changed(a, "文档A").unwrap();
-    s.content_changed(b, "文档B").unwrap();
+    let a = s.open_scratch("").unwrap();
+    let b = s.open_scratch("").unwrap();
+    let mut ea = s.editor(a).unwrap();
+    ea.type_text("文档A").unwrap();
+    s.content_changed(a).unwrap();
+    let mut eb = s.editor(b).unwrap();
+    eb.type_text("文档B").unwrap();
+    s.content_changed(b).unwrap();
     s.save_all().unwrap();
     assert!(s.pending_ids().is_empty());
     assert!(s.buffered_ids().is_empty());
@@ -134,8 +147,10 @@ fn save_all_merges_multiple_docs_in_id_order() {
 fn discard_removes_row_and_pending() {
     let dir = temp_dir("discard");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "丢弃内容").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("丢弃内容").unwrap();
+    s.content_changed(id).unwrap();
     s.discard(id).unwrap();
     assert!(s.pending_ids().is_empty());
     assert!(
@@ -149,8 +164,10 @@ fn discard_all_clears_every_doc() {
     let dir = temp_dir("discardall");
     let mut s = Session::open(&dir);
     for i in 0..3 {
-        let id = s.open_scratch().unwrap();
-        s.content_changed(id, &format!("内容{i}")).unwrap();
+        let id = s.open_scratch("").unwrap();
+        let mut editor = s.editor(id).unwrap();
+        editor.type_text(&format!("内容{i}")).unwrap();
+        s.content_changed(id).unwrap();
     }
     s.discard_all().unwrap();
     assert!(s.pending_ids().is_empty());
@@ -166,9 +183,12 @@ fn open_disk_uses_file_content_as_committed_baseline() {
     let id = s.open_disk(file.to_str().unwrap()).unwrap();
     assert_eq!(s.text(id).unwrap(), "磁盘原文");
     // 编辑后回到原文 = undo 到基线 → 不置脏（T-070 修正：旧基线 "" 会假 dirty）。
-    s.content_changed(id, "改动").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("改动").unwrap();
+    s.content_changed(id).unwrap();
     assert_eq!(s.pending_ids(), vec![id]);
-    s.content_changed(id, "磁盘原文").unwrap();
+    editor.undo().unwrap();
+    s.content_changed(id).unwrap();
     assert!(s.pending_ids().is_empty(), "undo 回磁盘原文不得置脏");
 }
 
@@ -197,10 +217,14 @@ fn crash_recovery_roundtrip_via_new_session() {
     let dir = temp_dir("crash");
     {
         let mut s = Session::open(&dir);
-        let a = s.open_scratch().unwrap();
-        s.content_changed(a, "旧文档").unwrap();
-        let b = s.open_scratch().unwrap();
-        s.content_changed(b, "最新文档").unwrap();
+        let a = s.open_scratch("").unwrap();
+        let mut ea = s.editor(a).unwrap();
+        ea.type_text("旧文档").unwrap();
+        s.content_changed(a).unwrap();
+        let b = s.open_scratch("").unwrap();
+        let mut eb = s.editor(b).unwrap();
+        eb.type_text("最新文档").unwrap();
+        s.content_changed(b).unwrap();
         s.set_clean_exit(false).unwrap();
     } // 丢弃 session = 模拟崩溃（缓冲行与哨兵落盘）
 
@@ -234,7 +258,7 @@ fn clean_exit_sentinel_roundtrip() {
 fn close_document_removes_doc_from_registry() {
     let dir = temp_dir("close");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
+    let id = s.open_scratch("").unwrap();
     s.close_document(id).unwrap();
     assert!(!s.is_pending(id));
     assert!(s.text(id).is_err(), "关闭后文档不可再访问");
@@ -248,8 +272,10 @@ fn storage_broken_still_allows_editing_but_save_reports_unready() {
     std::fs::write(&blocker, "不是目录").unwrap();
     let mut s = Session::open(&dir);
     assert!(s.store_error().is_some(), "启动必须携带失败消息（T-054）");
-    let id = s.open_scratch().unwrap(); // 快照创建失败容忍：seq 为 None
-    s.content_changed(id, "可编辑").unwrap();
+    let id = s.open_scratch("").unwrap(); // 快照创建失败容忍：seq 为 None
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("可编辑").unwrap();
+    s.content_changed(id).unwrap();
     assert!(s.pending_ids() == vec![id], "存储故障下编辑仍置脏");
     assert!(s.buffered_ids().is_empty(), "无缓冲可写");
     assert!(matches!(
@@ -262,8 +288,45 @@ fn storage_broken_still_allows_editing_but_save_reports_unready() {
 fn save_requires_pending_doc_to_have_snapshot_seq() {
     let dir = temp_dir("noseq");
     let mut s = Session::open(&dir);
-    let id = s.open_scratch().unwrap();
-    s.content_changed(id, "内容").unwrap();
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("内容").unwrap();
+    s.content_changed(id).unwrap();
     assert!(s.snapshot_seq(id).is_ok());
     assert!(s.snapshot_seq(999).is_err(), "未知文档显式报错");
+}
+
+#[test]
+fn single_buffer_editor_edits_are_visible_via_session_text() {
+    // I-009 / ADR-027：注册表与编辑会话共享同一 Buffer——编辑后 session_text
+    // 必须返回最新内容（旧双副本实现下注册表副本永久失鲜）。
+    let dir = temp_dir("singlebuf");
+    let mut s = Session::open(&dir);
+    let id = s.open_scratch("").unwrap();
+    let mut editor = s.editor(id).unwrap();
+    editor.type_text("编辑后内容").unwrap();
+    assert_eq!(
+        s.text(id).unwrap(),
+        "编辑后内容",
+        "共享 Buffer：注册表读到的必须是最新内容"
+    );
+    s.content_changed(id).unwrap();
+    assert_eq!(
+        s.load_buffered(id).unwrap(),
+        "编辑后内容",
+        "持久化直接读活文"
+    );
+}
+
+#[test]
+fn open_scratch_seed_lands_in_shared_buffer_without_dirty() {
+    // ADR-027：启动样例文本由 Core 注入（session_open_scratch(seed)），
+    // 不进历史 / 不置脏——与旧 App 侧 buffer_insert 直插语义一致。
+    let dir = temp_dir("seed");
+    let mut s = Session::open(&dir);
+    let id = s.open_scratch("你好，世界\n第二行").unwrap();
+    assert_eq!(s.text(id).unwrap(), "你好，世界\n第二行");
+    assert!(s.pending_ids().is_empty(), "seed 不置脏");
+    let editor = s.editor(id).unwrap();
+    assert_eq!(editor.text(), "你好，世界\n第二行", "Editor 与注册表同源");
 }

@@ -37,6 +37,14 @@ final class EditorModel {
     self.editor = editor_new(buffer)
   }
 
+  /// 生产路径构造（T-075，ADR-027）：编辑会话与注册表共享同一 Buffer——
+  /// 编辑即注册表内容，App 不再自行构造 Buffer（I-009 双副本消除）。
+  /// `bufferId` 来自 Session 登记（open_scratch / open_disk 返回值）。
+  init(editor: Editor, bufferId: UInt64) {
+    self.bufferId = bufferId
+    self.editor = editor
+  }
+
   // MARK: - 渲染状态
 
   var bufferText: String { editor_text(editor).toString() }
@@ -250,29 +258,6 @@ final class EditorModel {
 
   func setSelection(anchor: Int, head: Int) {
     editor_set_selection(editor, UInt(anchor), UInt(head))
-  }
-
-  // MARK: - UTF-16 ↔ UTF-8（IME 区间是 UTF-16 语义，Core 是字节，ADR-017）
-
-  func byteRange(fromUTF16 range: NSRange) -> Range<Int> {
-    let text = bufferText
-    let start = Self.byteOffset(ofUTF16: range.location, in: text)
-    let end = Self.byteOffset(ofUTF16: range.location + range.length, in: text)
-    return start..<end
-  }
-
-  func utf16Range(fromByteRange range: Range<Int>) -> NSRange {
-    let text = bufferText
-    let start = text.utf8.index(text.utf8.startIndex, offsetBy: range.lowerBound)
-    let end = text.utf8.index(text.utf8.startIndex, offsetBy: range.upperBound)
-    let location = text.utf16.distance(from: text.utf16.startIndex, to: start)
-    let length = text.utf16.distance(from: start, to: end)
-    return NSRange(location: location, length: length)
-  }
-
-  static func byteOffset(ofUTF16 utf16Offset: Int, in text: String) -> Int {
-    let index = text.utf16.index(text.utf16.startIndex, offsetBy: utf16Offset)
-    return text.utf8.distance(from: text.utf8.startIndex, to: index)
   }
 
   /// 把 Core 返回的扁平 start/end 对机械分块为行区间（ADR-026）。

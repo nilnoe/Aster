@@ -184,9 +184,10 @@ extension AppDelegate {
   /// 旧全局布尔跨文档吞提示）。
   func onContentChanged(in frame: NSWindow) {
     guard let id = frameDocumentId(for: frame), let session else { return }
-    guard let view = frame.contentView as? MetalView else { return }
     do {
-      try session_content_changed(session, id, view.model.bufferText)
+      // T-075（ADR-027）：内容直接读注册表活文（共享 Buffer）——不再把全文
+      // 推过 Bridge（消除每键 O(n) 桥接拷贝）。
+      try session_content_changed(session, id)
     } catch {
       NSLog("缓冲自动保存失败：\(error)")
       presentSaveError("自动保存失败：\(errorText(error))。当前编辑内容只存在于内存，崩溃或意外退出将丢失。")

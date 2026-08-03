@@ -20,8 +20,11 @@ extension AppDelegate {
     makeFrame()
   }
 
-  /// 打开新 Scratch 文档（Session 登记 + 快照序号），返回文档 id。
-  func openScratchDoc() throws -> UInt {
+  /// 新 Scratch 文档（⌘N / 新建 Frame / 崩溃恢复共用）：Session 登记 + 按
+  /// frame 接线的模型（T-041 统一接线：启动默认与打开的文件同一条路径）。
+  /// `seed` = 启动样例文本（T-075，ADR-027：Core 注入共享缓冲，不进历史 /
+  /// 不置脏）；空串 = 空白文档。
+  func makeScratchModel(in frame: NSWindow, seed: String = "") throws -> EditorModel {
     guard let session else {
       // 防御：setupStorage 先于任何 frame 创建（启动顺序），正常不可达；
       // ADR-004 精神：失败可见而非 force unwrap。
@@ -29,15 +32,9 @@ extension AppDelegate {
         domain: "Aster", code: 1,
         userInfo: [NSLocalizedDescriptionKey: "存储未就绪"])
     }
-    return UInt(try session_open_scratch(session))
-  }
-
-  /// 新 Scratch 文档（⌘N / 新建 Frame / 崩溃恢复共用）：Session 登记 + 按
-  /// frame 接线的模型（T-041 统一接线：启动默认与打开的文件同一条路径）。
-  func makeScratchModel(in frame: NSWindow) throws -> EditorModel {
-    let id = try openScratchDoc()
-    let buffer = Buffer(BufferId(UInt64(id)))
-    return makeModel(buffer, in: frame)
+    let id = UInt(try session_open_scratch(session, seed))
+    let editor = try session_editor(session, id)
+    return makeModel(editor, bufferId: id, in: frame)
   }
 
   /// 创建 Frame（启动与 ⌘⇧N 共用，T-069）。
@@ -55,23 +52,19 @@ extension AppDelegate {
     // BUG-017：关闭按钮必须经 windowShouldClose 拦截未决文档决策，
     // 否则窗口先关、提示后弹，取消后无窗口导致终止流程反复重触发。
     window.delegate = self
-    let id: UInt
+    let model: EditorModel
     do {
-      id = try openScratchDoc()
+      model = try makeScratchModel(in: window, seed: seedContent)
     } catch {
       NSLog("新建 Frame 失败：\(error)")
       presentSaveError("新建 Frame 失败：\(error)")
       return nil
     }
-    let buffer = Buffer(BufferId(UInt64(id)))
-    if !seedContent.isEmpty {
-      _ = try? buffer_insert(buffer, 0, seedContent)
-    }
-    let model = makeModel(buffer, in: window)
     let view = MetalView(frame: window.contentLayoutRect, model: model)
     view.onOpenFile = { [weak self] url in self?.open(url) }
     window.contentView = view
-    frameDocs.append(FrameDocument(window: window, documentId: id, fileName: nil))
+    frameDocs.append(
+      FrameDocument(window: window, documentId: UInt(model.bufferIdValue), fileName: nil))
     updateWindowTitle(window)
     window.center()
     window.makeKeyAndOrderFront(nil)

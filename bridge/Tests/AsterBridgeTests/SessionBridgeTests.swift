@@ -24,12 +24,14 @@ final class SessionBridgeTests: XCTestCase {
   func testOpenScratchThenContentChangedSaveRoundtrip() throws {
     let dir = makeTempDir("merge")
     let session = session_new(dir)
-    let id1 = try session_open_scratch(session)
-    let id2 = try session_open_scratch(session)
+    let id1 = try session_open_scratch(session, "")
+    let id2 = try session_open_scratch(session, "")
     XCTAssertEqual(id2, id1 + 1, "Cmd+N 每次创建新文档，id 递增")
     XCTAssertEqual(try session_snapshot_seq(session, id2), 2, "快照序号递增")
 
-    try session_content_changed(session, id2, "合并后的内容 你好")
+    let editor = try session_editor(session, id2)
+    _ = try editor_type_text(editor, "合并后的内容 你好")
+    try session_content_changed(session, id2)
     XCTAssertTrue(session_is_pending(session, id2), "编辑后未决")
     try session_save(session, id2)
     XCTAssertFalse(session_is_pending(session, id2), "保存后未决清空")
@@ -52,8 +54,10 @@ final class SessionBridgeTests: XCTestCase {
   func testBufferAutoSaveRoundtripAcrossSessions() throws {
     let dir = makeTempDir("buffer")
     let session = session_new(dir)
-    let id = try session_open_scratch(session)
-    try session_content_changed(session, id, "未按保存的编辑内容")
+    let id = try session_open_scratch(session, "")
+    let editor = try session_editor(session, id)
+    _ = try editor_type_text(editor, "未按保存的编辑内容")
+    try session_content_changed(session, id)
 
     let reopened = session_new(dir)
     XCTAssertEqual(try session_load_buffered(reopened, id).toString(), "未按保存的编辑内容")
@@ -70,8 +74,10 @@ final class SessionBridgeTests: XCTestCase {
 
     // 缺省 = 异常退出（崩溃语义）。
     XCTAssertFalse(try session_is_clean_exit(session))
-    let id = try session_open_scratch(session)
-    try session_content_changed(session, id, "崩溃前的编辑")
+    let id = try session_open_scratch(session, "")
+    let editor = try session_editor(session, id)
+    _ = try editor_type_text(editor, "崩溃前的编辑")
+    try session_content_changed(session, id)
     XCTAssertEqual(Array(session_buffered_ids(session)), [id], "缓冲文档可枚举")
     try session_set_clean_exit(session, true)
     XCTAssertTrue(try session_is_clean_exit(session), "干净退出哨兵")
@@ -85,8 +91,10 @@ final class SessionBridgeTests: XCTestCase {
   func testDiscardRemovesRowAfterCommit() throws {
     let dir = makeTempDir("delete")
     let session = session_new(dir)
-    let id = try session_open_scratch(session)
-    try session_content_changed(session, id, "已提交内容")
+    let id = try session_open_scratch(session, "")
+    let editor = try session_editor(session, id)
+    _ = try editor_type_text(editor, "已提交内容")
+    try session_content_changed(session, id)
     try session_discard(session, id)
 
     XCTAssertTrue(Array(session_buffered_ids(session)).isEmpty, "缓冲已无该文档")
@@ -98,9 +106,11 @@ final class SessionBridgeTests: XCTestCase {
   func testPruneEmptyRemovesOnlyEmptySnapshots() throws {
     let dir = makeTempDir("prune")
     let session = session_new(dir)
-    _ = try session_open_scratch(session)  // 001 空快照
-    let second = try session_open_scratch(session)
-    try session_content_changed(session, second, "有内容")
+    _ = try session_open_scratch(session, "")  // 001 空快照
+    let second = try session_open_scratch(session, "")
+    let editor = try session_editor(session, second)
+    _ = try editor_type_text(editor, "有内容")
+    try session_content_changed(session, second)
     try session_save(session, second)
 
     let deleted = try session_prune_empty(session)
@@ -139,8 +149,8 @@ final class SessionBridgeTests: XCTestCase {
   func testOpenScratchAllocatesDistinctIds() throws {
     let dir = makeTempDir("scratchids")
     let session = session_new(dir)
-    let a = try session_open_scratch(session)
-    let b = try session_open_scratch(session)
+    let a = try session_open_scratch(session, "")
+    let b = try session_open_scratch(session, "")
     XCTAssertEqual(a, 1, "首个 Scratch id 从 1 开始（ADR-001）")
     XCTAssertEqual(b, 2)
     XCTAssertNotEqual(a, b)
@@ -156,5 +166,32 @@ final class SessionBridgeTests: XCTestCase {
     XCTAssertTrue(session_is_pending(session, 5))
     XCTAssertEqual(try session_snapshot_seq(session, 5), seq)
     XCTAssertEqual(try session_register_buffered(session, 5), seq, "已登记保留原序号")
+  }
+
+  /// ADR-027（I-009）：编辑会话与注册表共享同一 Buffer——经 Bridge 编辑后
+  /// session_text 必须读到最新内容（旧双副本下注册表副本失鲜）。
+  func testSessionEditorSharesBufferWithRegistry() throws {
+    let dir = makeTempDir("shared")
+    let session = session_new(dir)
+    let id = try session_open_scratch(session, "")
+    let editor = try session_editor(session, id)
+
+    _ = try editor_type_text(editor, "桥接编辑内容")
+
+    XCTAssertEqual(
+      try session_text(session, id).toString(), "桥接编辑内容",
+      "注册表必须读到编辑后内容（ADR-027 单 Buffer）"
+    )
+    try session_content_changed(session, id)
+    XCTAssertEqual(try session_load_buffered(session, id).toString(), "桥接编辑内容")
+  }
+
+  /// ADR-027：启动样例文本经 session_open_scratch(seed) 注入，不置脏。
+  func testOpenScratchSeedInjectsWithoutDirty() throws {
+    let dir = makeTempDir("seed")
+    let session = session_new(dir)
+    let id = try session_open_scratch(session, "启动样例")
+    XCTAssertEqual(try session_text(session, id).toString(), "启动样例")
+    XCTAssertFalse(session_is_pending(session, id), "seed 不置脏")
   }
 }

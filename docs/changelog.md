@@ -10,6 +10,22 @@
 
 ## [Unreleased]
 
+### Changed — 2026-08-03（T-075，文档内容单一事实来源，ADR-027）
+
+- feat(core)：`DocumentManager` 注册表与 `Editor` 共享同一 Buffer
+  （`Rc<RefCell<Buffer>>`）——编辑即注册表内容，结构上消除双副本失鲜（I-009）；
+  `Session::editor` 工厂 + `open_scratch(seed)`（Core 注入启动样例，不进历史 /
+  不置脏）+ `content_changed` 删文本参数（Core 读活文）。
+- perf(app)：`onChange` 不再把全文推过 Bridge——每键 O(n) 桥接拷贝消失
+  （ADR-006 v1.1 热点 1 结构性消除）。
+- refactor(app)：App 不再构造 Buffer（open / makeFrame 走 `session_editor`）；
+  `EditorModel` 新增 `init(editor:bufferId:)`。
+- API 修订：`Editor::text()` / `Session::text()` 返回 `String`（ADR-017 v1.1）；
+  Bridge FFI 51 → 52（`session_editor` +1，ADR-024 机械计数）。
+- test：Core +2（共享缓冲保鲜 / seed 注入）、Bridge +2（FFI 级同契约）；App
+  既有 121 全绿（生命周期 / 关闭流 / 崩溃恢复 / 状态机不变量全部经新路径）；
+  Core 150 全绿；fmt / clippy / swift-format 零告警。
+
 ### Added — 2026-08-03（ADR-027，文档内容单一事实来源，T-075）
 
 - [ADR-027](../docs/adr/ADR-027-single-buffer.md) — 单 Buffer 共享所有权

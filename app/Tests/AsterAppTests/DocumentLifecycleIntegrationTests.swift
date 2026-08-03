@@ -133,8 +133,10 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
 final class AppExitFlowIntegrationTests: AppIntegrationTestCase {
   /// 经 Session 真实路径播种未决文档（T-070：不再手写三张账本）。
   private func seedPendingDoc(_ text: String) throws -> UInt {
-    let id = UInt(try session_open_scratch(appSession))
-    try session_content_changed(appSession, id, text)
+    let id = UInt(try session_open_scratch(appSession, ""))
+    let editor = try session_editor(appSession, id)
+    _ = try editor_type_text(editor, text)
+    try session_content_changed(appSession, id)
     return id
   }
 

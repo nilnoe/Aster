@@ -13,6 +13,8 @@ use crate::error::BufferError;
 use crate::history::{EditOp, History};
 use crate::layout::Layout;
 use crate::selection::Selection;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// 光标移动方向（ADR-017）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,7 +31,9 @@ pub enum Movement {
 
 /// 编辑会话：一次编辑操作的完整状态。
 pub struct Editor {
-    buffer: Buffer,
+    /// 共享缓冲（ADR-027）：注册表（DocumentManager）与编辑会话持有同一 Rc——
+    /// 编辑即注册表内容，结构上不存在第二份副本（I-009 双副本消除）。
+    buffer: Rc<RefCell<Buffer>>,
     selection: Selection,
     history: History,
 }
@@ -37,14 +41,29 @@ pub struct Editor {
 impl Editor {
     pub fn new(buffer: Buffer) -> Self {
         Self {
+            buffer: Rc::new(RefCell::new(buffer)),
+            selection: Selection::new(0),
+            history: History::new(),
+        }
+    }
+
+    /// 以共享缓冲构造（ADR-027）：Session 工厂经此把注册表缓冲交给编辑会话。
+    /// `pub(crate)` 不构成公共 API（Rule 12）。
+    pub(crate) fn from_shared(buffer: Rc<RefCell<Buffer>>) -> Self {
+        Self {
             buffer,
             selection: Selection::new(0),
             history: History::new(),
         }
     }
 
-    pub fn text(&self) -> &str {
-        self.buffer.text()
+    /// 当前文本（副本）。
+    ///
+    /// 决策依据（ADR-027 v1.1）：缓冲经 RefCell 共享，`&str` 无法跨守卫返回，
+    /// 返回 `String`；App 侧原本就经 Bridge 拷贝消费（RustString → String），
+    /// 无新增成本；Core 内部编辑路径经 `borrow_mut` 零拷贝操作。
+    pub fn text(&self) -> String {
+        self.buffer.borrow().text().to_string()
     }
 
     pub fn selection(&self) -> Selection {
@@ -52,7 +71,7 @@ impl Editor {
     }
 
     pub fn buffer_id(&self) -> BufferId {
-        self.buffer.id()
+        self.buffer.borrow().id()
     }
 
     /// 用 `s` 替换选区；选区折叠时等价于光标处插入。
@@ -66,16 +85,17 @@ impl Editor {
             return Ok(None);
         }
         let op = if start == end {
-            self.buffer.insert(start, s)?;
+            self.buffer.borrow_mut().insert(start, s)?;
             EditOp::Insert {
                 at: start,
                 text: s.to_string(),
             }
         } else {
-            let deleted = self.buffer.text()[start..end].to_string();
-            self.buffer.delete(start, end)?;
+            let mut buffer = self.buffer.borrow_mut();
+            let deleted = buffer.text()[start..end].to_string();
+            buffer.delete(start, end)?;
             // 决策依据：start 已由 delete 验证为边界，插入不可能失败（见 apply 同款注释）。
-            self.buffer.insert(start, s)?;
+            buffer.insert(start, s)?;
             EditOp::Replace {
                 at: start,
                 end,
@@ -93,14 +113,16 @@ impl Editor {
         let start = self.selection.start();
         let end = self.selection.end();
         let (at, deleted) = if start != end {
-            (start, self.buffer.text()[start..end].to_string())
+            let buffer = self.buffer.borrow();
+            (start, buffer.text()[start..end].to_string())
         } else if start > 0 {
-            let prev = prev_char_boundary(self.buffer.text(), start);
-            (prev, self.buffer.text()[prev..start].to_string())
+            let buffer = self.buffer.borrow();
+            let prev = prev_char_boundary(buffer.text(), start);
+            (prev, buffer.text()[prev..start].to_string())
         } else {
             return Ok(None);
         };
-        self.buffer.delete(at, at + deleted.len())?;
+        self.buffer.borrow_mut().delete(at, at + deleted.len())?;
         let op = EditOp::Delete { at, text: deleted };
         self.history.record(op.clone());
         self.selection.collapse(at);
@@ -109,7 +131,8 @@ impl Editor {
 
     /// 移动光标；`extend` 为 Shift 扩展语义（保留锚点，ADR-007）。
     pub fn move_cursor(&mut self, movement: Movement, extend: bool) {
-        let text = self.buffer.text();
+        let buffer = self.buffer.borrow();
+        let text = buffer.text();
         let len = text.len();
         let head = self.selection.head();
         let new_head = match movement {
@@ -156,7 +179,7 @@ impl Editor {
     }
 
     pub fn undo(&mut self) -> Result<bool, BufferError> {
-        let Some(op) = self.history.undo(&mut self.buffer)? else {
+        let Some(op) = self.history.undo(&mut self.buffer.borrow_mut())? else {
             return Ok(false);
         };
         self.collapse_after(&op, false);
@@ -164,7 +187,7 @@ impl Editor {
     }
 
     pub fn redo(&mut self) -> Result<bool, BufferError> {
-        let Some(op) = self.history.redo(&mut self.buffer)? else {
+        let Some(op) = self.history.redo(&mut self.buffer.borrow_mut())? else {
             return Ok(false);
         };
         self.collapse_after(&op, true);
@@ -172,7 +195,7 @@ impl Editor {
     }
 
     pub fn select_all(&mut self) {
-        self.selection = Selection::new_range(0, self.buffer.len());
+        self.selection = Selection::new_range(0, self.buffer.borrow().len());
     }
 
     /// 直接设置选区（anchor, head）；越界 / 非字符边界输入被钳制。
@@ -180,8 +203,9 @@ impl Editor {
     /// 决策依据：IME 替换区间与鼠标定位需要任意区间选择，移动命令无法表达；
     /// 只修几何不产生历史记录（不是编辑操作）。
     pub fn set_selection(&mut self, anchor: usize, head: usize) {
-        let len = self.buffer.len();
-        let text = self.buffer.text();
+        let buffer = self.buffer.borrow();
+        let len = buffer.len();
+        let text = buffer.text();
         let anchor = text.floor_char_boundary(anchor.min(len));
         let head = text.floor_char_boundary(head.min(len));
         self.selection = Selection::new_range(anchor, head);
@@ -206,7 +230,7 @@ impl Editor {
                 }
             }
         };
-        self.selection.collapse(at.min(self.buffer.len()));
+        self.selection.collapse(at.min(self.buffer.borrow().len()));
     }
 }
 

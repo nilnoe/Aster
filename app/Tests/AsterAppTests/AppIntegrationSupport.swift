@@ -105,8 +105,10 @@ class AppIntegrationTestCase: XCTestCase {
     let session = session_new(storeDir)
     var ids: [UInt] = []
     for text in texts {
-      let id = UInt(try session_open_scratch(session))
-      try session_content_changed(session, id, text)
+      let id = UInt(try session_open_scratch(session, ""))
+      let editor = try session_editor(session, id)
+      _ = try editor_type_text(editor, text)
+      try session_content_changed(session, id)
       ids.append(id)
     }
     try session_set_clean_exit(session, false)

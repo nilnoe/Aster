@@ -6,9 +6,11 @@
 //! - 本模块只负责注册、生命周期与存储目标绑定；布局、渲染、命令分发不进入本模块（SRP）。
 //! - 激活状态（active buffer）由 T-013 决定，本模块不锁定。
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::buffer::{Buffer, BufferId};
 
@@ -42,7 +44,9 @@ pub enum DocumentManagerError {
 #[cfg_attr(not(test), expect(dead_code))]
 #[derive(Debug)]
 struct Document {
-    buffer: Buffer,
+    /// 共享句柄（ADR-027）：Editor 与注册表持有同一 Rc——编辑即注册表内容，
+    /// 结构上不存在第二份副本（I-009）；RefCell 借用均在单个方法调用内短命。
+    buffer: Rc<RefCell<Buffer>>,
     /// `None` 表示 Scratch（无路径）；`Some` 表示绑定磁盘文件。
     path: Option<PathBuf>,
 }
@@ -92,8 +96,27 @@ impl DocumentManager {
                 .expect("empty buffer accepts insert at offset 0");
         }
 
-        self.documents.insert(id, Document { buffer, path });
+        self.documents.insert(
+            id,
+            Document {
+                buffer: Rc::new(RefCell::new(buffer)),
+                path,
+            },
+        );
         Ok(id)
+    }
+
+    /// 打开后立即注入初始内容（ADR-027 seed）：不进编辑历史 / 不触发变更回调，
+    /// 语义 = 旧 App 侧 `buffer_insert` 直插的 Core 内收拢；只用于启动样例文本。
+    /// `pub(crate)` 不构成公共 API（Rule 12）。
+    pub(crate) fn seed_text(&mut self, id: BufferId, content: &str) {
+        // 结构性不变量：seed 只能作用于刚 open 的空缓冲，偏移 0 插入必然成功
+        // （与 open 内同一不变量，Rule 18：不变量由方法保证）。
+        let doc = self.documents.get(&id).expect("seed 只能作用于已登记文档");
+        doc.buffer
+            .borrow_mut()
+            .insert(0, content)
+            .expect("empty buffer accepts insert at offset 0");
     }
 
     /// 关闭并移除 Buffer 及其注册信息。
@@ -111,8 +134,16 @@ impl DocumentManager {
     /// 决策依据：`pub(crate)` 而非 `pub`——只供 Bridge 模块使用，不构成公共
     /// API（宪法 Rule 12：任何 `pub` 都是决策，须先 ADR）；未知 id 返回 `None`
     /// 让调用方显式处理（ADR-004：失败可见）。
-    pub(crate) fn text(&self, id: BufferId) -> Option<&str> {
-        self.documents.get(&id).map(|doc| doc.buffer.text())
+    pub(crate) fn text(&self, id: BufferId) -> Option<String> {
+        self.documents
+            .get(&id)
+            .map(|doc| doc.buffer.borrow().text().to_string())
+    }
+
+    /// 返回注册 Buffer 的共享句柄（ADR-027）：Session 工厂经此创建 Editor，
+    /// 编辑即注册表内容（I-009 双副本消除）。`pub(crate)` 不构成公共 API。
+    pub(crate) fn shared_buffer(&self, id: BufferId) -> Option<Rc<RefCell<Buffer>>> {
+        self.documents.get(&id).map(|doc| Rc::clone(&doc.buffer))
     }
 
     /// 把 id 分配推进到超过 `min_id`（T-070 / BUG-023，Session 恢复前置）。
@@ -179,7 +210,7 @@ mod tests {
         let path = temp_file("你好，世界");
         let id = dm.open(DocumentSource::Disk(path.clone())).unwrap();
         let doc = dm.documents.get(&id).unwrap();
-        assert_eq!(doc.buffer.text(), "你好，世界");
+        assert_eq!(doc.buffer.borrow().text(), "你好，世界");
         assert_eq!(doc.path.as_deref(), Some(Path::new(&path)));
     }
 
@@ -188,7 +219,7 @@ mod tests {
         let mut dm = DocumentManager::new();
         let id = dm.open(DocumentSource::Scratch).unwrap();
         assert_eq!(dm.documents.get(&id).unwrap().path, None);
-        assert_eq!(dm.documents.get(&id).unwrap().buffer.text(), "");
+        assert_eq!(dm.documents.get(&id).unwrap().buffer.borrow().text(), "");
     }
 
     #[test]
@@ -215,7 +246,7 @@ mod tests {
         let mut dm = DocumentManager::new();
         let path = temp_file("你好，世界");
         let id = dm.open(DocumentSource::Disk(path)).unwrap();
-        assert_eq!(dm.text(id), Some("你好，世界"));
+        assert_eq!(dm.text(id), Some("你好，世界".to_string()));
         assert_eq!(dm.text(BufferId::new(999)), None, "未知 id 必须返回 None");
     }
 }
