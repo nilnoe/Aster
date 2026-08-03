@@ -2,21 +2,23 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-03 收工；T-001 ~ T-051 + BUG-010~012 完成；Beta V0.1.2 已发布）
+## 项目现状速览（截至 2026-08-03 收工；T-001 ~ T-059/T-062 + Phase 7 六切片 +
+BUG-010~016 完成；Beta V0.1.2 已发布）
 
 - **代码：**
   - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
     selection / history / layout / theme / command / event / lua / store / bridge /
-    editor / document_manager / snapshot），`core/src` 共 2182 行，127 个测试全绿（含 7 个
+    editor / document_manager / snapshot），`core/src` 共 2182 行，131 个测试全绿（含 7 个
     属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**91 个 XCTest 全绿**：T-050 五组集成测试 +
-    T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + BUG-010~014 回归），源码
-    2172 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+  - app/：AppKit 壳 + Metal 编辑视图（**100 个 XCTest 全绿**：T-050 五组集成测试 +
+    T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
+    T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + BUG-010~016 回归），
+    源码 2197 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
   ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
@@ -31,25 +33,25 @@
   - T-051 测试方法论强化（b4d1406）：变异测试 6 变体定位盲区（M1 合并顺序颠倒
     全绿 = 保存失败路径无测试）→ 失败注入测试（SaveFailurePathTests）+ 随机
     操作序列不变量测试（SaveStateInvariantTests，3 种子 × 50 步）；App 86 全绿
-  - T-052 IME 契约审计（本切片）：BUG-013（characterIndex 屏幕坐标 + UTF-16
+  - T-052 IME 契约审计（4d7c81b）：BUG-013（characterIndex 屏幕坐标 + UTF-16
     索引双修复）+ BUG-014（setMarkedText 替换 replacementRange）；5 项契约回归
     先红后绿 + 变异复验（旧实现 3≠1 / 8≠1）；App 91 全绿
-  - T-054 失败可见性审计（本切片）：BUG-015（存储失败不可见，ADR-004 打折）——
+  - T-054 失败可见性审计（bbdcc8d）：BUG-015（存储失败不可见，ADR-004 打折）——
     自动保存失败按段落提示一次（防逐键弹窗 + 成功复位）；setupStorage 失败启动
     即提示；保存提示区分「存储未就绪」与「无快照序号」；2 项失败注入测试；
     App 93 全绿
-  - T-058 状态机随机序列扩展（本切片）：不变量测试操作空间 4→9 类（undo /
+  - T-058 状态机随机序列扩展（07d15bc）：不变量测试操作空间 4→9 类（undo /
     redo / 丢弃全部 / 崩溃恢复两分支 / 同名打开）+ 种子 6 + 步数 60 + 快照序号
     唯一不变量（BUG-010 泛化）；360 步无缺陷（负结果）；变异复验还原 BUG-011
     后 seed 7 即失败；App 96 全绿
-  - T-059 已知限制契约固化（本切片）：3 项契约测试（打开第二文件未决保留 /
+  - T-059 已知限制契约固化（a2ce6ab）：3 项契约测试（打开第二文件未决保留 /
     恢复只呈现最新且其余可管 / 忽略后全部可管）——暴露 BUG-016（忽略分支只
     登记 latest，ADR-013 v1.4 规则 3/4 违反）→ 遍历全部缓冲文档登记；App 99 全绿
-  - T-056 存储损坏与迁移契约（本切片）：Core 4 项 + App 1 项（乱字节 / 截断
+  - T-056 存储损坏与迁移契约（775ae75）：Core 4 项 + App 1 项（乱字节 / 截断
     头不 panic、v0 schema 迁移、只读目录、双连接可见性、损坏缓冲启动提示）——
     负结果（未发现新缺陷）；rusqlite 加入 dev-dependencies（非新依赖）；
     App 100 + Core 131 全绿
-  - T-062 变异测试工具化（本切片）：`scripts/mutate.py` + `mutations.json`
+  - T-062 变异测试工具化（baadd05）：`scripts/mutate.py` + `mutations.json`
     清单 5 点——T-051 手工变异流程脚本化（自动注入/恢复/记录，old 唯一性
     校验）；实测 5/5 全被捕获 ~10s；新增状态机逻辑前先跑变异门禁
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
@@ -300,9 +302,13 @@
   不作为验收。执行顺序按风险可调整。**T-052 已完成**：characterIndex 屏幕坐标
   + UTF-16 索引（BUG-013）、setMarkedText replacementRange（BUG-014）均修复带
   回归。**T-054 已完成**：存储失败可见性（BUG-015）——自动保存失败段落提示
-  一次 + setupStorage 失败启动即提示 + 保存提示准确。**剩余候选风险（人工验证，
-  未自动化）**：崩溃循环累积空快照（T-060）；渲染层算法无变异保护（T-053）；
-  快照合并非原子（T-055）；存储损坏 / 迁移（T-056）。
+  一次 + setupStorage 失败启动即提示 + 保存提示准确。**T-058 / T-059 / T-056 /
+  T-062 已完成**：状态机不变量扩展（操作 9 类 × 6 种子，负结果）、已知限制
+  契约固化（BUG-016：忽略分支登记全部缓冲文档）、存储损坏 / 迁移契约（负结果）、
+  变异测试工具化（scripts/mutate.py + mutations.json，5/5 全被捕获）。
+  **剩余候选风险（人工验证，未自动化）**：崩溃循环累积空快照（T-060）；
+  渲染层算法无变异保护（T-053）；快照合并非原子写（T-055）；多文档 run loop
+  时序（T-057）；跨 UTC 午夜轮转（T-061）。
 - **数据结构评估（2026-08-03，ADR-006 v1.1）**：全仓复审结论已入 ADR-006——
   ① App 每键全量文本流（Bridge 拷贝 + 全量 upsert，O(n)/键，最大热点）；
   ② Core move_cursor 每移动全量 Layout::build（O(n)，App 已缓存而 Core 没有）；
