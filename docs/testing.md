@@ -114,6 +114,18 @@ NSTextInputClient 的协议方法无法用真实输入法在 CI 脚本化，改�
    缓冲文档（ADR-013 v1.4 保留规则 3/4：不因忽略而失管、不留「没被问过」的
    文档）；已登记过的保留原快照序号。
 
+## 存储损坏与迁移契约（T-056，2026-08-03）
+
+Core 层契约测试固化 ADR-013 的存储底线：
+
+1. **损坏不 panic**：乱字节 / 合法头 + 截断体的 buffer.sqlite 打开返回
+   `Sqlite` 错误（App 侧复用 T-054 提示路径：启动不崩 + 失败可见）。
+2. **旧 schema 迁移**：user_version=0 的旧库打开后补齐表（IF NOT EXISTS）、
+   迁移锚点推进到 v1、可正常读写。
+3. **只读目录**：`open_buffer` 失败干净（非 root 断言；root 不受权限约束）。
+4. **多实例**：两个连接打开同一 buffer.sqlite，已提交行跨连接可见（SQLite
+   文件锁串行化；App 单线程主 actor 顺序操作，ADR-015）。
+
 ## 规则
 
 - Red → Green → Refactor（宪法 Rule 5）；Bug 回归测试见 [docs/bug-workflow.md](bug-workflow.md)。

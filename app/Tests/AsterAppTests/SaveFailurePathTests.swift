@@ -130,4 +130,25 @@ final class SaveFailurePathTests: AppIntegrationTestCase {
       "保存失败提示必须说明存储未就绪，而非误导性消息"
     )
   }
+
+  /// T-056：损坏的 buffer.sqlite（乱字节）启动必须不崩且失败可见（T-054 提示
+  /// 路径）——崩溃保护文件损坏不得阻止编辑与启动。
+  func testCorruptBufferFileAtLaunchFailsVisibleWithoutCrash() throws {
+    try Data("这不是 SQLite 数据库文件".utf8).write(
+      to: URL(fileURLWithPath: storeDir + "/buffer.sqlite"))
+
+    launchApp()
+
+    XCTAssertNil(appDelegate.bufferStore, "损坏缓冲必须视为存储未就绪")
+    XCTAssertEqual(seamed.saveErrorCount, 1, "启动必须提示存储初始化失败（T-054）")
+    // 不崩溃（用例跑完即为证据）：可继续编辑（未决标记保留），保存失败可见。
+    let model = try XCTUnwrap(currentModel)
+    try model.typeText("x")
+    XCTAssertTrue(appDelegate.pendingDocs.contains(UInt(model.bufferIdValue)))
+    XCTAssertFalse(appDelegate.saveCurrentDocument())
+    XCTAssertEqual(
+      seamed.lastSaveErrorMessage?.contains("存储未就绪"), true,
+      "损坏缓冲下保存提示必须说明存储未就绪"
+    )
+  }
 }

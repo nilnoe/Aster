@@ -110,8 +110,12 @@
   区分「存储未就绪」与「无快照序号」；2 项失败注入测试先红后绿；App 93 全绿）
 - [ ] T-055 快照合并原子写：ADR-023 守则 c 承认合并写非原子（写入中途崩溃截断
   快照）——实现 tmp + rename 原子写 + 崩溃注入测试（大内容写中途 kill）
-- [ ] T-056 存储损坏与迁移：损坏 buffer.sqlite（截断 / 乱字节）启动不崩、旧
+- [x] T-056 存储损坏与迁移：损坏 buffer.sqlite（截断 / 乱字节）启动不崩、旧
   schema（user_version=0）迁移、只读目录、多实例并发同一 buffer.sqlite
+  （2026-08-03：Core 4 项 + App 1 项契约测试——乱字节 / 截断头返回 Sqlite
+  错误不 panic、v0 schema 迁移到 v1（迁移锚点推进）、只读目录失败干净、
+  双连接同库已提交行跨连接可见、损坏缓冲启动提示可见（复用 T-054 路径）；
+  未发现新缺陷（负结果）；App 100 + Core 131 + Bridge 20 全绿）
 - [ ] T-057 多文档时序测试：真实窗口关闭（applicationShouldTerminateAfterLast
   WindowClosed 路径）、NSMenuItem action 触发、拖放、真实 IME 事件（T-050 只
   直接调方法，绕过了 run loop 时序）

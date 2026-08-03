@@ -17,6 +17,10 @@ swift-bridge = "0.1.59"
 swift-bridge-build = "0.1.59"
 
 [dev-dependencies]
+# 决策依据（T-056）：rusqlite 已是 ADR-013 接受的正式依赖（同版本 0.40.1、
+# 已在 Cargo.lock）——加入 dev-dependencies 仅为集成测试构造「旧 schema
+# user_version=0」数据库用，不引入任何新第三方代码（Rule 7 / 8 不触发）。
+rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }
 # 决策依据（ADR-021）：基准框架需要置信区间与回归检测（Rule 7）；关闭默认特性
 # 去掉 plotters（html 报告）/ rayon（并行采样）及其 wasm 依赖树——与 T-009 rusqlite
 # 依赖瘦身同一原则（Rule 9），cargo_bench_support 已满足命令行报告。

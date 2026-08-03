@@ -178,3 +178,104 @@ fn store_open_invalid_directory_fails() {
     let err = Store::open(&p).unwrap_err();
     assert!(matches!(err, StoreError::Sqlite(_)));
 }
+
+// T-056（2026-08-03）：存储损坏与迁移——损坏缓冲启动不崩、旧 schema 迁移、
+// 只读目录、多实例并发同一 buffer.sqlite。
+
+#[test]
+fn corrupt_buffer_file_open_returns_error_not_panic() {
+    let path = temp_db();
+    std::fs::write(&path, "这不是 SQLite 数据库文件".as_bytes()).unwrap();
+    let err = Store::open(&path).unwrap_err();
+    assert!(
+        matches!(err, StoreError::Sqlite(_)),
+        "乱字节数据库必须返回 Sqlite 错误而非 panic（启动不崩底线）"
+    );
+}
+
+#[test]
+fn truncated_sqlite_header_open_returns_error_not_panic() {
+    let path = temp_db();
+    // 合法 SQLite 文件头 + 截断体（模拟写入中途崩溃的残缺文件）。
+    let mut bytes = b"SQLite format 3\0".to_vec();
+    bytes.extend_from_slice(&[0u8; 64]);
+    std::fs::write(&path, &bytes).unwrap();
+    let err = Store::open(&path).unwrap_err();
+    assert!(
+        matches!(err, StoreError::Sqlite(_)),
+        "截断文件必须返回 Sqlite 错误而非 panic"
+    );
+}
+
+#[test]
+fn old_schema_user_version_zero_migrates_to_v1() {
+    use rusqlite::Connection;
+    let path = temp_db();
+    {
+        // 模拟旧版本数据库：user_version=0 + 旧表（无 meta 表——哨兵表是后加
+        // 的，ADR-013 v1.1）。
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE scratch (id INTEGER PRIMARY KEY, content TEXT NOT NULL);
+             CREATE TABLE session (position INTEGER PRIMARY KEY, id INTEGER NOT NULL, path TEXT);
+             PRAGMA user_version = 0;",
+        )
+        .unwrap();
+    }
+
+    let mut store = Store::open(&path).unwrap();
+    store.save_scratch(7, "迁移后可写").unwrap();
+    assert_eq!(
+        store.load_scratch(7).unwrap().as_deref(),
+        Some("迁移后可写"),
+        "v0 schema 打开后必须补齐表并可读写"
+    );
+    let conn = Connection::open(&path).unwrap();
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, 1, "迁移锚点必须推进到 v1");
+}
+
+#[test]
+fn readonly_directory_open_buffer_fails_cleanly() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = temp_dir("readonly");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let is_root = std::process::Command::new("id")
+        .arg("-u")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "0")
+        .unwrap_or(false);
+    if !is_root {
+        // root 不受权限位约束（CI 与本地均非 root；本机 euid=501 实测），
+        // 非 root 才断言失败契约。
+        let err = Store::open_buffer(&dir).unwrap_err();
+        assert!(
+            matches!(err, StoreError::Sqlite(_)),
+            "只读目录必须返回错误而非 panic"
+        );
+    }
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+#[test]
+fn two_connections_same_buffer_share_committed_rows() {
+    // 多实例（两个连接）打开同一 buffer.sqlite：SQLite 文件锁串行化写入，
+    // 已提交行跨连接可见（App 单线程主 actor 顺序操作，ADR-015）。
+    let dir = temp_dir("multi");
+    let mut a = Store::open_buffer(&dir).unwrap();
+    let mut b = Store::open_buffer(&dir).unwrap();
+
+    a.save_scratch(1, "A 写入").unwrap();
+    assert_eq!(
+        b.load_scratch(1).unwrap().as_deref(),
+        Some("A 写入"),
+        "B 必须看到 A 已提交的行"
+    );
+    b.save_scratch(2, "B 写入").unwrap();
+    assert_eq!(a.load_scratch(2).unwrap().as_deref(), Some("B 写入"));
+    a.delete_scratch(1).unwrap();
+    assert_eq!(b.load_scratch(1).unwrap(), None, "删除跨连接可见");
+}
