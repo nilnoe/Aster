@@ -21,7 +21,7 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-014 | 组合开始忽略 `replacementRange`：选中文本后输入拼音，组合显示在光标处、原选区高亮残留（组合与选区重叠）；替换被推迟到提交，取消组合则选区未删——NSTextInputClient 契约要求 setMarkedText「inserts string replacing the content specified by replacementRange」 | Fixed | Implementation Bug | — | 4d7c81b | 2026-08-03 |
 | BUG-015 | 存储失败不可见（ADR-004 打折）：① 缓冲自动保存失败仅 NSLog——崩溃保护失效用户无感知（编辑内容只在内存）；② `setupStorage` 失败（如 ASTER_STORE_DIR 指向普通文件 / 只读目录）静默启动——后续保存只报误导性「文档没有可合并的快照」，用户被卡在保存/丢弃二选一；失败注入测试（目录只读）断言 saveErrorCount 0≠1 | Fixed | Implementation Bug | — | bbdcc8d | 2026-08-03 |
 | BUG-016 | 崩溃恢复「忽略」分支只登记最新缓冲文档：多缓冲文档（崩溃遗留 3 个）选「忽略」后仅 latest 登记未决 + 快照序号，其余文档退出「保存全部」不覆盖、干净退出后内容困在缓冲（下次启动不再提示，除非再崩溃）——违反 ADR-013 v1.4 保留规则 3/4「不因忽略而失管 / 不留没被问过的文档」（契约测试：忽略后 id 42/43 未登记） | Fixed | Implementation Bug | — | a2ce6ab | 2026-08-03 |
-| BUG-017 | 关闭按钮路径死循环 / 卡死：未决文档存在时点关闭按钮 → 窗口直接消失 → 系统终止流程里才弹未决提示——「保存全部 / 全部不保存」弹窗上下文异常（保存失败→取消→无窗口重触发）、「取消」返回 terminateCancel 后应用无窗口，`applicationShouldTerminateAfterLastWindowClosed` 恒 true，AppKit 反复重触发终止 = 弹窗死循环（独立 repro 实测：取消后连续弹窗直到 watchdog）；Cmd+Q 窗口仍在所以正常 | Fixed | Implementation Bug | — | BUG-017 切片 | 2026-08-03 |
+| BUG-017 | 关闭按钮路径死循环 / 卡死：未决文档存在时点关闭按钮 → 窗口直接消失 → 系统终止流程里才弹未决提示——「保存全部 / 全部不保存」弹窗上下文异常（保存失败→取消→无窗口重触发）、「取消」返回 terminateCancel 后应用无窗口，`applicationShouldTerminateAfterLastWindowClosed` 恒 true，AppKit 反复重触发终止 = 弹窗死循环（独立 repro 实测：取消后连续弹窗直到 watchdog）；Cmd+Q 窗口仍在所以正常 | Fixed | Implementation Bug | — | 0cfdc16 | 2026-08-03 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则
