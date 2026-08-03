@@ -33,6 +33,9 @@ extension AppDelegate {
       )
     } catch {
       NSLog("存储初始化失败：\(error)")
+      // T-054（BUG-015）：初始化失败必须启动即提示（ADR-004）——静默启动会让
+      // 用户误以为崩溃保护生效，且后续保存只报误导性错误。
+      presentSaveError("存储初始化失败：\(error)。编辑内容将无法自动保存与崩溃恢复，且退出时无法保存。")
     }
   }
 
@@ -115,7 +118,13 @@ extension AppDelegate {
   /// 视图只显示一个文档，其余文档的内容只在缓冲里）；合并 = 提交 / 固化。
   @discardableResult
   private func mergePendingDoc(_ id: UInt) -> Bool {
-    guard let store = bufferStore, let seq = snapshotSeqByDocId[id] else {
+    // T-054（BUG-015）：存储未就绪（初始化失败）与未登记快照是两类失败，
+    // 提示必须准确——旧实现合并成一个 guard 后永远报「没有可合并的快照」。
+    guard let store = bufferStore else {
+      presentSaveError("存储未就绪，无法保存（存储初始化失败）")
+      return false
+    }
+    guard let seq = snapshotSeqByDocId[id] else {
       presentSaveError("文档没有可合并的快照")
       return false
     }
@@ -186,8 +195,15 @@ extension AppDelegate {
     else { return }
     do {
       try store_save_scratch(store, UInt(view.model.bufferIdValue), view.model.bufferText)
+      bufferSaveErrorVisible = false
     } catch {
       NSLog("缓冲自动保存失败：\(error)")
+      // T-054（BUG-015）：崩溃保护失效必须让用户知道（ADR-004）；按失败段落
+      // 只提示一次，不逐键弹窗（Rule 9：1 个布尔防刷屏，无抽象层 / 无依赖）。
+      if !bufferSaveErrorVisible {
+        bufferSaveErrorVisible = true
+        presentSaveError("自动保存失败：\(error)。当前编辑内容只存在于内存，崩溃或意外退出将丢失。")
+      }
     }
   }
 

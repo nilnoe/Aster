@@ -45,6 +45,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   var committedTextByDocId: [UInt: String] = [:]
   /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
   var needsRecoveryPrompt = false
+  /// 缓冲自动保存失败是否已提示（T-054，BUG-015）：失败必须可见（ADR-004），
+  /// 但同一失败段落只弹一次，避免逐键阻塞输入；下一次成功保存复位。
+  var bufferSaveErrorVisible = false
   var mainWindow: NSWindow?
 
   /// 崩溃恢复决策（T-043，ADR-013 v1.1）：纯函数便于单测。

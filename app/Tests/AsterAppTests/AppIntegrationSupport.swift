@@ -28,6 +28,8 @@ class AppIntegrationTestCase: XCTestCase {
     /// 错误提示注入：记录调用次数，避免真实 NSAlert 阻塞测试进程
     /// （T-050 复审：saveAllPending 失败路径会弹 presentSaveError）。
     var saveErrorCount = 0
+    /// 最近一次错误提示文本（T-054：断言提示内容准确，不只数次数）。
+    var lastSaveErrorMessage: String?
 
     override func presentPendingDocsAlert() -> Int? { pendingDocsReply }
 
@@ -35,6 +37,7 @@ class AppIntegrationTestCase: XCTestCase {
 
     override func presentSaveError(_ message: String) {
       saveErrorCount += 1
+      lastSaveErrorMessage = message
     }
   }
 
