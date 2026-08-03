@@ -10,6 +10,16 @@
 
 ## [Unreleased]
 
+### Perf — 2026-08-03（T-066，SQLite WAL + synchronous=NORMAL，ADR-013 v1.6）
+
+- feat(core)：文件库启用 `journal_mode=WAL` + `synchronous=NORMAL`（内存库
+  不受影响）——rollback journal 整页双写 → WAL 顺序追加（缓冲写放大缓解）。
+- test：+2 store 单测（文件库 journal_mode=wal 断言；写入后 -wal 持久、重开
+  自动恢复 = 进程级崩溃恢复语义复核）；T-056 损坏 / 迁移 / 双连接全绿。
+- bench（Rule 16 前后对比）：store_file_save_10k **1.683s → 59ms（−96.5%）**；
+  store_file_big_blob_1mb 784µs → 1.19ms（+57%，WAL checkpoint 摊还，非热
+  路径）；文件型基准为新名（CI 对无基线项跳过，ADR-021 脚本行为）。
+
 ### Perf — 2026-08-03（T-063 + T-064，编辑热路径基准与行索引缓存，ADR-006 v1.2）
 
 - feat(core)：`Editor` 新增行索引缓存（T-064，ADR-006 v1.1 热点 2）——移动不

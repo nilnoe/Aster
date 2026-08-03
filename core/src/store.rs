@@ -49,6 +49,13 @@ impl Store {
     /// 打开（不存在则创建）数据库并初始化 v1 schema。
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         let conn = Connection::open(path).map_err(StoreError::Sqlite)?;
+        // T-066（ADR-013 v1.6）：WAL + synchronous=NORMAL 缓解缓冲写放大——
+        // rollback journal 每次提交写整页 journal + 主库，WAL 只顺序追加。
+        // NORMAL 在 WAL 下：进程崩溃 / kill 不丢已提交数据（-wal 持久，重开
+        // 自动恢复）；仅 OS 崩溃 / 断电可能丢最近提交——编辑器崩溃保护范围是
+        // 进程级（ADR-013），可接受。基准前后对比见 benchmarks.md（Rule 16）。
+        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")
+            .map_err(StoreError::Sqlite)?;
         init_schema(&conn)?;
         Ok(Self { conn })
     }
@@ -241,6 +248,8 @@ fn init_schema(conn: &Connection) -> Result<(), StoreError> {
 #[cfg(test)]
 mod tests {
     use super::civil_from_days;
+    use super::Store;
+    use std::path::Path;
 
     /// 已知 epoch 天数 → 日期（数值来自 UTC 历法，2026-08-02 = 20667 等）。
     #[test]
@@ -251,5 +260,41 @@ mod tests {
         assert_eq!(civil_from_days(19_783), (2024, 3, 1));
         assert_eq!(civil_from_days(11_016), (2000, 2, 29), "400 年闰 2000");
         assert_eq!(civil_from_days(-25_509), (1900, 2, 28), "100 年不闰 1900");
+    }
+
+    /// T-066：文件库必须启用 WAL 日志模式（写放大缓解的前提）；内存库不受影响。
+    #[test]
+    fn file_store_uses_wal_journal() {
+        let dir = std::env::temp_dir().join(format!("aster-store-wal-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = Store::open(&dir.join("buffer.sqlite")).unwrap();
+        let mode: String = store
+            .conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(mode, "wal", "文件库必须启用 WAL 日志模式");
+    }
+
+    /// T-066：WAL 文件在会话存活期间存在（-wal 持久，崩溃后重开自动恢复）。
+    #[test]
+    fn wal_file_persists_while_connection_open() {
+        let dir = std::env::temp_dir().join(format!("aster-store-wal-file-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("buffer.sqlite");
+        {
+            let mut store = Store::open(&db).unwrap();
+            store.save_scratch(1, "WAL 内容").unwrap();
+            // 写入后 -wal 文件必须存在（未 checkpoint 前，崩溃恢复依赖它）。
+            assert!(
+                Path::new(&format!("{}-wal", db.display())).exists(),
+                "WAL 文件必须持久"
+            );
+        }
+        // 重开自动恢复 WAL 内容（模拟 kill -9 后重开）。
+        let reopened = Store::open(&db).unwrap();
+        assert_eq!(
+            reopened.load_scratch(1).unwrap().as_deref(),
+            Some("WAL 内容")
+        );
     }
 }

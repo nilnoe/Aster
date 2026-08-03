@@ -12,7 +12,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.5
+- **Version:** 1.6
 - **新增 Public API:** `Store`（7 方法）+ `SessionDocument`（2 公共字段）+ `StoreError`（1 变体）+ 新增依赖 **rusqlite**（宪法 Rule 7 / 8）
 - **影响模块:** Core（新增 store 模块）
 - **是否违反 Single Responsibility:** 否
@@ -21,6 +21,15 @@
 ---
 
 ## 决策
+
+> **v1.6 备注（T-066，2026-08-03）**：文件库启用 `PRAGMA journal_mode = WAL`
+> + `PRAGMA synchronous = NORMAL`——rollback journal 每次提交写整页 journal +
+> 主库（写放大），WAL 只顺序追加。基准（Rule 16）：10k 小 upsert 1.683s →
+> 59ms（−96.5%，缓冲自动保存的真实写模式）；1MB 单次大 blob +57%（WAL 周期
+> checkpoint 摊还，非热路径）。崩溃保护语义复核：WAL 下 `synchronous=NORMAL`
+> 保证**进程级**崩溃 / kill 不丢已提交数据（-wal 持久、重开自动恢复，store
+> 单测 + T-056 全绿）；仅 OS 崩溃 / 断电可能丢最近提交——编辑器崩溃保护范围
+> 是进程级（本 ADR 决策 4 不变），可接受。
 
 在 Rust Core 中新增 `store` 模块：`Store` 封装 rusqlite（SQLite 3，`bundled`），负责 Scratch 内容与会话记录的持久化原语。
 

@@ -102,11 +102,42 @@ fn store_scratch(c: &mut Criterion) {
     });
 }
 
+fn store_file(c: &mut Criterion) {
+    // T-063 余项 + T-066（ADR-006 v1.1 缺口 / WAL 评估）：内存库测不出 journal /
+    // WAL 差异——文件库才是生产形态（buffer.sqlite）。新增文件基准（新名，
+    // CI 对无基线项跳过，ADR-021 脚本行为）；1s 短测量控制总时长。WAL 落地
+    // 前后同配置对比（Rule 16）。
+    let dir = std::env::temp_dir().join(format!("aster-bench-store-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut group = c.benchmark_group("store_file");
+    group.measurement_time(std::time::Duration::from_secs(1));
+    group.sample_size(10);
+
+    group.bench_function("store_file_save_10k", |b| {
+        let store = RefCell::new(Store::open(&dir.join("save.sqlite")).unwrap());
+        b.iter(|| {
+            for i in 0..10_000u64 {
+                store.borrow_mut().save_scratch(i, "content").unwrap();
+            }
+        })
+    });
+
+    group.bench_function("store_file_big_blob_1mb", |b| {
+        let mut store = Store::open(&dir.join("blob.sqlite")).unwrap();
+        let blob = "x".repeat(1024 * 1024);
+        b.iter(|| {
+            store.save_scratch(1, &blob).unwrap();
+        })
+    });
+}
+
 criterion_group!(
     benches,
     theme_parse,
     command_event,
     lua_dispatch,
-    store_scratch
+    store_scratch,
+    store_file
 );
 criterion_main!(benches);
