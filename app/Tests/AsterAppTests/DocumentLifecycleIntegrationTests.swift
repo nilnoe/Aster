@@ -1,8 +1,9 @@
-//! T-050 组 2 / 组 3：文档生命周期（⌘N / ⌘S / 打开）+ 退出流程三分支。
+//! T-050 组 2 / 组 3：文档生命周期（⌘N / ⌘S / 打开）+ 退出流程三分支
+//! （T-070 起经 Session 断言）。
 //!
-//! 决策依据：覆盖「编辑 → 缓冲自动保存 → ⌘S 合并 → 缓冲行删除」与
-//! PendingDocs 退出保护（ADR-013 v1.3 / v1.4 / ADR-023 v1.3），
-//! 全部经真实落盘断言（ASTER_STORE_DIR 临时目录）。
+//! 决策依据：覆盖「编辑 → 缓冲自动保存 → ⌘S 合并 → 缓冲行删除」与未决退出
+//! 保护（ADR-013 v1.3 / v1.4 / ADR-023 v1.3），全部经真实落盘断言
+//! （ASTER_STORE_DIR 临时目录）。
 
 import AsterBridge
 import XCTest
@@ -17,7 +18,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     appDelegate.newDocument(nil)
 
     let currentId = UInt((try XCTUnwrap(currentModel)).bufferIdValue)
-    XCTAssertEqual(appDelegate.snapshotSeqByDocId[currentId], 3)
+    XCTAssertEqual(try snapshotSeq(currentId), 3)
     XCTAssertEqual(
       snapshotFiles(),
       [snapshotName(seq: 1), snapshotName(seq: 2), snapshotName(seq: 3)]
@@ -31,13 +32,12 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     // typeText 在光标处（默认 0）插入；断言完整内容而非片段。
     try model.typeText("X")
 
-    let store = try XCTUnwrap(appDelegate.bufferStore)
     let id = UInt(model.bufferIdValue)
     XCTAssertEqual(
-      try store_load_scratch(store, id).toString(),
+      try session_load_buffered(appSession, id).toString(),
       "X你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK"
     )
-    XCTAssertTrue(appDelegate.pendingDocs.contains(id))
+    XCTAssertTrue(pendingSet().contains(id))
   }
 
   func testSaveMergesBufferIntoSnapshotAndRemovesScratchRow() throws {
@@ -51,11 +51,11 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     XCTAssertTrue(appDelegate.saveCurrentDocument())
 
     let saved = try String(
-      contentsOfFile: storeDir + "/" + snapshotName(seq: 1), encoding: .utf8)
+      contentsOfFile: storeDir + "/" + snapshotName(seq: Int(try snapshotSeq(id))),
+      encoding: .utf8)
     XCTAssertEqual(saved, "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK保存后的快照内容")
-    XCTAssertFalse(appDelegate.pendingDocs.contains(id))
-    let store = try XCTUnwrap(appDelegate.bufferStore)
-    XCTAssertThrowsError(try store_load_scratch(store, id)) { error in
+    XCTAssertFalse(pendingSet().contains(id))
+    XCTAssertThrowsError(try session_load_buffered(appSession, id)) { error in
       XCTAssertTrue((error as? RustString)?.toString().contains("not found") == true)
     }
   }
@@ -101,7 +101,7 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     let first = try XCTUnwrap(currentModel)
     let firstId = UInt(first.bufferIdValue)
     try first.typeText("第一个文档的未保存编辑")
-    XCTAssertTrue(appDelegate.pendingDocs.contains(firstId))
+    XCTAssertTrue(pendingSet().contains(firstId))
     let diskFile = storeDir + "/second.txt"
     try "第二个文档".write(toFile: diskFile, atomically: true, encoding: .utf8)
 
@@ -109,20 +109,19 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
 
     XCTAssertEqual(currentModel?.bufferText, "第二个文档", "视图切换到第二个文档")
     XCTAssertTrue(
-      appDelegate.pendingDocs.contains(firstId),
+      pendingSet().contains(firstId),
       "打开第二个文件不得丢失前一个文档的未决状态"
     )
-    let store = try XCTUnwrap(appDelegate.bufferStore)
     XCTAssertEqual(
-      try store_load_scratch(store, firstId).toString(),
+      try session_load_buffered(appSession, firstId).toString(),
       "第一个文档的未保存编辑你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK",
       "前一个文档的缓冲行必须保留"
     )
-    XCTAssertNotNil(appDelegate.snapshotSeqByDocId[firstId])
+    _ = try snapshotSeq(firstId)
 
     seamed.pendingDocsReply = 1
     XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)
-    let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[firstId])
+    let seq = try snapshotSeq(firstId)
     let saved = try String(
       contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
     XCTAssertTrue(saved.contains("第一个文档的未保存编辑"), "退出保存全部必须固化前一个文档")
@@ -132,12 +131,11 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
 /// 退出流程：覆写未决提示 seam（docs/testing.md），驱动三分支。
 @MainActor
 final class AppExitFlowIntegrationTests: AppIntegrationTestCase {
-  private func seedPendingDoc(_ text: String, id: UInt) throws {
-    // 必须经 AppDelegate 同一连接播种：不同连接写入对同一 SQLite 文件
-    // 的可见性依赖提交时序，测试断言不稳定（T-050 踩坑）。
-    let store = try XCTUnwrap(appDelegate.bufferStore)
-    try store_save_scratch(store, id, text)
-    appDelegate.pendingDocs.mark(id)
+  /// 经 Session 真实路径播种未决文档（T-070：不再手写三张账本）。
+  private func seedPendingDoc(_ text: String) throws -> UInt {
+    let id = UInt(try session_open_scratch(appSession))
+    try session_content_changed(appSession, id, text)
+    return id
   }
 
   func testTerminateNowWithoutPendingDocs() {
@@ -150,54 +148,51 @@ final class AppExitFlowIntegrationTests: AppIntegrationTestCase {
 
   func testSaveAllMergesEveryPendingDoc() throws {
     launchApp()
-    try seedPendingDoc("文档A", id: 1)
-    try seedPendingDoc("文档B", id: 2)
-    appDelegate.snapshotSeqByDocId[1] = 11
-    appDelegate.snapshotSeqByDocId[2] = 12
+    let a = try seedPendingDoc("文档A")
+    let b = try seedPendingDoc("文档B")
     seamed.pendingDocsReply = 1
 
     let reply = appDelegate.applicationShouldTerminate(NSApp)
 
     XCTAssertEqual(reply, .terminateNow)
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
+    XCTAssertTrue(pendingSet().isEmpty)
     XCTAssertEqual(
       try String(
-        contentsOfFile: storeDir + "/" + snapshotName(seq: 11), encoding: .utf8),
+        contentsOfFile: storeDir + "/" + snapshotName(seq: Int(try snapshotSeq(a))),
+        encoding: .utf8),
       "文档A"
     )
     XCTAssertEqual(
       try String(
-        contentsOfFile: storeDir + "/" + snapshotName(seq: 12), encoding: .utf8),
+        contentsOfFile: storeDir + "/" + snapshotName(seq: Int(try snapshotSeq(b))),
+        encoding: .utf8),
       "文档B"
     )
   }
 
   func testDiscardAllClearsPendingAndTerminates() throws {
     launchApp()
-    try seedPendingDoc("丢弃内容", id: 3)
+    let id = try seedPendingDoc("丢弃内容")
     seamed.pendingDocsReply = 0
 
     let reply = appDelegate.applicationShouldTerminate(NSApp)
 
     XCTAssertEqual(reply, .terminateNow)
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
-    let store = try XCTUnwrap(appDelegate.bufferStore)
-    XCTAssertThrowsError(try store_load_scratch(store, 3)) { error in
-      // swift-bridge 的 Result<String, String> 错误是 RustString 对象，
-      // 需 toString() 取消息（T-050 踩坑；ADR-014 桥接惯例）。
+    XCTAssertTrue(pendingSet().isEmpty)
+    XCTAssertThrowsError(try session_load_buffered(appSession, id)) { error in
       XCTAssertTrue((error as? RustString)?.toString().contains("not found") == true)
     }
   }
 
   func testCancelKeepsPendingDocsAndStopsTermination() throws {
     launchApp()
-    try seedPendingDoc("取消保留", id: 4)
+    let id = try seedPendingDoc("取消保留")
     seamed.pendingDocsReply = nil
 
     let reply = appDelegate.applicationShouldTerminate(NSApp)
 
     XCTAssertEqual(reply, .terminateCancel)
-    XCTAssertTrue(appDelegate.pendingDocs.contains(4))
+    XCTAssertTrue(pendingSet().contains(id))
   }
 }
 
@@ -206,8 +201,8 @@ final class AppExitFlowIntegrationTests: AppIntegrationTestCase {
 /// 决策依据（bug-workflow）：旧实现关闭事件直接关窗，未决提示在系统终止流程
 /// （applicationShouldTerminate）里才弹——取消返回 terminateCancel 后应用处于
 /// 无窗口状态，`applicationShouldTerminateAfterLastWindowClosed` 恒为 true，
-/// AppKit 反复重新触发终止 = 弹窗死循环（独立 repro 实测：取消后连续弹窗直到
-/// watchdog）。修复：windowShouldClose 拦截，决策在窗口仍打开时进行。
+/// AppKit 反复重新触发终止 = 弹窗死循环。修复：windowShouldClose 拦截，决策在
+/// 窗口仍打开时进行。T-070：决策按**该窗口**文档（关 B 只问 B）。
 @MainActor
 final class AppWindowCloseFlowTests: AppIntegrationTestCase {
   func testCloseWithPendingSaveAllResolvesThenAllowsClose() throws {
@@ -219,14 +214,14 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
 
     let allow = appDelegate.windowShouldClose(window)
 
-    XCTAssertTrue(allow, "保存全部成功必须允许关窗")
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
+    XCTAssertTrue(allow, "保存成功必须允许关窗")
+    XCTAssertTrue(pendingSet().isEmpty)
     XCTAssertTrue(window.isVisible, "windowShouldClose 只放行，关窗由 AppKit 随后执行")
     let id = UInt(model.bufferIdValue)
-    let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[id])
+    let seq = try snapshotSeq(id)
     let saved = try String(
       contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
-    XCTAssertTrue(saved.contains("未保存内容"), "保存全部必须固化内容")
+    XCTAssertTrue(saved.contains("未保存内容"), "保存必须固化内容")
   }
 
   func testCloseWithPendingDiscardAllowsClose() throws {
@@ -235,8 +230,8 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
     let window = try XCTUnwrap(appDelegate.currentFrame)
     seamed.pendingDocsReply = 0
 
-    XCTAssertTrue(appDelegate.windowShouldClose(window), "丢弃全部后必须允许关窗")
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
+    XCTAssertTrue(appDelegate.windowShouldClose(window), "丢弃后必须允许关窗")
+    XCTAssertTrue(pendingSet().isEmpty)
   }
 
   func testCloseWithPendingCancelKeepsWindowOpen() throws {
@@ -250,7 +245,7 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
       "取消必须阻止关窗——否则无窗口状态反复重触发终止（BUG-017 死循环）"
     )
     XCTAssertTrue(
-      appDelegate.pendingDocs.contains(UInt((currentModel?.bufferIdValue)!)),
+      pendingSet().contains(UInt((currentModel?.bufferIdValue)!)),
       "取消后未决状态必须保留"
     )
     XCTAssertTrue(window.isVisible, "取消后窗口必须保持打开")
@@ -262,5 +257,26 @@ final class AppWindowCloseFlowTests: AppIntegrationTestCase {
 
     XCTAssertTrue(appDelegate.windowShouldClose(window))
     XCTAssertEqual(seamed.pendingDocsAlertCount, 0, "无未决文档时不得弹提示")
+  }
+
+  /// T-070（BUG-019）：多 Frame 下关闭决策按窗口文档——关 frame B 只保存 /
+  /// 丢弃 B，frame A 的未决状态不受影响（旧实现全局决策，关 B 会弹 A 的提示）。
+  func testClosingSecondFrameOnlyResolvesItsOwnDocument() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let first = appDelegate.frames[0]
+    let second = appDelegate.frames[1]
+    let firstId = UInt(
+      (first.contentView as? MetalView)?.model.bufferIdValue ?? 0)
+    let secondId = UInt(
+      (second.contentView as? MetalView)?.model.bufferIdValue ?? 0)
+    try (first.contentView as? MetalView)?.model.typeText("A 编辑")
+    try (second.contentView as? MetalView)?.model.typeText("B 编辑")
+    seamed.pendingDocsReply = 1
+
+    XCTAssertTrue(appDelegate.windowShouldClose(second), "B 保存成功必须放行")
+
+    XCTAssertFalse(pendingSet().contains(secondId), "B 保存后不再是未决")
+    XCTAssertTrue(pendingSet().contains(firstId), "A 的未决不得被 B 的关闭决策影响")
   }
 }

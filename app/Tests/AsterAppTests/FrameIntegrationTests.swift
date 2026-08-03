@@ -1,4 +1,4 @@
-//! Frame（广义窗口）集成测试（T-069）。
+//! Frame（广义窗口）集成测试（T-069；T-070 起经 Session 断言）。
 //!
 //! 决策依据：⌘⇧N 新建 Frame = 新窗口 + 全新 Scratch 文档（frame 表述为将来
 //! 窗内分窗预留）；多 Frame 下每个 frame 的文档状态必须隔离——编辑 frame B
@@ -34,7 +34,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     )
     XCTAssertEqual(second.title, "Aster", "新 frame 标题为纯 App 名")
     XCTAssertEqual(snapshotFiles().count, 2, "启动 1 个快照 + 新 frame 1 个")
-    XCTAssertNotNil(appDelegate.snapshotSeqByDocId[UInt(secondView.model.bufferIdValue)])
+    _ = try snapshotSeq(UInt(secondView.model.bufferIdValue))
   }
 
   /// 多 Frame 状态隔离：编辑 frame B 只置 B 的文档未决、只污染 B 的标题 /
@@ -50,9 +50,9 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
 
     try secondView.model.typeText("frame B 编辑")
 
-    XCTAssertTrue(appDelegate.pendingDocs.contains(secondId), "编辑 B 必须置 B 的文档未决")
+    XCTAssertTrue(pendingSet().contains(secondId), "编辑 B 必须置 B 的文档未决")
     XCTAssertFalse(
-      appDelegate.pendingDocs.contains(UInt(firstView.model.bufferIdValue)),
+      pendingSet().contains(UInt(firstView.model.bufferIdValue)),
       "frame A 的文档不得被 B 的编辑污染"
     )
     XCTAssertTrue(second.isDocumentEdited)
@@ -65,11 +65,10 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     appDelegate.newFrame(nil)
     let secondView = try XCTUnwrap(appDelegate.frames[1].contentView as? MetalView)
     try secondView.model.typeText("自动保存内容")
-    let store = try XCTUnwrap(appDelegate.bufferStore)
     let id = UInt(secondView.model.bufferIdValue)
 
     XCTAssertEqual(
-      try store_load_scratch(store, id).toString(),
+      try session_load_buffered(appSession, id).toString(),
       "自动保存内容",
       "frame B 的文档必须自动保存到自己的缓冲行"
     )
@@ -90,6 +89,22 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     XCTAssertTrue(appDelegate.frames.first === remaining)
   }
 
+  /// T-070（ADR-025）：关闭 frame 同时关闭其文档（Session 注册表移除）——
+  /// 旧实现 DM 注册表随每次新建 / 打开永久增长（BUG-022）。
+  func testClosingFrameClosesItsDocument() throws {
+    launchApp()
+    appDelegate.newFrame(nil)
+    let second = appDelegate.frames[1]
+    let secondId = UInt(
+      (second.contentView as? MetalView)?.model.bufferIdValue ?? 0)
+
+    appDelegate.windowWillClose(
+      Notification(name: NSWindow.willCloseNotification, object: second))
+
+    XCTAssertFalse(session_is_pending(appSession, secondId), "关闭后文档不再未决")
+    XCTAssertThrowsError(try session_text(appSession, secondId), "关闭后文档不可再访问")
+  }
+
   /// REPRO（临时）：模拟真实关闭按钮路径 performClose → windowShouldClose →
   /// close → windowWillClose，验证不挂起。
   func testClosingSecondFrameViaPerformCloseDoesNotHang() throws {
@@ -103,7 +118,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     XCTAssertTrue(appDelegate.frames[0].isVisible)
   }
 
-  /// REPRO（临时）：B 有未决编辑时经 performClose 关闭（走保存全部决策）。
+  /// REPRO（临时）：B 有未决编辑时经 performClose 关闭（走保存决策）。
   func testClosingEditedSecondFrameViaPerformCloseDoesNotHang() throws {
     launchApp()
     appDelegate.newFrame(nil)
@@ -115,7 +130,7 @@ final class FrameIntegrationTests: AppIntegrationTestCase {
     second.performClose(nil)
 
     XCTAssertEqual(appDelegate.frames.count, 1)
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty, "保存全部后未决清空")
+    XCTAssertTrue(pendingSet().isEmpty, "保存后未决清空")
   }
 
   /// BUG-018：关闭的 frame 的 MetalView 光标闪烁必须停止——Timer 以 target/

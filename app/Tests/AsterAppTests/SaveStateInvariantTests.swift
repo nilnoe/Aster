@@ -1,10 +1,11 @@
-//! 保存状态机不变量测试（T-050 复审：属性化替代手写场景；T-058 扩展操作空间）。
+//! 保存状态机不变量测试（T-050 复审：属性化替代手写场景；T-058 扩展操作空间；
+//! T-070 起经 Session 公共 API 断言）。
 //!
 //! 决策依据：手写用例永远追不上组合路径（BUG-010/011/012 都藏在组合里）。
 //! 本文件用固定种子随机操作序列驱动**真实 AppDelegate**，每步断言守恒不变量
-//! （ADR-013 v1.3 / BUG-011 泛化 / BUG-010 泛化），随机探索状态空间而非枚举
-//! 场景；种子固定 → 确定性可复现。T-058：操作类型扩展到 undo / redo /
-//! 丢弃全部 / 崩溃恢复（恢复与忽略两分支）/ 打开同名路径，种子 3 → 6。
+//! （ADR-013 v1.3 / BUG-011 泛化 / BUG-010 泛化）；种子固定 → 确定性可复现。
+//! T-070：不变量由 Core Session 方法保证，本测试作为 App 层行为护栏 +
+//! 变异门禁捕获网（M2 / M3 / M5 变异点依赖本文件）。
 
 import AsterBridge
 import XCTest
@@ -55,7 +56,7 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
   /// 丢弃全部 / 崩溃恢复）下验证保存状态机守恒。
   private func assertSaveInvariants(seed: UInt64) throws {
     launchApp()
-    let store = try XCTUnwrap(appDelegate.bufferStore)
+    let session = appSession
     var rng = SeededGenerator(seed: seed)
     var lastOpenedPath: String?
 
@@ -88,10 +89,11 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
         _ = appDelegate.saveCurrentDocument()
       case 7:  // 丢弃全部未决（退出「全部不保存」同款，ADR-013 v1.3 删除时机 3）
         appDelegate.discardAllPending()
-      default:  // 崩溃恢复：播种异常退出 + 新缓冲文档，恢复 / 忽略随机
-        let crashedId = UInt(10_000 + step)
-        try store_save_scratch(store, crashedId, "崩溃内容\(step)")
-        try store_set_clean_exit(store, false)
+      default:  // 崩溃恢复：经 Session 真实路径播种（T-070：不开假 id）——
+        // 新文档编辑写缓冲 → 哨兵置非干净 → 恢复 / 忽略随机。
+        let docId = UInt(try session_open_scratch(session))
+        try session_content_changed(session, docId, "崩溃内容\(step)")
+        try session_set_clean_exit(session, false)
         appDelegate.needsRecoveryPrompt = true
         let restore = rng.nextInt(2)
         seamed.recoveryReply = restore
@@ -102,11 +104,11 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
           // 未决且缓冲行存在——恢复内容可被 ⌘S / 保存全部读取，不静默丢失。
           let recoveredId = UInt((try XCTUnwrap(currentModel)).bufferIdValue)
           XCTAssertTrue(
-            appDelegate.pendingDocs.contains(recoveredId),
+            session_is_pending(session, recoveredId),
             "step \(step)：恢复文档必须登记未决"
           )
           XCTAssertTrue(
-            store_scratch_ids(store).contains(recoveredId),
+            session_buffered_ids(session).contains(recoveredId),
             "step \(step)：恢复内容必须写入缓冲行"
           )
         }
@@ -114,24 +116,25 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
 
       // 不变量 1：每个未决文档都登记了快照序号（BUG-011 泛化——否则
       // 退出「保存全部」找不到合并目标）。
-      for id in appDelegate.pendingDocs.ids {
+      let pending = Set(session_pending_ids(session).map { UInt($0) })
+      for id in pending {
         XCTAssertNotNil(
-          appDelegate.snapshotSeqByDocId[id],
+          try? session_snapshot_seq(session, id),
           "step \(step)：未决文档 \(id) 缺少快照序号"
         )
       }
       // 不变量 2：缓冲行集合 == 未决登记集合（ADR-013 v1.3：缓冲行存在
       // ⟺ 存在未提交且未明确丢弃的编辑）。
-      let scratchIds = Set(store_scratch_ids(store).map { UInt($0) })
+      let buffered = Set(session_buffered_ids(session).map { UInt($0) })
       XCTAssertEqual(
-        scratchIds, appDelegate.pendingDocs.ids,
+        buffered, pending,
         "step \(step)：缓冲行与未决登记不一致"
       )
       // 不变量 3：快照序号全局唯一（BUG-010 泛化——两个文档共享同一快照
       // 时「保存全部」后写覆盖先写，先打开文档内容丢失）。
+      let seqs = pending.compactMap { try? session_snapshot_seq(session, $0) }
       XCTAssertEqual(
-        Set(appDelegate.snapshotSeqByDocId.values).count,
-        appDelegate.snapshotSeqByDocId.count,
+        Set(seqs).count, seqs.count,
         "step \(step)：快照序号必须唯一"
       )
     }
@@ -139,8 +142,8 @@ final class SaveStateInvariantTests: AppIntegrationTestCase {
     // 终局：退出「保存全部」必须成功，且全部缓冲清空（ADR-013 v1.4）。
     seamed.pendingDocsReply = 1
     XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)
-    XCTAssertTrue(appDelegate.pendingDocs.isEmpty, "保存全部后未决应清空")
-    XCTAssertTrue(store_scratch_ids(store).isEmpty, "保存全部后缓冲应清空")
+    XCTAssertTrue(pendingSet().isEmpty, "保存全部后未决应清空")
+    XCTAssertTrue(bufferedSet().isEmpty, "保存全部后缓冲应清空")
     XCTAssertEqual(seamed.saveErrorCount, 0, "随机序列下保存全部不应失败")
   }
 }

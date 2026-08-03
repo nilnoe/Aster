@@ -16,7 +16,7 @@ Proposed → Accepted
 
 | ID | 标题 | 状态 | 日期 | Public API | 影响模块 | 文件 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ADR-001 | DocumentManager | Accepted | 2026-08-02 | Core 2 方法 + Bridge FFI 3 项（v1.1） | Buffer, Theme, bridge, app | [ADR-001-document-manager.md](ADR-001-document-manager.md) |
+| ADR-001 | DocumentManager（v1.3：FFI 面由 ADR-025 session 收敛，DM 成为 Session 内部注册表） | Accepted | 2026-08-02 | Core 2 方法（open / close） | Buffer, Theme, bridge, app | [ADR-001-document-manager.md](ADR-001-document-manager.md) |
 | ADR-002 | macOS 支持策略（Latest Only） | Accepted | 2026-08-02 | 0 | Swift App、Rendering | [ADR-002-macos-support.md](ADR-002-macos-support.md) |
 | ADR-003 | 插件安全模型（Trusted by Default） | Accepted | 2026-08-02 | 0 | Plugin Runtime、Plugin API | [ADR-003-plugin-trust.md](ADR-003-plugin-trust.md) |
 | ADR-004 | 日志与崩溃上报 | Accepted | 2026-08-02 | 0 | Core、App、Bridge | [ADR-004-logging-crash.md](ADR-004-logging-crash.md) |
@@ -28,7 +28,7 @@ Proposed → Accepted
 | ADR-010 | Theme 模型与 Theme DSL | Accepted | 2026-08-02 | 3 类型 + 1 方法 | Core（theme 模块） | [ADR-010-theme-model.md](ADR-010-theme-model.md) |
 | ADR-011 | Command 系统与 Event 总线 | Accepted | 2026-08-02 | 4 类型 + 2 枚举 + 7 方法 | Core（command、event 模块） | [ADR-011-command-event.md](ADR-011-command-event.md) |
 | ADR-012 | Lua Runtime（mlua）与 Plugin API | Accepted | 2026-08-02 | 2 类型 + 5 方法 + Lua API | Core（lua 模块） | [ADR-012-lua-runtime.md](ADR-012-lua-runtime.md) |
-| ADR-013 | SQLite 存储层（Store）（v1.4：崩溃恢复原语 + 角色边界 + 缓冲生命周期 + 多文档状态全程检查） | Accepted | 2026-08-02 | 2 类型 + 10 方法 + 1 变体 + FFI 1 项 | Core（store 模块）、app（恢复/保存流程） | [ADR-013-sqlite-store.md](ADR-013-sqlite-store.md) |
+| ADR-013 | SQLite 存储层（Store）（v1.5：store_* FFI 由 ADR-025 session 承接；缓冲生命周期编排收拢） | Accepted | 2026-08-02 | 2 类型 + 10 方法 + 1 变体 | Core（store 模块）、app（恢复/保存流程） | [ADR-013-sqlite-store.md](ADR-013-sqlite-store.md) |
 | ADR-014 | Swift Bridge 接入（spike） | Accepted | 2026-08-02 | 桥接 FFI 面 5 项 + 2 依赖 | Core（bridge 模块）、bridge/ | [ADR-014-swift-bridge-spike.md](ADR-014-swift-bridge-spike.md) |
 | ADR-015 | AppKit 壳（Window / Menu） | Accepted | 2026-08-02 | 0（可执行目标） | app/ | [ADR-015-appkit-shell.md](ADR-015-appkit-shell.md) |
 | ADR-016 | Metal 文本渲染管线（spike） | Accepted | 2026-08-02 | 1 个 Bridge FFI | app/、core（bridge/layout） | [ADR-016-metal-text-rendering.md](ADR-016-metal-text-rendering.md) |
@@ -38,7 +38,8 @@ Proposed → Accepted
 | ADR-020 | CI 发布流水线 | Accepted | 2026-08-02 | 0（CI 基础设施） | .github/workflows/ci-release.yml、release.md | [ADR-020-ci-release-pipeline.md](ADR-020-ci-release-pipeline.md) |
 | ADR-021 | 性能基准体系（criterion）（v1.3：CI 粗告警 median + 阈值 200% / 下限 100µs） | Accepted | 2026-08-02 | 0（dev-only） | core（benches）、docs/benchmarks.md、.github/workflows/ci-bench.yml、bench-baseline/ | [ADR-021-performance-benchmarks.md](ADR-021-performance-benchmarks.md) |
 | ADR-022 | 属性测试（proptest）与审计记录制度（v1.1：fuzz 扩展） | Accepted | 2026-08-02 | 0（dev-only + 文档） | core（tests/property.rs）、docs/audits.md、WORKFLOW | [ADR-022-property-tests-audit-log.md](ADR-022-property-tests-audit-log.md) |
-| ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.6：Cmd+N 新文本快照 / 自动保存缓冲 / Cmd+S 合并；无模态弹窗原则；空快照退出清理；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Snapshot 6 方法 + Bridge FFI 6 项（v1.6） | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
+| ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.7：语义冻结期——保存域改动先确认方向再实现；FFI 面由 ADR-025 session 承接） | Accepted | 2026-08-02 | Snapshot 6 方法 | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
+| ADR-024 | Bridge FFI 总账校正与机械化（v1.0：ffi-ledger.py 机械生成 + CI-Docs 校验；当前 FFI 面 50 项；禁止手抄计数） | Accepted | 2026-08-03 | 0 | docs、scripts、ci-docs | [ADR-024-ffi-ledger.md](ADR-024-ffi-ledger.md) |
 | ADR-025 | 文档会话（DocumentSession）：生命周期状态收拢（v1.0：Session 统一持有 DM / Store / Snapshot 与未决 / 快照序号 / 固化基线 / 失败提示；FFI 收敛为 session_* 21 项；取代 document_manager_* / store_* / snapshot_* FFI） | Accepted | 2026-08-03 | Session 类型 + SessionError + Bridge FFI 21 项 | core（新增 session、bridge；删 bridge_store）、app、docs | [ADR-025-document-session.md](ADR-025-document-session.md) |
 
 ## 触发规则

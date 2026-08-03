@@ -2,23 +2,24 @@
 
 本文件是项目会话之间的**记忆载体**：沉淀已经踩过的坑、验证过的工作方式、和"别再重新讨论一遍"的决策。它不是规则（规则看宪法），但**每次任务开始前必须读**。
 
-## 项目现状速览（截至 2026-08-03 收工；T-001 ~ T-059/T-062 + Phase 7 六切片 +
-BUG-010~016 完成；Beta V0.1.2 已发布）
+## 项目现状速览（截至 2026-08-03 收工；T-001 ~ T-062 + Phase 7 六切片 + T-070
+生命周期收拢 + BUG-010~023 完成；Beta V0.1.2 已发布）
 
 - **代码：**
-  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043（buffer /
-    selection / history / layout / theme / command / event / lua / store / bridge /
-    editor / document_manager / snapshot），`core/src` 共 2182 行，131 个测试全绿（含 7 个
-    属性测试，ADR-022 v1.1；T-035 拆分后 fuzz 与基础属性测试为两个二进制）；
+  - Rust Core：T-001 ~ T-013 + T-023 + T-032 + T-033 + T-035~T-043 + T-070
+    （buffer / selection / history / layout / theme / command / event / lua /
+    store / bridge / editor / document_manager / snapshot / **session**），
+    `core/src` 共 2577 行（session 299 + session_error 44 + bridge_session 161），
+    148 个测试全绿（+16 session 集成测试，ADR-025）；
     依赖：mlua 0.12（lua54+vendored）、rusqlite 0.40（bundled）、swift-bridge
     0.1.59（build-dep swift-bridge-build）、criterion 0.8.2（dev，ADR-021）、
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**110 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**111 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
     T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + T-067 关闭流程 +
-    T-069 Frame + BUG-010~017 回归），源码 2340 行（Rule 12 的 Swift 预算
+    T-069 Frame + T-070 生命周期收拢 + BUG-010~023 回归），源码 2326 行（Rule 12 的 Swift 预算
     ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
@@ -68,6 +69,14 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
   - BUG-018 Frame 关闭卡死排查（本切片）：用户报告未复现（穷尽 performClose /
     modal session / posted 事件 / 真实 alert / GPU render + timer）；已确认并修复
     闪烁 Timer 保留环（CaretBlinker 抽取 + windowWillClose stop）；App 113 全绿
+  - T-070 文档生命周期状态收拢（本切片，ADR-025）：AppDelegate 七个账本字段 →
+    Core `Session` 单一入口（FFI 21 项取代旧 16 项）；关 B 只问 B、失败提示按
+    文档隔离、`?? 1` 兜底与注册表泄漏修复（BUG-019~022）；**BUG-023**（恢复
+    id 复用碰撞 + 残留状态，真实路径播种暴露——旧 42/5/9 假 id 掩盖）；变异
+    门禁 M1/M2/M5 迁至 Core + mutate.py 产物还原（实测 M5 残留产物连环失败）；
+    App 111 + Bridge 20 + Core 148 全绿
+  - ADR-024 FFI 总账机械化（本切片）：scripts/ffi-ledger.py + CI-Docs 门禁
+    （当前 FFI 面 50 项），禁止手抄计数
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -181,6 +190,7 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
 | 软换行 | 用户可选、默认关闭；默认按行渲染 + 水平滚动（ADR-019） | 配置系统（Lua/Config DSL）切片落地后经配置开启 |
 | 水平滚动 | 已落地（T-018，ADR-019）：`Viewport` 持有 scrollX/scrollY + 钳制 + 光标可见性；触控板双指 / Shift+滚轮（macOS 事件层自动交换轴向）；内容宽度 = 可见行最大宽度 | 平滑滚动动画随 T-022 |
 | 行分隔符 | `\n` 唯一；`\r` 暂为行内容 | CRLF 归一化在文件模型切片 |
+| 文档生命周期状态 | Core `Session` 单一入口（ADR-025）：未决 / 快照序号 / 固化基线 / 失败提示统一持有 | 语义变更走 ADR-023 v1.7 冻结流程（先确认方向再实现） |
 | Undo | 内存 inverse-operation 栈 + 相邻 Insert 合并 | SQLite 持久化边界在 T-029（Crash Recovery） |
 | 多光标 / mmap | 未定 | T-023 基准后定 |
 | 插件信任 | 默认信任，不沙箱 | 引入插件市场时重估（ADR-003） |
@@ -294,9 +304,22 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
 | 2026-08-02 | T-048 | 发版 CI 三连红：① clippy 1.97 新 lint；② CI-Bench 结果落 workspace 根 target；③ 两处测试硬编码版本号 | ① 测试模块移到文件末尾；② `CARGO_TARGET_DIR=target` 固定落点（本地实测 16 项 0 回归）；③ 版本断言改格式校验，一致性交给 CI-Release（Rule 15）；共享 runner quick 模式噪声 +26%~+120% → 阈值 100% / 下限 100µs（ADR-021 v1.2），CI 只做数量级恶化告警 |
 | 2026-08-03 | T-052 | xctest 进程直接创建 NSWindow 挂载 MTKView 崩溃（SIGSEGV），补 `NSApplication.shared` 无效 | 窗口必须 `orderFront(nil)` 进入窗口服务器（T-050 走真实 AppDelegate 生命周期所以从未触发）；IME 契约以 SDK `NSTextInputClient.h` 原文为准：characterIndexForPoint 的 point 是屏幕坐标、返回 UTF-16 字符索引；setMarkedText 必须替换 replacementRange（选中文本输入拼音 = 组合替换选区，不是推迟到提交） |
 | 2026-08-03 | BUG-018 | ① 实测 `isReleasedWhenClosed = true` 在 ARC 下不生效：close() 后窗口仍被 AppKit 内部保留（weak 探针 +0.5s 未释放）——关闭不意味着窗口对象会释放，依赖 deinit 做清理不可靠，须在 windowWillClose 显式清理；② 「新建 frame 关闭卡死」穷尽复现（dispatch performClose / beginModalSession / NSApp.postEvent 真实鼠标事件 / 真实 NSAlert / MTKView 真实 GPU render + 循环 Timer）均正常——真实点击上下文只能靠 posted 事件模拟（CGEvent 需辅助功能权限被拦截），仍无法复现时按 bug-workflow 停下反馈，请求用户补充「是否编辑过 / 弹窗是否出现 / 是否转菊花 / 控制台输出」 | windowWillClose 确定性 stop 闪烁 Timer（target/selector 强持有形成保留环，每 ⌘⇧N 泄漏一份渲染资源）；未复现问题保持 Open |
+| 2026-08-03 | T-070 | 崩溃恢复真实路径播种暴露 BUG-023：DM id 每进程从 1 重新分配，恢复新文档 id（1）撞上崩溃遗留行（1）——旧实现先写缓冲再删 latest，把刚写入的新行删掉（恢复后 ⌘S 报 scratch not found）；旧测试用 42/5/9 假 id 播种恰好避开碰撞 | ① Session::open 推进 DM 分配游标超过最大遗留行 id（advance_next_id）；② 恢复分支先 discard 旧行再建新文档（同时清残留未决标记——真实播种下遗留行在会话内有 state）；③ 播种一律走 Session 真实路径（seedCrashedDocs），禁止假 id |
+| 2026-08-03 | T-070 | mutate.py 变异点迁至 Rust 后：最后一个 Rust 变异恢复源码，但 bridge/artifacts 的 staticlib 仍是变异版本（M5 丢弃不清行残留）→ 后续全量测试连环失败 | mutate.py 循环结束后若有 Rust 变异点则重跑 ./bridge/build.sh 还原产物（工具 docstring 记录）；Rust 变异点 run 命令必须含 bridge 重建 |
+| 2026-08-03 | T-070 | 跨切面布尔 / 全局决策 = 多文档冲突源：旧全局 bufferSaveErrorVisible 被其他 frame 成功保存吞掉（BUG-020）；关 frame B 弹 frame A 未决（BUG-019）；makeFrame 兜底 ?? 1 两 frame 抢 id（BUG-021）；DM 注册表永不关闭（BUG-022） | 状态收拢进 Core Session 按文档隔离（DocState.save_error_visible per doc），窗口决策按窗口文档（closeDecisionDocId），id 分配推进防复用，窗口关闭 = 文档关闭 |
+| 2026-08-03 | T-070 | swift-bridge RustString 插值不渲染消息体：`"\(error)"` 只显示类型——T-054 断言「存储未就绪」失败 | 统一 errorText(error) 助手：`(error as? RustString)?.toString() ?? "\(error)"`；所有 presentSaveError / presentOpenError 走它 |
 
 ## 给下一个 agent 的提醒
 
+- **文档生命周期状态（T-070，ADR-025）**：未决 / 快照序号 / 固化基线 / 失败提示
+  全在 Core `Session`（core/src/session.rs）——App 只经 session_* FFI 驱动，
+  禁止在 AppDelegate 重建账本；关 B 只问 B、失败提示按文档隔离。保存 / 恢复 /
+  关闭域改动先跑变异门禁（M1 / M2 / M5 变异点在 core/src/session.rs），
+  语义变更先走 ADR-023 v1.7 冻结流程（用户确认方向）。
+- **FFI 总账（ADR-024）**：改 bridge.rs 后跑 `python3 scripts/ffi-ledger.py` 更新
+  ADR-024 的「当前 FFI 面」数字（当前 50 项），CI-Docs 机械校验，禁止手抄。
+- **mutate.py（T-070 补充）**：Rust 变异点 run 自带 bridge 重建，循环结束后自动
+  还原 staticlib 产物——不要手动中断；中断后产物是变异版本，先 `./bridge/build.sh`。
 - 开始任务前读：ADR-006（数据结构现状）、ADR-009（Layout）、ADR-011（Command/Event）、
   ADR-014/015（Bridge/App 构建链）、ADR-016~020（渲染/编辑/方向/滚动/发布）、
   WORKFLOW、本文件。

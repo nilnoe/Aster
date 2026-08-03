@@ -10,6 +10,48 @@
 
 ## [Unreleased]
 
+### Added — 2026-08-03（ADR-024，FFI 总账机械化）
+
+- [ADR-024](../docs/adr/ADR-024-ffi-ledger.md) — FFI 总账从手抄改为机械生成：
+  `scripts/ffi-ledger.py` 统计 bridge.rs ffi mod 的 `fn` 声明数（当前 50 项），
+  CI-Docs 新增「FFI ledger integrity」门禁（宪法 Rule 15：不依赖人工记忆）；
+  禁止手抄计数——ADR-001 / ADR-013 / ADR-023 头部计数由本 ADR 承接
+  （漂移根因：ADR-013 头部 7 vs 索引 10，T-036 校正后仍靠自觉）。
+
+### Added — 2026-08-03（T-070，文档生命周期状态收拢，ADR-025）
+
+- feat(core)：新增 `session` 模块（`Session` + `SessionError`）——DM 注册表 +
+  缓冲 + 快照 + 未决 / 快照序号 / 固化基线 / 失败提示的**唯一所有者**；不变量
+  （未决 ⟺ 缓冲行、未决必有快照序号、序号唯一）由方法保证；FFI 收敛为
+  `session_*` 21 项，取代 `document_manager_*`（4）+ `store_*`（7）+
+  `snapshot_*`（5）（Rule 14：旧面无生产消费者）。
+- refactor(app)：AppDelegate 删除七个账本字段（documentManager / bufferStore /
+  snapshot / pendingDocs / snapshotSeqByDocId / committedTextByDocId /
+  bufferSaveErrorVisible），改为单一 `session: Session?`；关闭决策**按窗口文档**
+  （关 B 只问 B）；窗口关闭 = 文档生命周期结束（Session 注册表移除）。
+- **BUG-019（Fixed）**：关 frame B 弹 frame A 的未决提示——`windowShouldClose`
+  改为只决策该窗口文档（旧实现全局 resolvePendingDocs；Frame × 关闭流冲突，
+  BUG-018 卡死报告的疑似根因）。
+- **BUG-020（Fixed）**：自动保存失败提示全局单布尔被其他文档的成功保存吞掉——
+  提示状态按**文档**隔离（Session `DocState.save_error_visible`）。
+- **BUG-021（Fixed）**：`makeFrame` 兜底 `?? 1` 在存储故障时两个 frame 抢同一
+  id——`open_scratch` 由 Session 统一登记，兜底删除。
+- **BUG-022（Fixed）**：DM 注册表随 ⌘N / ⌘⇧N / ⌘O 永久增长——窗口关闭经
+  `session_close_document` 移除（`DocumentManager::close` 首次进产品）。
+- **BUG-023（Fixed）**：崩溃恢复 id 复用碰撞 + 残留状态——DM id 每进程从 1
+  重新分配，恢复新文档 id 撞上崩溃遗留行（旧实现先写缓冲再删旧行，id 复用时
+  删掉新行，⌘S 报 scratch not found；旧测试用 42/5/9 假 id 掩盖）。修复 =
+  `Session::open` 推进 DM 分配游标（`advance_next_id`）+ 恢复分支先 discard
+  旧行再建新文档（同时清残留未决标记，恢复真实路径播种的 Invariant 测试）。
+- test：Core 新增 session 集成测试 16 项（core/tests/session.rs：不变量 /
+  保存失败保全 / 崩溃往返 / 磁盘基线）；Bridge 新增 SessionBridgeTests 9 项
+  （取代旧 Store / Snapshot / DocumentManager 桥接契约测试）；App 测试迁移至
+  Session 断言 + 新增「跨 frame 关闭隔离」「关闭即注销」用例；变异门禁 M1 /
+  M2 / M5 变异点迁至 core/src/session.rs；`scripts/mutate.py` 增加 Rust 变异
+  后 bridge 产物还原（实测踩坑：M5 残留变异产物导致全量测试连环失败）。
+- 结果：App 111 + Bridge 20 + Core 148 全绿；变异门禁 5/5；cargo fmt /
+  clippy（-D warnings）/ swift-format 零告警。
+
 ### Added — 2026-08-03（ADR-025，T-070 设计决策）
 
 - [ADR-025](../docs/adr/ADR-025-document-session.md) — 文档会话状态收拢：

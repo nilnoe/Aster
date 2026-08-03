@@ -7,7 +7,7 @@
 //! `BufferError` 精确表达失败原因。
 
 mod bridge;
-mod bridge_store;
+mod bridge_session;
 mod buffer;
 mod command;
 mod document_manager;
@@ -18,6 +18,8 @@ mod history;
 mod layout;
 mod lua;
 mod selection;
+mod session;
+mod session_error;
 mod snapshot;
 mod store;
 mod theme;
@@ -32,6 +34,8 @@ pub use history::{EditOp, History};
 pub use layout::Layout;
 pub use lua::{LuaError, LuaRuntime};
 pub use selection::Selection;
+pub use session::Session;
+pub use session_error::SessionError;
 pub use snapshot::Snapshot;
 pub use store::{SessionDocument, Store, StoreError};
 pub use theme::{Color, Theme, ThemeError};

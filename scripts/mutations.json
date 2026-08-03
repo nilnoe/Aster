@@ -1,45 +1,45 @@
 {
-  "_doc": "变异测试清单（T-062，ADR-022 / T-051 方法论）。每个条目 = 一个确定性变异点：old 必须在文件中恰好出现一次，注入后跑 run 命令，恢复后按 expected 判定（caught = 测试失败捕获 / survives = 全绿存活=盲区）。M6（挂起变体）不可自动化，不纳入。",
+  "_doc": "变异测试清单（T-062，ADR-022 / T-051 方法论；T-070 起变异点迁至 Core session.rs）。每个条目 = 一个确定性变异点：old 必须在文件中恰好出现一次，注入后跑 run 命令，恢复后按 expected 判定（caught = 测试失败捕获 / survives = 全绿存活=盲区）。M6（挂起变体）不可自动化，不纳入。Rust 侧变异点 run 必须重建 bridge（swift test 链接的是 staticlib）。",
   "mutations": [
     {
       "id": "M1",
       "label": "合并顺序颠倒（先删缓冲行再写快照）",
-      "file": "app/Sources/AsterApp/AppDelegate+Storage.swift",
-      "old": "      let text = try store_load_scratch(store, id).toString()\n      try snapshot_write(snapshot, seq, text)",
-      "new": "      let text = try store_load_scratch(store, id).toString()\n      _ = try? store_delete_scratch(store, id)\n      try snapshot_write(snapshot, seq, text)",
+      "file": "core/src/session.rs",
+      "old": "        self.snapshot.write(seq, &text)?;\n        if let Some(store) = self.store.as_mut() {\n            // 删除失败容忍：内容已固化，残留下次编辑自愈（与内容一致分支同策略）。\n            let _ = store.delete_scratch(id);\n        }",
+      "new": "        if let Some(store) = self.store.as_mut() {\n            let _ = store.delete_scratch(id);\n        }\n        self.snapshot.write(seq, &text)?;",
       "expected": "caught",
-      "note": "T-051 首轮此变异全绿 = 保存失败路径盲区；SaveFailurePathTests 补齐后必须被捕获（快照写失败必须保全缓冲行，ADR-013 v1.3）。",
-      "run": { "cwd": "app", "cmd": ["swift", "test", "--filter", "SaveFailurePathTests"] }
+      "note": "T-051 首轮此变异全绿 = 保存失败路径盲区；SaveFailurePathTests 补齐后必须被捕获（快照写失败必须保全缓冲行，ADR-013 v1.3）。T-070 逻辑迁至 Core session.rs。",
+      "run": { "cwd": ".", "cmd": ["sh", "-c", "./bridge/build.sh && cd app && swift test --filter SaveFailurePathTests"] }
     },
     {
       "id": "M2",
       "label": "dirty 比较反转（== → !=）",
-      "file": "app/Sources/AsterApp/AppDelegate+Storage.swift",
-      "old": "    if view.model.bufferText == committedTextByDocId[id] {",
-      "new": "    if view.model.bufferText != committedTextByDocId[id] {",
+      "file": "core/src/session.rs",
+      "old": "            content == state.committed_text",
+      "new": "            content != state.committed_text",
       "expected": "caught",
-      "note": "BUG-012 内容比较基线反转 → undo 回快照内容后假 dirty；BugReproTests 回归必须捕获。",
-      "run": { "cwd": "app", "cmd": ["swift", "test", "--filter", "BugReproTests"] }
+      "note": "BUG-012 内容比较基线反转 → undo 回快照内容后假 dirty；BugReproTests 回归必须捕获（T-070 逻辑迁至 Core）。",
+      "run": { "cwd": ".", "cmd": ["sh", "-c", "./bridge/build.sh && cd app && swift test --filter BugReproTests"] }
     },
     {
       "id": "M3",
       "label": "崩溃恢复漏写缓冲（恢复内容不进缓冲行）",
       "file": "app/Sources/AsterApp/AppDelegate+Storage.swift",
       "old": "        try model.typeText(text)",
-      "new": "        // MUTATION: 恢复漏写缓冲（T-062 自动注入，立即还原）",
+      "new": "        // MUTATION: 恢复漏写缓冲（T-070 自动注入，立即还原）",
       "expected": "caught",
-      "note": "BUG-011 回归（T-069 重构后变异点漂移：恢复分支改为 makeScratchModel + typeText 链路，缓冲写入由按 frame 的 onChange 自动完成——移除 typeText 即恢复内容不进缓冲）；SaveStateInvariantTests 种子 7 已验证能捕获（T-058 变异复验）。",
+      "note": "BUG-011 回归：移除 typeText 即恢复内容不进缓冲（onChange 链路断开）；SaveStateInvariantTests 恢复分支断言必须捕获（T-058 变异复验）。",
       "run": { "cwd": "app", "cmd": ["swift", "test", "--filter", "SaveStateInvariantTests"] }
     },
     {
       "id": "M5",
       "label": "退出「不保存」丢弃不清缓冲行",
-      "file": "app/Sources/AsterApp/AppDelegate+Storage.swift",
-      "old": "    for id in pendingDocs.ids {\n      _ = try? store_delete_scratch(store, id)\n    }\n    pendingDocs.discardAll()",
-      "new": "    for id in pendingDocs.ids {\n      // MUTATION: 丢弃不清缓冲行（T-062 自动注入，立即还原）\n    }\n    pendingDocs.discardAll()",
+      "file": "core/src/session.rs",
+      "old": "        if let Some(store) = self.store.as_mut() {\n            let _ = store.delete_scratch(id);\n        }\n        let state = self.docs.get_mut(&id).ok_or(SessionError::UnknownDoc(id))?;\n        state.pending = false;\n        Ok(())",
+      "new": "        if let Some(store) = self.store.as_mut() {\n            // MUTATION: 丢弃不清缓冲行（T-070 自动注入，立即还原）\n        }\n        let state = self.docs.get_mut(&id).ok_or(SessionError::UnknownDoc(id))?;\n        state.pending = false;\n        Ok(())",
       "expected": "caught",
-      "note": "ADR-013 v1.3 删除时机 3：明确丢弃必须删缓冲行；退出流程用例必须捕获。",
-      "run": { "cwd": "app", "cmd": ["swift", "test", "--filter", "AppExitFlowIntegrationTests/testDiscardAllClearsPendingAndTerminates"] }
+      "note": "ADR-013 v1.3 删除时机 3：明确丢弃必须删缓冲行；AppExitFlowIntegrationTests 丢弃用例必须捕获（T-070 逻辑迁至 Core）。",
+      "run": { "cwd": ".", "cmd": ["sh", "-c", "./bridge/build.sh && cd app && swift test --filter AppExitFlowIntegrationTests/testDiscardAllClearsPendingAndTerminates"] }
     },
     {
       "id": "M-charIndex",

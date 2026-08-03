@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.1
+- **Version:** 1.3
 - **新增 Public API:** Core 2 方法 + Bridge FFI 3 项（v1.1，T-015）
 - **影响模块:** Buffer, Theme
 - **是否违反 Single Responsibility:** 否
@@ -21,6 +21,13 @@
   v1.2 备注（T-041）：Bridge FFI 新增 `document_manager_open_scratch`（Cmd+N
   新建 Scratch 文档，ADR 总纲 §6；返回注册表唯一 id，作为缓冲 / 快照保存键；
   真实调用方 = AppDelegate newDocument）。原 v1.1 的 3 项 FFI 不变。
+
+  v1.3 备注（T-070，ADR-025）：DocumentManager 的 Bridge FFI 面（new / open_scratch /
+  open_disk / text，4 项）随文档生命周期收拢至 `Session` 撤销——DM 成为 Session
+  内部注册表（id 分配 / 磁盘读取的唯一入口），`text` 访问器继续 `pub(crate)` 供
+  Session 使用；App 不再直接触碰 DM。本 ADR 头部的 FFI 计数由 ADR-024 机械校验
+  承接。`Session::open` 打开时以最大缓冲遗留行 id 推进 DM 分配游标
+  （`advance_next_id`，pub(crate)，BUG-023：避免恢复新文档 id 复用崩溃遗留 id）。
 
 ## 原因
 

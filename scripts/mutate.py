@@ -8,6 +8,10 @@
 - 只用标准库（Rule 7：subprocess / json / pathlib 足够；不引第三方）。
 - 恢复保证：每个变异点注入前先在内存备份整文件，跑完立即还原；old 必须
   唯一匹配（不唯一 = 变异点漂移，跳过并计失败，防止注入错位置）。
+- T-070 补充（变异点迁至 Rust 后实测踩坑）：Rust 变异点的 run 会重建
+  bridge/artifacts 的 staticlib——最后一个 Rust 变异恢复源码后，产物仍是
+  变异版本（M5 丢弃不清行残留导致后续全量测试连环失败）。因此循环结束后，
+  只要本轮注入过 .rs 文件，就重跑 ./bridge/build.sh 恢复真实产物。
 - M6（挂起变体）不可自动化（会阻塞进程），清单已注明不纳入。
 
 用法：
@@ -34,11 +38,13 @@ def main() -> int:
 
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     failed: list[str] = []
+    touched_rust = False
 
     for entry in catalog["mutations"]:
         if only and entry["id"] != only:
             continue
         target = ROOT / entry["file"]
+        touched_rust = touched_rust or target.suffix == ".rs"
         original = target.read_text(encoding="utf-8")
         matches = original.count(entry["old"])
         if matches != 1:
@@ -73,6 +79,18 @@ def main() -> int:
         )
         if not ok:
             failed.append(entry["id"])
+
+    if touched_rust:
+        # 恢复被变异版本污染的 staticlib 产物（见模块 docstring 的 T-070 补充）。
+        print("[rebuild] 还原 bridge 产物（本轮注入过 Rust 变异点）…")
+        subprocess.run(
+            ["./bridge/build.sh"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=600,
+            check=True,
+        )
 
     if failed:
         print(f"变异门禁未通过：{', '.join(failed)}")

@@ -67,3 +67,12 @@ jobs:
             fi
           done < <(grep -oE '\b[0-9a-f]{7,40}\b' docs/audits.md | sort -u)
           exit $fail
+      - name: FFI ledger integrity (宪法 Rule 15，ADR-024)
+        # 手抄 FFI 计数已知会漂移（ADR-013 头部 vs 索引，ADR-024 提议）；
+        # bridge.rs ffi mod 是唯一事实来源，脚本统计与 ADR-024 数字必须一致。
+        run: |
+          count=$(python3 scripts/ffi-ledger.py)
+          if ! grep -qF "当前 FFI 面：${count} 项" docs/adr/ADR-024-ffi-ledger.md; then
+            echo "FFI 总账漂移：bridge.rs 实测 ${count} 项，ADR-024 未同步"
+            exit 1
+          fi

@@ -1,4 +1,4 @@
-//! Swift Bridge FFI 面（T-010 spike，ADR-014）。
+//! Swift Bridge FFI 面（T-010 spike，ADR-014；T-070 收敛为 Session 入口）。
 //!
 //! 决策依据：
 //! - swift-bridge 是 ADR 总纲 3.4 已定的桥接方案（拒绝手写 FFI / IPC）；
@@ -12,18 +12,18 @@
 //!   违反总纲 3.4）；本切片经 `buffer_insert` 把错误映射为消息字符串（ADR-014 备注）。
 //! - `Result` 返回与 `&str` 参数组合生成的 Swift 无法编译（0.1.59 上游 bug），
 //!   桥接函数改用 `String` 参数规避（ADR-014 备注）。
+//! - T-070（ADR-025）：文档生命周期 FFI 收敛为 `session_*` 单一入口；旧
+//!   document_manager_* / store_* / snapshot_* 撤销（无生产消费者，Rule 14）。
 // 决策依据：swift-bridge 生成的 FFI 胶水含同类型指针转换（如
 // `*mut Buffer as *mut Buffer`），clippy 报 unnecessary_cast；这是代码生成器
 // 输出而非手写代码，整文件允许该 lint（宪法 Rule 10：注释给出决策依据）。
 #![allow(clippy::unnecessary_cast)]
 
-use crate::bridge_store::*;
+use crate::bridge_session::*;
 use crate::buffer::{Buffer, BufferId};
-use crate::document_manager::{DocumentManager, DocumentSource};
 use crate::editor::{Editor, Movement};
 use crate::layout::Layout;
-use crate::snapshot::Snapshot;
-use crate::store::Store;
+use crate::session::Session;
 
 /// 核心版本号（验证 String 往返；内容来自 Cargo.toml）。
 pub fn core_version() -> String {
@@ -45,47 +45,6 @@ pub fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize,
 /// （宪法 Rule 11）；字节语义与 Buffer 一致（ADR-005）。
 pub fn layout_line_starts(text: String) -> Vec<usize> {
     Layout::build(&text).line_starts().to_vec()
-}
-
-// --- DocumentManager 桥接面（T-015，ADR-001 v1.1） ---
-//
-// 决策依据：
-// - 文件打开（NSOpenPanel / 拖放）经 DocumentManager Disk 源读取内容，App 用
-//   文本新建 Buffer + Editor 会话（ADR-017：Editor 消费 Buffer）。
-// - id 以 usize 透传：swift-bridge 0.1.59 的 Result C 结构命名对 u64 未实现
-//   （bridged_type.rs 的 todo!() 崩溃，实测）；usize 是既有验证路径
-//   （ADR-014 惯例：机械适配规避生成器短板）。
-// - 错误映射为消息字符串（ADR-014 惯例）。
-
-/// 建立 DocumentManager 注册表（App 持有 opaque，首次进产品，Rule 14 处置）。
-pub fn document_manager_new() -> DocumentManager {
-    DocumentManager::new()
-}
-
-/// Cmd+N 新建 Scratch 文档（T-041，ADR-001 v1.2）：注册表分配唯一 id，
-/// 作为缓冲 / 快照的保存键（ADR 总纲 §6：Scratch 自动保存、无需命名）。
-///
-/// 决策依据：Scratch 打开不涉及 IO，理论上不可失败；仍返回 Result 保持与
-/// Disk 打开同构的错误面（ADR-004 精神：统一失败语义）。
-pub fn document_manager_open_scratch(dm: &mut DocumentManager) -> Result<usize, String> {
-    dm.open(DocumentSource::Scratch)
-        .map(|id| id.as_u64() as usize)
-        .map_err(|e| format!("{e:?}"))
-}
-
-/// 打开磁盘文件（ADR-001 Disk 源），返回注册的 BufferId（u64）。
-pub fn document_manager_open_disk(dm: &mut DocumentManager, path: String) -> Result<usize, String> {
-    dm.open(DocumentSource::Disk(path.into()))
-        .map(|id| id.as_u64() as usize)
-        .map_err(|e| format!("{e:?}"))
-}
-
-/// 按 id 取注册 Buffer 文本（App 建 Editor 会话用；未知 id 返回空串）。
-///
-/// 决策依据：调用方只查询刚由 open 返回的 id，未知 id 返回空串是最小错误面；
-/// Core 侧访问器为 `pub(crate)`（ADR-001 v1.1，Rule 12）。
-pub fn document_manager_text(dm: &DocumentManager, id: usize) -> String {
-    dm.text(BufferId::new(id as u64)).unwrap_or("").to_string()
 }
 
 // --- Editor 桥接面（T-013，ADR-017） ---
@@ -169,13 +128,31 @@ mod ffi {
         fn core_version() -> String;
         fn buffer_insert(buffer: &mut Buffer, at: usize, s: String) -> Result<usize, String>;
         fn layout_line_starts(text: String) -> Vec<usize>;
-        fn document_manager_new() -> DocumentManager;
-        fn document_manager_open_scratch(dm: &mut DocumentManager) -> Result<usize, String>;
-        fn document_manager_open_disk(
-            dm: &mut DocumentManager,
-            path: String,
-        ) -> Result<usize, String>;
-        fn document_manager_text(dm: &DocumentManager, id: usize) -> String;
+        fn session_new(dir: String) -> Session;
+        fn session_store_error(session: &Session) -> String;
+        fn session_is_clean_exit(session: &Session) -> Result<bool, String>;
+        fn session_set_clean_exit(session: &mut Session, clean: bool) -> Result<(), String>;
+        fn session_buffered_ids(session: &Session) -> Vec<usize>;
+        fn session_open_scratch(session: &mut Session) -> Result<usize, String>;
+        fn session_open_disk(session: &mut Session, path: String) -> Result<usize, String>;
+        fn session_text(session: &Session, id: usize) -> Result<String, String>;
+        fn session_content_changed(
+            session: &mut Session,
+            id: usize,
+            content: String,
+        ) -> Result<(), String>;
+        fn session_save(session: &mut Session, id: usize) -> Result<(), String>;
+        fn session_save_all(session: &mut Session) -> Result<(), String>;
+        fn session_discard(session: &mut Session, id: usize) -> Result<(), String>;
+        fn session_discard_all(session: &mut Session) -> Result<(), String>;
+        fn session_pending_ids(session: &Session) -> Vec<usize>;
+        fn session_is_pending(session: &Session, id: usize) -> bool;
+        fn session_snapshot_seq(session: &Session, id: usize) -> Result<usize, String>;
+        fn session_load_buffered(session: &Session, id: usize) -> Result<String, String>;
+        fn session_delete_buffered(session: &mut Session, id: usize) -> Result<bool, String>;
+        fn session_register_buffered(session: &mut Session, id: usize) -> Result<usize, String>;
+        fn session_prune_empty(session: &Session) -> Result<usize, String>;
+        fn session_close_document(session: &mut Session, id: usize) -> Result<(), String>;
         fn editor_new(buffer: Buffer) -> Editor;
         fn editor_text(editor: &Editor) -> &str;
         fn editor_selection_start(editor: &Editor) -> usize;
@@ -195,24 +172,10 @@ mod ffi {
         fn editor_move_line_end(editor: &mut Editor, extend: bool);
         fn editor_move_doc_start(editor: &mut Editor, extend: bool);
         fn editor_move_doc_end(editor: &mut Editor, extend: bool);
-        fn store_open_buffer(dir: String) -> Result<Store, String>;
-        fn store_save_scratch(store: &mut Store, id: usize, content: String) -> Result<(), String>;
-        fn store_load_scratch(store: &Store, id: usize) -> Result<String, String>;
-        fn store_set_clean_exit(store: &mut Store, clean: bool) -> Result<(), String>;
-        fn store_is_clean_exit(store: &Store) -> Result<bool, String>;
-        fn store_scratch_ids(store: &Store) -> Vec<usize>;
-        fn store_delete_scratch(store: &mut Store, id: usize) -> Result<bool, String>;
-        fn snapshot_new(dir: String) -> Snapshot;
-        fn snapshot_create_next(snapshot: &Snapshot) -> Result<usize, String>;
-        fn snapshot_write(snapshot: &Snapshot, seq: usize, content: String) -> Result<(), String>;
-        fn snapshot_read(snapshot: &Snapshot, seq: usize) -> Result<String, String>;
-        fn snapshot_prune_empty(snapshot: &Snapshot) -> Result<usize, String>;
 
         type BufferId;
-        type DocumentManager;
         type Editor;
-        type Snapshot;
-        type Store;
+        type Session;
         #[swift_bridge(init)]
         fn new(id: u64) -> BufferId;
         fn as_u64(self: &BufferId) -> u64;

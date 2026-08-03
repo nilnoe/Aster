@@ -8,6 +8,8 @@
 //!   自动写入缓冲文件（崩溃保护）；Cmd+S 把缓冲合并进当前快照；dirty 指示用
 //!   系统原生 isDocumentEdited（关闭按钮红点，T-067），退出保护基于「缓冲 ≠
 //!   快照」的未提交编辑。
+//! - T-070（ADR-025）：文档生命周期状态（未决 / 快照序号 / 固化基线 / 失败
+//!   提示）收拢进 Core `Session`，本类只保留 frame（窗口）层视图状态。
 //! - 存储 / 保存 / 崩溃恢复逻辑在 `AppDelegate+Storage.swift`（Rule 3 拆分，
 //!   MetalView + MetalView+Input 同一模式）。
 
@@ -20,43 +22,32 @@ import AsterBridge
 // `presentPendingDocsAlert` / `presentRecoveryAlert`（Rule 9：0 抽象层，
 // 只放开一个继承点）。
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-  /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
-  /// 所有打开路径统一经它，ADR-001）。
-  var documentManager = document_manager_new()
-  /// 自动保存缓冲 Store（启动时打开并保持连接，崩溃保护；ADR-023 v1.3）。
-  /// internal：存储扩展读写（Rule 4 / 12 模块边界内封装）。
-  var bufferStore: Store?
-  /// 纯文本快照目录句柄（T-042，ADR-023 v1.4：Cmd+N 创建 / Cmd+S 合并）。
-  let snapshot = snapshot_new(StorePaths.defaultDirectory())
-  /// 多文档未提交状态（T-046，ADR-013 v1.4）：进程生命周期内全程检查，
-  /// 切换文档 / 打开新文件不抛弃前一个文档的未决状态。
-  var pendingDocs = PendingDocs()
-  /// 文档 id → 快照序号（⌘N / 恢复 / 打开时登记；⌘S 与退出「保存全部」合并目标）。
-  var snapshotSeqByDocId: [UInt: UInt] = [:]
-  /// 文档 id → 最近一次合并进快照的文本（BUG-012，T-050 复审）。
-  ///
-  /// 决策依据：undo/redo 可能把内容回退到与快照一致的状态，仅凭「发生过编辑」
-  /// 判定 dirty 会产生假未保存提示。维护「已固化到快照的文本」作比较基线：
-  /// 内容相等 → 不置脏并删缓冲行（崩溃保护冗余）；不相等 → 置脏 + 自动保存。
-  /// 各文档创建点（启动默认 / ⌘N / 打开 / 恢复）初始化为空快照内容 `""`。
-  var committedTextByDocId: [UInt: String] = [:]
+  /// 文档会话（T-070，ADR-025）：DM 注册表 + 缓冲 + 快照 + 未决 / 快照序号 /
+  /// 固化基线 / 失败提示的统一所有者——App 不再持有任何文档生命周期账本
+  /// （旧三账本 + 全局布尔导致的 BUG-010~018 由收拢消除）。
+  var session: Session?
   /// 启动时是否检测到异常退出且有缓冲文档（T-043：崩溃恢复提示）。
   var needsRecoveryPrompt = false
-  /// 缓冲自动保存失败是否已提示（T-054，BUG-015）：失败必须可见（ADR-004），
-  /// 但同一失败段落只弹一次，避免逐键阻塞输入；下一次成功保存复位。
-  var bufferSaveErrorVisible = false
   /// 全部 Frame（广义窗口，T-069）：frame = 窗口级容器，未来支持窗内分窗，
   /// 故用 frame 表述；当前由 AppKit NSWindow 直接承载（Rule 1：不为将来抽象
   /// 建类型）。
   var frames: [NSWindow] = []
   /// 每个 frame 当前文档的文件名（frame 级视图状态；Scratch 为 nil）。
   var frameFileName: [NSWindow: String] = [:]
+  /// 关闭决策上下文的文档 id（windowShouldClose 时设置；nil = 全局退出决策）。
+  /// T-070 修正：关 frame B 只决策 B 的文档，不再弹 frame A 的未决提示。
+  var closeDecisionDocId: UInt?
 
   /// 当前 Frame：键窗口优先（⌘S / ⌘O / ⌘N 作用于用户正在操作的 frame），
   /// 无键窗口时回退第一个（启动早期 / 测试环境）。
   var currentFrame: NSWindow? {
     if let key = NSApp.keyWindow, frames.contains(where: { $0 === key }) { return key }
     return frames.first
+  }
+
+  /// 未决文档总数（Session 单一事实来源；退出提示文案用）。
+  var pendingDocsCount: Int {
+    session.map { session_pending_ids($0).count } ?? 0
   }
 
   /// 崩溃恢复决策（T-043，ADR-013 v1.1）：纯函数便于单测。
@@ -71,10 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     setupStorage()
     // 启动默认 Frame（样例内容验证 CJK + 多行渲染链路，T-012，ADR-016）；
     // 容忍快照创建失败（setupStorage 已提示存储未就绪，窗口照开，保存时再报）。
-    makeFrame(
-      seedContent: "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK",
-      tolerateSnapshotFailure: true
-    )
+    makeFrame(seedContent: "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
     presentRecoveryIfNeeded()
     NSApp.activate(ignoringOtherApps: true)
   }
@@ -84,11 +72,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 决策依据：AppKit 在正常终止（Cmd+Q / 关最后窗口，且未被取消）时调用本方法；
   /// kill / 崩溃不调用，哨兵保持非干净。哨兵不承担数据清理（ADR-013 v1.3）。
   func applicationWillTerminate(_ notification: Notification) {
-    guard let store = bufferStore else { return }
-    try? store_set_clean_exit(store, true)
+    guard let session else { return }
+    _ = try? session_set_clean_exit(session, true)
     // T-047（ADR-023 v1.6）：进程干净退出时删除空快照文件（启动即建 / 从未
     // 输入合并的空文档不累积）；崩溃退出不执行本回调，下次干净退出一并处理。
-    _ = try? snapshot_prune_empty(snapshot)
+    _ = try? session_prune_empty(session)
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -107,15 +95,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 选择」抽为 internal 方法，测试子类覆写注入决策；生产路径行为不变
   /// （Rule 9：1 个方法而非抽象层；无依赖注入框架）。
   /// 返回 `Int?`：1 = 保存全部；0 = 全部不保存；nil = 取消。
+  /// 关闭窗口路径只决策该窗口的文档（closeDecisionDocId 非 nil）；退出路径
+  /// 决策全部未决（T-070 修正：旧实现全局决策，关 frame B 会弹 frame A 的
+  /// 未决提示）。
   func presentPendingDocsAlert() -> Int? {
     let alert = NSAlert()
-    alert.messageText = "有 \(pendingDocs.count) 个文档存在未提交更改"
     let currentName = currentFrame.flatMap { frameFileName[$0] } ?? AppInfo.name
-    alert.informativeText =
-      "包括“\(currentName)”等 \(pendingDocs.count) 个文档。"
-      + "保存全部将合并进各自的快照。"
-    alert.addButton(withTitle: "保存全部")
-    alert.addButton(withTitle: "全部不保存")
+    if closeDecisionDocId != nil {
+      alert.messageText = "文档存在未提交更改"
+      alert.informativeText =
+        "“\(currentName)”存在未保存的更改。保存将合并进其快照；不保存将丢弃更改。"
+      alert.addButton(withTitle: "保存")
+      alert.addButton(withTitle: "不保存")
+    } else {
+      alert.messageText = "有 \(pendingDocsCount) 个文档存在未提交更改"
+      alert.informativeText =
+        "包括“\(currentName)”等 \(pendingDocsCount) 个文档。"
+        + "保存全部将合并进各自的快照。"
+      alert.addButton(withTitle: "保存全部")
+      alert.addButton(withTitle: "全部不保存")
+    }
     alert.addButton(withTitle: "取消")
     switch alert.runModal() {
     case .alertFirstButtonReturn: return 1
@@ -164,7 +163,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       updateWindowTitle(frame)
     } catch {
       NSLog("新建文档失败：\(error)")
-      presentSaveError("\(error)")
+      presentSaveError(errorText(error))
     }
   }
 
@@ -184,10 +183,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 决策依据（T-015，ADR-001 v1.1）：注册表持有的 Buffer 副本与编辑会话分离，
   /// 激活文档统一归属随 T-024（Command Palette）落地，本切片不引入激活状态。
   func open(_ url: URL) {
-    guard let frame = currentFrame else { return }
+    guard let frame = currentFrame, let session else { return }
     do {
-      let id = try document_manager_open_disk(documentManager, url.path)
-      let text = document_manager_text(documentManager, id).toString()
+      let id = UInt(try session_open_disk(session, url.path))
+      let text = try session_text(session, id).toString()
       let buffer = Buffer(BufferId(UInt64(id)))
       _ = try buffer_insert(buffer, 0, text)
       let model = makeModel(buffer, in: frame)
@@ -195,17 +194,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         view.load(model)
       }
       frameFileName[frame] = url.lastPathComponent
-      // BUG-010：每个打开的文件分配**独立**快照序号（不再继承当前文档序号）——
-      // 否则多个文件共享同一快照，退出「保存全部」逐个合并时后写覆盖先写，
-      // 先打开文档的内容永久丢失。create_next 失败走下方 catch（失败可见，
-      // ADR-004），文件不会进入视图（与 open_disk 读取失败同级别处置）。
-      let seq = UInt(try snapshot_create_next(snapshot))
-      snapshotSeqByDocId[id] = seq
-      committedTextByDocId[id] = ""
       updateWindowTitle(frame)
     } catch {
       NSLog("打开文档失败：\(error)")
-      presentOpenError(error)
+      presentOpenError(errorText(error))
     }
   }
 
@@ -237,7 +229,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let base = frameFileName[frame] ?? AppInfo.name
     let currentDirty =
       (frame.contentView as? MetalView)
-      .map { pendingDocs.contains(UInt($0.model.bufferIdValue)) } ?? false
+      .map { view -> Bool in
+        session.map { session_is_pending($0, UInt(view.model.bufferIdValue)) } ?? false
+      } ?? false
     frame.title = base
     frame.isDocumentEdited = currentDirty
   }
@@ -256,10 +250,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   }
 
   /// 打开失败必须可见（ADR-004），不静默回退到空文档。
-  private func presentOpenError(_ error: Error) {
+  private func presentOpenError(_ message: String) {
     let alert = NSAlert()
     alert.messageText = "无法打开文档"
-    alert.informativeText = "\(error)"
+    alert.informativeText = message
     alert.alertStyle = .warning
     alert.runModal()
   }

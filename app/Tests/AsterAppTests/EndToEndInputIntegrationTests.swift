@@ -39,10 +39,9 @@ final class EndToEndInputIntegrationTests: AppIntegrationTestCase {
     (appDelegate.currentFrame?.contentView as? MetalView)?.keyDown(with: event)
 
     XCTAssertEqual(model.bufferText, "x你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
-    XCTAssertTrue(appDelegate.pendingDocs.contains(id))
-    let store = try XCTUnwrap(appDelegate.bufferStore)
+    XCTAssertTrue(pendingSet().contains(id))
     XCTAssertEqual(
-      try store_load_scratch(store, id).toString(),
+      try session_load_buffered(appSession, id).toString(),
       "x你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK"
     )
   }

@@ -114,6 +114,19 @@ impl DocumentManager {
     pub(crate) fn text(&self, id: BufferId) -> Option<&str> {
         self.documents.get(&id).map(|doc| doc.buffer.text())
     }
+
+    /// 把 id 分配推进到超过 `min_id`（T-070 / BUG-023，Session 恢复前置）。
+    ///
+    /// 决策依据：DM 的 id 每进程从 1 重新分配；崩溃遗留的缓冲行（如 id 1/2/3）
+    /// 在恢复后仍以原 id 存在，而恢复创建的新文档会拿到同样的 id——旧实现
+    /// typeText 会覆盖遗留行内容（静默数据丢失，旧测试用假 id 掩盖）。Session
+    /// 打开时以最大遗留行 id 推进分配游标，保证新文档 id 永不与遗留行碰撞。
+    /// `pub(crate)` 不构成公共 API（Rule 12）。
+    pub(crate) fn advance_next_id(&mut self, min_id: u64) {
+        if self.next_id <= min_id {
+            self.next_id = min_id + 1;
+        }
+    }
 }
 
 impl Default for DocumentManager {

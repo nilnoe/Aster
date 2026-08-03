@@ -5,9 +5,14 @@
   恢复流程 = App 启动检测哨兵 + 缓冲内容 → 提示恢复（消费方 = AppDelegate，
   T-043）。Session 多文档完整恢复仍在 T-029。
 
+  v1.5 备注（T-070，ADR-025）：`store_*` Bridge FFI（7 项）随文档生命周期收拢至
+  `Session` 撤销——缓冲 / 哨兵 / 枚举经 `session_*` 统一入口暴露；缓冲生命周期
+  编排（未决 ⟺ 缓冲行、删除三时机）由 Session 承接（原 AppDelegate 三账本收拢
+  处，ADR-025）。本 ADR 头部的 FFI 计数由 ADR-024 机械校验承接。
+
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.4
+- **Version:** 1.5
 - **新增 Public API:** `Store`（7 方法）+ `SessionDocument`（2 公共字段）+ `StoreError`（1 变体）+ 新增依赖 **rusqlite**（宪法 Rule 7 / 8）
 - **影响模块:** Core（新增 store 模块）
 - **是否违反 Single Responsibility:** 否
