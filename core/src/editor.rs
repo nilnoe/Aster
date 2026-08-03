@@ -36,6 +36,10 @@ pub struct Editor {
     buffer: Rc<RefCell<Buffer>>,
     selection: Selection,
     history: History,
+    /// 行索引缓存（T-064，ADR-006 v1.1 热点 2）：移动不改变文本，行结构不变
+    /// 却每次全量重建（O(n)/次）——缓存编辑失效、移动复用（首建 O(n)，此后
+    /// O(log n) 查询；不违反 ADR-006「不可变快照」决策，仅重建时机更优）。
+    layout_cache: Option<Layout>,
 }
 
 impl Editor {
@@ -44,6 +48,7 @@ impl Editor {
             buffer: Rc::new(RefCell::new(buffer)),
             selection: Selection::new(0),
             history: History::new(),
+            layout_cache: None,
         }
     }
 
@@ -54,6 +59,7 @@ impl Editor {
             buffer,
             selection: Selection::new(0),
             history: History::new(),
+            layout_cache: None,
         }
     }
 
@@ -105,6 +111,7 @@ impl Editor {
         };
         self.history.record(op.clone());
         self.selection.collapse(start + s.len());
+        self.layout_cache = None; // 文本变化 → 行索引失效（T-064）
         Ok(Some(op))
     }
 
@@ -126,6 +133,7 @@ impl Editor {
         let op = EditOp::Delete { at, text: deleted };
         self.history.record(op.clone());
         self.selection.collapse(at);
+        self.layout_cache = None; // 文本变化 → 行索引失效（T-064）
         Ok(Some(op))
     }
 
@@ -141,7 +149,13 @@ impl Editor {
             Movement::DocStart => 0,
             Movement::DocEnd => len,
             Movement::LineStart | Movement::LineEnd | Movement::Up | Movement::Down => {
-                let layout = Layout::build(text);
+                // T-064（ADR-006 v1.1 热点 2）：移动不改变文本——行索引缓存
+                // 编辑失效、移动复用（基准：1MB 文档 1k 次 Down 309ms → 预期
+                // 一个数量级以上下降，Rule 16 前后对比见 benchmarks.md）。
+                if self.layout_cache.is_none() {
+                    self.layout_cache = Some(Layout::build(text));
+                }
+                let layout = self.layout_cache.as_ref().unwrap();
                 let line = layout.line_at(head).unwrap_or(0);
                 let (line_start, line_end) = layout
                     .line_range(line)
@@ -183,6 +197,7 @@ impl Editor {
             return Ok(false);
         };
         self.collapse_after(&op, false);
+        self.layout_cache = None; // 文本变化 → 行索引失效（T-064）
         Ok(true)
     }
 
@@ -191,6 +206,7 @@ impl Editor {
             return Ok(false);
         };
         self.collapse_after(&op, true);
+        self.layout_cache = None; // 文本变化 → 行索引失效（T-064）
         Ok(true)
     }
 
@@ -260,3 +276,8 @@ fn next_char_boundary(text: &str, idx: usize) -> usize {
         .next()
         .map_or(text.len(), |c| idx + c.len_utf8())
 }
+
+// 单元测试（T-064 缓存不变量断言）放 child module（editor/tests.rs），
+// 与 session/edit.rs 同款拆分（Rule 3：editor.rs 303 行超限）。
+#[cfg(test)]
+mod tests;

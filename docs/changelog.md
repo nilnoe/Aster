@@ -10,6 +10,18 @@
 
 ## [Unreleased]
 
+### Perf — 2026-08-03（T-063 + T-064，编辑热路径基准与行索引缓存，ADR-006 v1.2）
+
+- feat(core)：`Editor` 新增行索引缓存（T-064，ADR-006 v1.1 热点 2）——移动不
+  改变文本，行结构编辑失效 / 移动复用（首建 O(n)，此后 O(log n) 查询）；缓存
+  不变量由方法保证（type / delete / undo / redo 置 None，Rule 18 + 单测）。
+- bench：补齐 T-063 缺口数据——1MB 文档 10k 次中间 insert ≈ 77.6ms /
+  delete ≈ 76.5ms（String memmove 实测，Gap Buffer / Rope 决策数据）；
+  editor_move_down_1k_1mb **309ms → 378µs（−99.88%）**，criterion 同配置前后
+  对比（Rule 16：先基线后替换）。
+- docs：ADR-006 v1.1 → v1.2（热点 2 已处置；热点 1 由 ADR-027 消除）；
+  benchmarks.md 记录两组新基线。
+
 ### Changed — 2026-08-03（T-075，文档内容单一事实来源，ADR-027）
 
 - feat(core)：`DocumentManager` 注册表与 `Editor` 共享同一 Buffer

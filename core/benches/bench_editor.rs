@@ -8,7 +8,8 @@
 use std::hint::black_box;
 
 use aster_core::{
-    Buffer, BufferId, DocumentManager, DocumentSource, EditOp, Editor, History, Layout, Selection,
+    Buffer, BufferId, DocumentManager, DocumentSource, EditOp, Editor, History, Layout, Movement,
+    Selection,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -138,12 +139,68 @@ fn layout_and_open(c: &mut Criterion) {
     });
 }
 
+fn mid_edit_ops(c: &mut Criterion) {
+    // T-063（ADR-006 v1.1 缺口）：现有 bench 只测**末尾**编辑——中间
+    // insert / delete 的 memmove 成本从未测量（Gap Buffer / Rope 决策的缺失
+    // 数据，Rule 16）。短测量（1s）+ 小样本控制总时长（benchmarks.md 编辑
+    // 热路径先例）。
+    let mut group = c.benchmark_group("mid_edit");
+    group.measurement_time(std::time::Duration::from_secs(1));
+    group.sample_size(10);
+
+    group.bench_function("buffer_mid_insert_10k_1mb", |b| {
+        b.iter(|| {
+            let mut buf = Buffer::new(BufferId::new(1));
+            buf.insert(0, &one_mb_text()).unwrap();
+            for _ in 0..10_000u32 {
+                buf.insert(buf.len() / 2, "x").unwrap();
+            }
+            black_box(buf.len())
+        })
+    });
+
+    group.bench_function("buffer_mid_delete_10k_1mb", |b| {
+        b.iter(|| {
+            let mut buf = Buffer::new(BufferId::new(1));
+            buf.insert(0, &one_mb_text()).unwrap();
+            for _ in 0..10_000u32 {
+                let mid = buf.len() / 2;
+                buf.delete(mid, mid + 1).unwrap();
+            }
+            black_box(buf.len())
+        })
+    });
+}
+
+fn editor_move_ops(c: &mut Criterion) {
+    // T-063 / T-064（ADR-006 v1.1 热点 2）：光标移动每步全量 Layout::build
+    // O(n)——本基准测 1MB（10k 行）文档 1k 次 Down；T-064 行索引缓存落地后
+    // 前后对比（Rule 16：先基线后替换）。
+    let mut group = c.benchmark_group("editor_move");
+    group.measurement_time(std::time::Duration::from_secs(1));
+    group.sample_size(10);
+
+    group.bench_function("editor_move_down_1k_1mb", |b| {
+        b.iter(|| {
+            let mut ed = Editor::new(Buffer::new(BufferId::new(1)));
+            ed.type_text(&one_mb_text()).unwrap();
+            ed.move_cursor(Movement::DocStart, false);
+            for _ in 0..1_000u32 {
+                ed.move_cursor(Movement::Down, false);
+            }
+            black_box(ed.selection().head())
+        })
+    });
+}
+
 criterion_group!(
     benches,
     buffer_ops,
     editor_ops,
     selection_ops,
     history_ops,
-    layout_and_open
+    layout_and_open,
+    mid_edit_ops,
+    editor_move_ops
 );
 criterion_main!(benches);
