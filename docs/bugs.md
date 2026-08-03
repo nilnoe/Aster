@@ -19,7 +19,7 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-012 | undo 回退到与快照一致的内容后仍标记未保存（假 dirty）：undo/redo 无条件触发 onChange → mark + 写缓冲，不比较内容是否已与快照一致（复现测试 BugReproTests：保存后输入再 undo，pendingDocs 仍含该文档） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
 | BUG-013 | IME 点击定位契约违规：`characterIndex(for:)` 把**屏幕坐标**当视图坐标、且返回 **UTF-8 字节偏移**，而 NSTextInputClient 契约（SDK 头文件：point 为屏幕坐标系、返回字符索引，协议全量区间为 UTF-16 单位）要求 UTF-16 索引——CJK 下 IME 点击定位错位（「你好」中「好」= 字节 3，契约索引应为 1；变异复验：旧实现报 3≠1 / 屏幕点报 8≠1） | Fixed | Implementation Bug | — | 4d7c81b | 2026-08-03 |
 | BUG-014 | 组合开始忽略 `replacementRange`：选中文本后输入拼音，组合显示在光标处、原选区高亮残留（组合与选区重叠）；替换被推迟到提交，取消组合则选区未删——NSTextInputClient 契约要求 setMarkedText「inserts string replacing the content specified by replacementRange」 | Fixed | Implementation Bug | — | 4d7c81b | 2026-08-03 |
-| BUG-015 | 存储失败不可见（ADR-004 打折）：① 缓冲自动保存失败仅 NSLog——崩溃保护失效用户无感知（编辑内容只在内存）；② `setupStorage` 失败（如 ASTER_STORE_DIR 指向普通文件 / 只读目录）静默启动——后续保存只报误导性「文档没有可合并的快照」，用户被卡在保存/丢弃二选一；失败注入测试（目录只读）断言 saveErrorCount 0≠1 | Fixed | Implementation Bug | — | T-054 切片 | 2026-08-03 |
+| BUG-015 | 存储失败不可见（ADR-004 打折）：① 缓冲自动保存失败仅 NSLog——崩溃保护失效用户无感知（编辑内容只在内存）；② `setupStorage` 失败（如 ASTER_STORE_DIR 指向普通文件 / 只读目录）静默启动——后续保存只报误导性「文档没有可合并的快照」，用户被卡在保存/丢弃二选一；失败注入测试（目录只读）断言 saveErrorCount 0≠1 | Fixed | Implementation Bug | — | bbdcc8d | 2026-08-03 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则
