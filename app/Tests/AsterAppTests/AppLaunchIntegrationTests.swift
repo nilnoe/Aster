@@ -94,4 +94,73 @@ final class AppRecoveryIntegrationTests: AppIntegrationTestCase {
     XCTAssertEqual(try store_load_scratch(store, 7).toString(), "保留在缓冲的内容")
     XCTAssertTrue(appDelegate.pendingDocs.contains(7))
   }
+
+  /// T-059（T-029 前已知限制契约，ADR-013 v1.3 / v1.4）：恢复只把**最新**
+  /// 缓冲文档载入视图；其余缓冲文档必须登记未决 + 快照序号（BUG-011 泛化），
+  /// 退出「保存全部」可一并固化——不得因只呈现一个而失管其他。
+  func testRestorePresentsOnlyLatestBufferedDocAndKeepsOthersManaged() throws {
+    try seedCrashedBuffer("文档A内容", id: 42)
+    try seedCrashedBuffer("文档B内容", id: 43)
+    try seedCrashedBuffer("文档C内容", id: 44)
+    seamed.recoveryReply = 1
+
+    launchApp()
+
+    let model = try XCTUnwrap(currentModel)
+    XCTAssertEqual(model.bufferText, "文档C内容", "恢复只呈现最新缓冲文档")
+    let store = try XCTUnwrap(appDelegate.bufferStore)
+    for id in [42, 43] {
+      XCTAssertNotNil(
+        appDelegate.snapshotSeqByDocId[UInt(id)], "id \(id) 必须登记快照序号")
+      XCTAssertTrue(
+        appDelegate.pendingDocs.contains(UInt(id)), "id \(id) 必须登记未决")
+    }
+    XCTAssertEqual(try store_load_scratch(store, 42).toString(), "文档A内容")
+    XCTAssertEqual(try store_load_scratch(store, 43).toString(), "文档B内容")
+
+    seamed.pendingDocsReply = 1
+    XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)
+    for id in [UInt(42), UInt(43), UInt(model.bufferIdValue)] {
+      let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[id])
+      let saved = try String(
+        contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
+      XCTAssertFalse(saved.isEmpty, "id \(id) 的内容必须固化进快照")
+    }
+    XCTAssertTrue(store_scratch_ids(store).isEmpty, "保存全部后缓冲清空")
+  }
+
+  /// T-059（BUG-016，ADR-013 v1.4 保留规则 3 / 4）：崩溃恢复选「忽略」后
+  /// **全部**缓冲文档必须登记未决 + 快照序号——退出「保存全部」覆盖所有崩溃
+  /// 遗留内容，不留「没被问过」的文档（旧实现只登记最新一个，其余内容困在
+  /// 缓冲、干净退出后不再提示）。
+  func testIgnoreKeepsAllBufferedDocsManagedAndSaveable() throws {
+    try seedCrashedBuffer("忽略A内容", id: 42)
+    try seedCrashedBuffer("忽略B内容", id: 43)
+    try seedCrashedBuffer("忽略C内容", id: 44)
+    seamed.recoveryReply = 0
+
+    launchApp()
+
+    let store = try XCTUnwrap(appDelegate.bufferStore)
+    for id in [42, 43, 44] {
+      XCTAssertTrue(
+        appDelegate.pendingDocs.contains(UInt(id)),
+        "忽略后 id \(id) 必须登记未决（ADR-013 v1.4：不因忽略而失管）"
+      )
+      XCTAssertNotNil(
+        appDelegate.snapshotSeqByDocId[UInt(id)], "忽略后 id \(id) 必须登记快照序号")
+    }
+
+    seamed.pendingDocsReply = 1
+    XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)
+    let contents = try [42, 43, 44].map { id -> String in
+      let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[UInt(id)])
+      return try String(
+        contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
+    }
+    XCTAssertTrue(contents[0].contains("忽略A内容"))
+    XCTAssertTrue(contents[1].contains("忽略B内容"))
+    XCTAssertTrue(contents[2].contains("忽略C内容"))
+    XCTAssertTrue(store_scratch_ids(store).isEmpty, "保存全部后缓冲清空——没有文档被留在缓冲里")
+  }
 }

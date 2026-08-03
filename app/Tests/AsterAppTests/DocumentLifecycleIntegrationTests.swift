@@ -69,6 +69,41 @@ final class DocumentLifecycleIntegrationTests: AppIntegrationTestCase {
     XCTAssertEqual(currentModel?.bufferText, "来自磁盘的内容")
     XCTAssertEqual(appDelegate.currentFileName, "opened.txt")
   }
+
+  /// T-059（T-024 前已知限制契约，ADR-013 v1.4）：打开第二个文件 = 视图切换，
+  /// 但前一个文档的未决状态 / 缓冲行 / 快照序号必须保留——打开不得丢未保存
+  /// 编辑；退出「保存全部」仍覆盖前一个文档。
+  func testOpenSecondFileKeepsFirstDocsPendingState() throws {
+    launchApp()
+    let first = try XCTUnwrap(currentModel)
+    let firstId = UInt(first.bufferIdValue)
+    try first.typeText("第一个文档的未保存编辑")
+    XCTAssertTrue(appDelegate.pendingDocs.contains(firstId))
+    let diskFile = storeDir + "/second.txt"
+    try "第二个文档".write(toFile: diskFile, atomically: true, encoding: .utf8)
+
+    appDelegate.open(URL(fileURLWithPath: diskFile))
+
+    XCTAssertEqual(currentModel?.bufferText, "第二个文档", "视图切换到第二个文档")
+    XCTAssertTrue(
+      appDelegate.pendingDocs.contains(firstId),
+      "打开第二个文件不得丢失前一个文档的未决状态"
+    )
+    let store = try XCTUnwrap(appDelegate.bufferStore)
+    XCTAssertEqual(
+      try store_load_scratch(store, firstId).toString(),
+      "第一个文档的未保存编辑你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK",
+      "前一个文档的缓冲行必须保留"
+    )
+    XCTAssertNotNil(appDelegate.snapshotSeqByDocId[firstId])
+
+    seamed.pendingDocsReply = 1
+    XCTAssertEqual(appDelegate.applicationShouldTerminate(NSApp), .terminateNow)
+    let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[firstId])
+    let saved = try String(
+      contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
+    XCTAssertTrue(saved.contains("第一个文档的未保存编辑"), "退出保存全部必须固化前一个文档")
+  }
 }
 
 /// 退出流程：覆写未决提示 seam（docs/testing.md），驱动三分支。

@@ -82,9 +82,15 @@ extension AppDelegate {
           pendingDocs.mark(other)
         }
       } else {
-        // 忽略：内容保留在缓冲，登记为未决文档并分配快照序号（退出可合并）。
-        snapshotSeqByDocId[latest] = UInt(try snapshot_create_next(snapshot))
-        pendingDocs.mark(latest)
+        // 忽略：**全部**缓冲文档内容保留并登记为未决（ADR-013 v1.4 保留规则
+        // 3 / 4：不因忽略而失管、退出覆盖全部——不留「没被问过」的文档）。
+        // 旧实现只登记 latest，其余崩溃遗留文档干净退出后困在缓冲、下次启动
+        // 不再提示（BUG-016）。已登记过的保留原快照序号，避免无谓换合并目标。
+        for other in ids where snapshotSeqByDocId[other] == nil {
+          snapshotSeqByDocId[other] = UInt(try snapshot_create_next(snapshot))
+          committedTextByDocId[other] = ""
+          pendingDocs.mark(other)
+        }
       }
     } catch {
       NSLog("恢复文档失败：\(error)")
