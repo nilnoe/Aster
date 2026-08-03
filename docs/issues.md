@@ -17,6 +17,14 @@ Bug 编号双向可追溯；修复完成时回填状态与 Commit，**不清理�
 | I-006 | P2（误报） | 疑似 `.DS_Store` 入库 | 核验纠正：`git ls-files | grep -i ds_store` 为空、`git log -- .github/.DS_Store` 无提交——从未入库，.gitignore 早已覆盖；仅工作树残留（find 输出误判为已提交） | T-036 | 撤销（误报） | 无（无需修复；工作树残留已清理） |
 | I-007 | P2 | 审计流于形式：审计行在 feature commit 之后回填（T-018/T-015/T-033），不是提交前门禁；全部「Pass（自审）」；无 CI 机械检查 audits.md | git log：794f5f6 / f4d2fba / b760698 均为事后回填 commit；T-032 行至今未回填 | T-039 | Fixed | 3171806 |
 | I-008 | P2 | CI-Release 门禁弱于日常 CI：不 lint app/Sources、不查规模预算、不跑 fuzz、不跑 docs 完整性、不跑基准回归 | `ci-release.yml` gates job 与 ci-rust/ci-swift/ci-docs/ci-bench 对比 | T-039 | Fixed | 3171806 |
+| I-009 | P0 | 文档内容双副本：Session/DM 注册表 Buffer 与 App Editor Buffer 各持一份文本，编辑后注册表副本失鲜（content_changed 只写 SQLite 不回写注册表）——T-024 激活文档 / T-028 Scratch 接线后任何经 session_text 的读取会读到陈旧内容 | `AppDelegate.open` 另建 Buffer 经 editor_new 进 Editor（app/Sources/AsterApp/AppDelegate.swift:199-202）；`Session::content_changed`（core/src/session.rs:104）只写缓冲不更新 dm 副本；`Session::text` 读注册表 | T-075（**需用户确认**，ADR-023 v1.7 保存域冻结） | Open | |
+| I-010 | P1 | 行结构语义双实现：Core `Layout::line_range`/`line_at` 与 Swift `EditorModel.lineRanges`/`lineIndex` 复刻（`\n` 归属、末行边界双所有者） | core/src/layout.rs:43,56 vs app/Sources/AsterApp/EditorModel.swift:117,271；Bridge 只暴露 layout_line_starts（core/src/bridge.rs:46） | T-072（ADR-026） | Open | |
+| I-011 | P1 | IME 组合状态语义与光标几何四处重复：「光标 = 光标 + 组合长度」公式在 EditorModel / MetalView / MetalView+Input / VertexBuilder 各算一遍，scrollX 补偿位置不一致（firstRect 减、scrollCursorIntoView 不减） | app/Sources/AsterApp/EditorModel.swift:24,68；MetalView.swift:245；MetalView+Input.swift:78；VertexBuilder.swift:114 | T-073 | Open | |
+| I-012 | P1 | `closeDecisionDocId` 瞬态实例字段当参数用：T-070 清理「全局布尔 / 跨切面上下文」后同型模式回潮，关闭决策上下文存在 AppDelegate 实例上（重入可串） | AppDelegate.swift:39；set/defer 于 AppDelegate+CloseFlow.swift:64-65；读取于 AppDelegate.swift:115 | T-074 | Open | |
+| I-013 | P1 | frame ↔ 文档关联域无单一所有者：frames / frameFileName / view.model.bufferIdValue 分散，5+ 处各自推导（标题 / 保存 / 关闭决策 / 窗口关闭 / 内容变更） | AppDelegate.swift:34,36,239；AppDelegate+CloseFlow.swift:63,93；AppDelegate+Storage.swift:96,126 | T-074 | Open | |
+| I-014 | P2 | 内容宽度测量与渲染对同一批可见行重复 shaping：contentSize() 每滚动事件 shaping 一次，渲染帧 VertexBuilder 再 shaping 一次（T-038 只统一了 buildVertices 内部） | app/Sources/AsterApp/MetalView.swift:222 vs VertexBuilder.swift:34 | T-073 | Open | |
+| I-015 | P2 | `shouldOfferRecovery` 纯函数滞留 App：按「可测逻辑尽可能进 Core」应下沉 Session（与恢复编排同域） | AppDelegate.swift:62（纯函数，App 测试覆盖中） | T-029 | Deferred | |
+| I-016 | P2 | `EditorModel.lines` 生产路径零消费（仅测试用），Rule 12 死代码需标注或删除 | app/Sources/AsterApp/EditorModel.swift:86；消费点仅 MetalViewTests / RendererTests | T-073 | Open | |
 
 ## 已知待办（Roadmap 已有归属，此处仅作完整性登记，不重复编号）
 
@@ -28,6 +36,11 @@ Bug 编号双向可追溯；修复完成时回填状态与 Commit，**不清理�
 - Undo 历史无上限、无持久化：T-029（Crash Recovery）。
 - 打开第二个文件时替换当前会话、未保存编辑静默丢弃：随 T-024（激活文档统一）缓解；
   T-037 先提供保存能力与关闭保护。
+- 主题颜色硬编码、Core Theme 零消费者：T-016（2026-08-03 复审复核确认）。
+- 键盘 / 菜单 / IME 三条输入入口未接 Core Command 总线（ARCHITECTURE 数据流
+  未落地）：T-024。
+- 崩溃恢复编排（needsRecoveryPrompt + presentRecoveryIfNeeded）滞留 App：
+  T-029（关联 I-015）。
 
 ## 规则
 

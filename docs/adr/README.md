@@ -41,6 +41,7 @@ Proposed → Accepted
 | ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.7：语义冻结期——保存域改动先确认方向再实现；FFI 面由 ADR-025 session 承接） | Accepted | 2026-08-02 | Snapshot 6 方法 | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
 | ADR-024 | Bridge FFI 总账校正与机械化（v1.0：ffi-ledger.py 机械生成 + CI-Docs 校验；当前 FFI 面 50 项；禁止手抄计数） | Accepted | 2026-08-03 | 0 | docs、scripts、ci-docs | [ADR-024-ffi-ledger.md](ADR-024-ffi-ledger.md) |
 | ADR-025 | 文档会话（DocumentSession）：生命周期状态收拢（v1.0：Session 统一持有 DM / Store / Snapshot 与未决 / 快照序号 / 固化基线 / 失败提示；FFI 收敛为 session_* 21 项；取代 document_manager_* / store_* / snapshot_* FFI） | Accepted | 2026-08-03 | Session 类型 + SessionError + Bridge FFI 21 项 | core（新增 session、bridge；删 bridge_store）、app、docs | [ADR-025-document-session.md](ADR-025-document-session.md) |
+| ADR-026 | Layout 行区间语义收拢（v1.0：Bridge 暴露 layout_line_ranges，行号 ↔ 字节区间语义单一所有者 = Core Layout；App 查找保留标准二分，Rule 9 / 11） | Accepted | 2026-08-03 | Bridge FFI 1 项 | core（bridge、layout）、app（EditorModel） | [ADR-026-layout-ranges-bridge.md](ADR-026-layout-ranges-bridge.md) |
 
 ## 触发规则
 

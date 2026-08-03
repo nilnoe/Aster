@@ -188,6 +188,28 @@
 - [ ] 保存域语义冻结复核：T-065（自动保存节流，反转 ADR-023「每次内容变更
   写入」粒度）——**需用户确认**，确认后作为第一个走冻结流程的切片
 
+## Phase 10 — 复审整改 II（2026-08-03 全仓审查，I-009 ~ I-016）
+
+> 来源：2026-08-03 全仓复审（域归属 / 状态管理，结论见 [docs/issues.md](issues.md)）。
+> 执行原则：先收拢域再接线；保存域改动受 ADR-023 v1.7 冻结流程约束（先确认方向）。
+
+- [x] T-071 复审整改 II 问题登记（I-009~I-016，ADR-026 新增，2026-08-03）
+- [ ] T-072 行结构语义收拢（I-010，ADR-026）：Bridge 暴露 `layout_line_ranges`
+  （扁平 start/end 对），Swift 删除 `lineRanges` 语义复刻；App 查找保持标准二分
+  （Rule 9 / 11，不引入逐查询桥接拷贝）
+- [ ] T-073 光标 / 组合几何收拢（I-011 / I-014 / I-016）：caret x/y 公式收为
+  一个 App 层纯函数（消除三文件四处重复 + scrollX 补偿不一致）；内容宽度测量与
+  渲染共享 shaping 缓存；`EditorModel.lines` 标注测试专用或删除（Rule 12）
+- [ ] T-074 frame 域收拢（I-012 / I-013）：`FrameDocument`（frame + docId +
+  fileName）单一所有者；`closeDecisionDocId` 改显式参数（Rule 17 同型模式回潮
+  处置）
+- [ ] T-075 文档内容单一事实来源（I-009，P0）：编辑会话 Buffer 与 Session 注册表
+  副本统一（`content_changed` 回写注册表，或编辑直接持有注册表 Buffer）——
+   **涉及保存域语义，需用户确认方向后实施（ADR-023 v1.7 冻结流程）**；建议作为
+  T-024 激活文档接线前置
+- 已排期承接：T-016（Theme 接线）/ T-024（Command 输入分发）/ T-029（恢复编排
+  + shouldOfferRecovery 下沉，I-015）
+
 ## Task 编号规则
 
 - 每个切片一个编号：`T-XXX`，按 Phase 顺序递增，不重复使用。

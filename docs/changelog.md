@@ -10,6 +10,19 @@
 
 ## [Unreleased]
 
+### Added — 2026-08-03（复审整改 II 问题登记，I-009 ~ I-016）
+
+- 全仓复审（域归属 / 状态管理）登记 8 项问题至 [docs/issues.md](../docs/issues.md)：
+  I-009（P0 文档内容双副本，T-075 需用户确认）、I-010（行结构语义双实现，
+  T-072 / ADR-026）、I-011（组合 / 光标几何四处重复，T-073）、I-012（
+  closeDecisionDocId 瞬态上下文，T-074）、I-013（frame ↔ 文档关联无单一所有者，
+  T-074）、I-014（内容宽度重复 shaping，T-073）、I-015（shouldOfferRecovery
+  滞留 App，T-029 Deferred）、I-016（EditorModel.lines 仅测试消费，T-073）。
+- [ADR-026](../docs/adr/ADR-026-layout-ranges-bridge.md) — Layout 行区间语义收拢：
+  Bridge 暴露 `layout_line_ranges`，行号 ↔ 字节区间语义单一所有者 = Core（T-072
+  前置；App 查找保留标准二分，Rule 9 / 11 论证）。
+- Roadmap 新增 [Phase 10（T-071 ~ T-075）](../docs/roadmap.md)，审查未改生产代码。
+
 ### Fixed — 2026-08-03（BUG-018，关闭新建 frame 卡死 / 菊花——两个独立机制）
 
 - **机制 ①（崩溃报告 14:15 定位，Implementation Bug / over-release）**：新建

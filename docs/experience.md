@@ -326,6 +326,12 @@
   禁止在 AppDelegate 重建账本；关 B 只问 B、失败提示按文档隔离。保存 / 恢复 /
   关闭域改动先跑变异门禁（M1 / M2 / M5 变异点在 core/src/session.rs），
   语义变更先走 ADR-023 v1.7 冻结流程（用户确认方向）。
+- **复审整改 II（2026-08-03，I-009~I-016）**：行结构语义单一所有者 = Core
+  Layout（ADR-026，T-072 实现 `layout_line_ranges`，Swift 只做机械分块）；
+  光标几何 / frame 域 / closeDecisionDocId 收拢排期 T-073 / T-074；
+  **文档内容双副本（I-009 / T-075）触碰保存域（ADR-023 v1.7 冻结）——审查结论：
+  编辑后 Session 注册表 Buffer 副本失鲜（content_changed 只写 SQLite 不回写
+  注册表），必须先向用户确认方向再实现，不得擅自改动 Session 语义**。
 - **FFI 总账（ADR-024）**：改 bridge.rs 后跑 `python3 scripts/ffi-ledger.py` 更新
   ADR-024 的「当前 FFI 面」数字（当前 50 项），CI-Docs 机械校验，禁止手抄。
 - **mutate.py（T-070 补充）**：Rust 变异点 run 自带 bridge 重建，循环结束后自动
