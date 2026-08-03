@@ -28,6 +28,9 @@ final class EditorModel {
   private var displayTextCache: String?
   /// 行字节区间缓存（T-038）：由 displayText 派生，同一次失效周期只建一次。
   private var lineRangesCache: [Range<Int>]?
+  /// 显示内容版本（T-073，I-014）：显示文本 / 行结构每次失效 +1——视图层宽度
+  /// 测量缓存据此判定内容未变（滚动事件复用上次测量，不再重复 shaping）。
+  private(set) var contentVersion = 0
 
   init(buffer: Buffer) {
     self.bufferId = buffer.id().as_u64()
@@ -77,13 +80,19 @@ final class EditorModel {
     return NSRange(location: location, length: composition.utf16.count)
   }
 
+  /// 组合期间光标显示位置（显示文本字节偏移）= 光标 + 组合长度（BUG-004）。
+  ///
+  /// 决策依据（T-073，I-011）：此公式此前在 MetalView / MetalView+Input /
+  /// VertexBuilder 各写一份；语义唯一所有者 = EditorModel（组合文本唯一持有者）。
+  var caretDisplayByte: Int {
+    cursorByte + (hasMarkedText ? composition.utf8.count : 0)
+  }
+
   /// 内容变更回调（T-037，ADR-023）：AppDelegate 维护 dirty 状态用。
   ///
   /// 决策依据：仅内容变更（type / delete / undo / redo）触发；光标移动与选区
   /// 不置脏（ADR-023 决策 4）。回调而非协议（Rule 2：无多实现方）。
   var onChange: (() -> Void)?
-
-  var lines: [String] { lineByteRanges.map { Self.slice(displayText, $0) } }
 
   /// 行数（渲染高度 / 视口窗口计算；T-038 起不再依赖全文 lines）。
   var lineCount: Int { lineByteRanges.count }
@@ -230,6 +239,7 @@ final class EditorModel {
   /// 显示文本 / 行区间缓存失效（T-038）：内容或组合文本变化后调用；
   /// 失效只是置空缓存，下次访问时按需重建一次。
   private func invalidateDisplayCache() {
+    contentVersion += 1
     displayTextCache = nil
     lineRangesCache = nil
   }

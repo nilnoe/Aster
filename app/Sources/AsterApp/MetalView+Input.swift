@@ -75,11 +75,13 @@ extension MetalView: @MainActor NSTextInputClient {
     let line = model.lineIndex(ofByteOffset: model.cursorByte)
     let lineRange = model.lineByteRanges[line]
     let layout = LineLayout(text: model.lineText(line), font: renderer.font)
-    let caretByte = model.cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
+    // T-073（I-011）：几何唯一来源 = CaretGeometry（内容坐标）——屏幕坐标减
+    // 视口偏移只在此处施加（候选框要的是窗口坐标）。
     let caretX =
-      renderer.leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound)
+      caretGeometry.contentX(
+        lineRange: lineRange, caretByte: model.caretDisplayByte, layout: layout)
       - viewport.scrollX
-    let lineTop = CGFloat(line) * renderer.lineHeightPts - viewport.scrollY
+    let lineTop = caretGeometry.lineTop(line: line) - viewport.scrollY
     let caret = NSRect(
       x: caretX,
       y: bounds.maxY - lineTop - renderer.lineHeightPts * 0.5,

@@ -153,7 +153,7 @@ final class RendererTests: XCTestCase {
     try model.typeText(String(repeating: "abcdefghijklmnopqrstuvwxyz", count: 3))
     model.move(.docEnd, extend: false)
     let renderer = TextRenderer(device: device)
-    let layout = LineLayout(text: model.lines[0], font: renderer.font)
+    let layout = LineLayout(text: model.lineText(0), font: renderer.font)
     let cursorX = renderer.leftPadPts + layout.width
     let viewportWidthPts: CGFloat = 600
     var viewport = Viewport()

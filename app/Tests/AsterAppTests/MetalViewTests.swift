@@ -121,7 +121,7 @@ final class MetalViewTests: XCTestCase {
 
     view.scrollCursorIntoView()
 
-    let layout = LineLayout(text: model.lines[0], font: view.renderer.font)
+    let layout = LineLayout(text: model.lineText(0), font: view.renderer.font)
     let caretX = view.renderer.leftPadPts + layout.width - view.viewport.scrollX
     XCTAssertLessThanOrEqual(
       caretX, view.bounds.width - view.renderer.rightPadPts + 0.5,
@@ -176,7 +176,7 @@ final class MetalViewTests: XCTestCase {
       view.viewport.scrollX, scrollXBefore, "组合文本延伸必须触发横向滚动（BUG-007）"
     )
     // 组合末尾光标（displayText 行尾）必须仍在右缘 12pt 留白内。
-    let layout = LineLayout(text: model.lines[0], font: view.renderer.font)
+    let layout = LineLayout(text: model.lineText(0), font: view.renderer.font)
     let caretX = view.renderer.leftPadPts + layout.width - view.viewport.scrollX
     XCTAssertLessThanOrEqual(
       caretX, view.bounds.width - view.renderer.rightPadPts + 0.5,

@@ -20,6 +20,10 @@ struct VertexBuilder {
   let atlas: GlyphAtlas
   private let white = SIMD4<Float>(1, 1, 1, 1)
   private let highlight = SIMD4<Float>(0.24, 0.45, 0.95, 0.35)
+  /// 光标 x 几何（T-073，I-011）：与视图层同一纯几何类型——行内偏移 + 左留白。
+  private var caretGeometry: CaretGeometry {
+    CaretGeometry(lineHeightPts: lineHeightPts, leftPadPts: leftPadPts)
+  }
 
   /// 构建全部顶点（选区高亮 → 字形 → 光标 / 下划线，画家算法）。
   func buildVertices(
@@ -111,11 +115,9 @@ struct VertexBuilder {
       if selStart == selEnd && caretVisible {
         // BUG-004：组合期间光标跟随到组合文本末尾（组合在 displayText 中内联于
         // 光标处，无换行，与光标同一行）。
-        let caretByte =
-          cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
-        let x =
-          (leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound) - scrollX)
-          * scale
+        let caretX = caretGeometry.contentX(
+          lineRange: lineRange, caretByte: model.caretDisplayByte, layout: layout)
+        let x = (caretX - scrollX) * scale
         appendSolidRect(
           x: x.rounded(),
           y: viewSize.height - top - lineHeightPx + 2 * scale,

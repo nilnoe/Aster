@@ -10,6 +10,21 @@
 
 ## [Unreleased]
 
+### Changed — 2026-08-03（T-073，光标 / 组合几何收拢，I-011 / I-014 / I-016）
+
+- refactor(app)：新增 `CaretGeometry` 纯几何类型（行顶 y + 光标 x 内容坐标）——
+  光标换算唯一来源；`EditorModel.caretDisplayByte` 收拢「光标 = 光标 + 组合
+  长度」（BUG-004）公式（此前 MetalView / MetalView+Input / VertexBuilder 各
+  写一份，scrollX 补偿位置不一致）；firstRect / scrollCursorIntoView /
+  VertexBuilder 统一走同一几何源。
+- perf(app)：`contentSize()` 宽度测量按 contentVersion + 可见行窗口缓存——
+  滚动（内容未变）不再对可见行重复 shaping（T-038 补跨事件尾巴，I-014）。
+- refactor(app)：删除仅测试消费的 `EditorModel.lines`（Rule 12 死代码，
+  I-016），测试改用 `lineText`。
+- test：+4（CaretGeometry 2 / caretDisplayByte 1 / contentVersion 1）；App
+  120 全绿（BUG-004/006/007 滚动与 IME 回归不变）；swift-format 零告警；
+  Core 零改动（148 不变）。
+
 ### Changed — 2026-08-03（T-072，行结构语义收拢，ADR-026）
 
 - feat(core)：Bridge 新增 `layout_line_ranges`（扁平 start/end 对，语义 =

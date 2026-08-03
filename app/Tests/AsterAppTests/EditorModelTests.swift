@@ -143,7 +143,36 @@ final class EditorModelTests: XCTestCase {
     let model = EditorModel(buffer: Buffer(BufferId(41)))
     try model.typeText("ab\n你好\n")
     XCTAssertEqual(model.lineByteRanges, [0..<2, 3..<9, 10..<10])
-    XCTAssertEqual(model.lines, ["ab", "你好", ""])
+    XCTAssertEqual(model.lineText(0), "ab")
+    XCTAssertEqual(model.lineText(1), "你好")
+    XCTAssertEqual(model.lineText(2), "")
+  }
+
+  /// T-073（I-011）：组合期间光标显示位置 = 光标 + 组合长度（BUG-004 语义），
+  /// 公式唯一持有者 = EditorModel（此前 MetalView / MetalView+Input /
+  /// VertexBuilder 各自重算）。
+  func testCaretDisplayByteFollowsCompositionEnd() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(43)))
+    try model.typeText("ab")
+    XCTAssertEqual(model.caretDisplayByte, 2)
+    try model.setMarkedText("你", replacementUTF16: NSRange(location: NSNotFound, length: 0))
+    XCTAssertEqual(model.caretDisplayByte, 2 + "你".utf8.count)
+    try model.insertText("你", replacementUTF16: model.markedUTF16Range)
+    XCTAssertEqual(model.caretDisplayByte, 2 + "你".utf8.count, "提交后组合清空，光标 = 插入末尾")
+  }
+
+  /// T-073（I-014）：内容版本只在显示文本变化时推进——宽度测量缓存以此失效，
+  /// 滚动（不碰 model）不失效。
+  func testContentVersionIncrementsOnDisplayChangeOnly() throws {
+    let model = EditorModel(buffer: Buffer(BufferId(44)))
+    let v0 = model.contentVersion
+    try model.typeText("a")
+    let v1 = model.contentVersion
+    XCTAssertGreaterThan(v1, v0, "内容变化必须推进版本（宽度测量缓存失效）")
+    model.move(.left, extend: false)
+    XCTAssertEqual(model.contentVersion, v1, "纯光标移动不失效显示缓存")
+    model.setMarkedText("n")
+    XCTAssertGreaterThan(model.contentVersion, v1, "组合变化必须推进版本")
   }
 
   /// T-037（ADR-023 决策 4）：内容变更（type / delete / undo / redo）触发

@@ -22,6 +22,9 @@ import MetalKit
 final class MetalView: MTKView {
   var model: EditorModel
   let renderer: TextRenderer
+  /// 光标几何（T-073，I-011）：与 renderer 的留白 / 行高一致，一次构建复用。
+  /// internal：IME 扩展（MetalView+Input）跨文件访问（模块边界内封装）。
+  let caretGeometry: CaretGeometry
   /// 视口滚动状态（internal：输入扩展与测试需要读写；App 模块内封装，
   /// Rule 4 / Rule 12 在模块边界内成立）。
   var viewport = Viewport()
@@ -37,13 +40,20 @@ final class MetalView: MTKView {
   /// CA 事务提交会在 autorelease 里双重释放（objc_release 坏指针）。
   /// 只关新建 frame 崩溃（App 继续运行）、关最后窗口不崩（进程退出）与此吻合。
   private(set) var isClosing = false
+  /// 可见行宽度测量缓存（T-073，I-014）：滚动只平移视口，内容版本未变时复用
+  /// 上次测量——滚动事件不再与渲染帧对同一批行重复 shaping。
+  private var measuredWidthKey: (version: Int, firstLine: Int, lastLine: Int)?
+  private var measuredWidthValue: CGFloat = 0
 
   init(frame: NSRect, model: EditorModel) {
     guard let device = MTLCreateSystemDefaultDevice() else {
       preconditionFailure("Metal 不可用（T-012，ADR-016）")
     }
     self.model = model
-    self.renderer = TextRenderer(device: device)
+    let renderer = TextRenderer(device: device)
+    self.renderer = renderer
+    self.caretGeometry = CaretGeometry(
+      lineHeightPts: renderer.lineHeightPts, leftPadPts: renderer.leftPadPts)
     super.init(frame: frame, device: device)
     registerForDraggedTypes([.fileURL])
     clearColor = MTLClearColor(red: 0.13, green: 0.13, blue: 0.15, alpha: 1)
@@ -66,6 +76,7 @@ final class MetalView: MTKView {
   func load(_ newModel: EditorModel) {
     model = newModel
     viewport = Viewport()
+    measuredWidthKey = nil
     needsDisplay = true
   }
 
@@ -226,12 +237,24 @@ final class MetalView: MTKView {
       viewportHeightPts: bounds.height,
       lineHeightPts: renderer.lineHeightPts
     )
-    var width: CGFloat = 0
-    for lineIndex in lineWindow {
-      width = max(
-        width,
-        renderer.leftPadPts + LineLayout(text: model.lineText(lineIndex), font: renderer.font).width
-      )
+    // T-073（I-014）：内容未变 + 窗口未变时复用上次测量——滚动只平移视口，
+    // 不再对可见行重复 shaping（T-038 修了 buildVertices 内部，这里补跨事件重复）。
+    let key = (model.contentVersion, lineWindow.lowerBound, lineWindow.upperBound)
+    let width: CGFloat
+    if let cached = measuredWidthKey, cached == key {
+      width = measuredWidthValue
+    } else {
+      var w: CGFloat = 0
+      for lineIndex in lineWindow {
+        w = max(
+          w,
+          renderer.leftPadPts
+            + LineLayout(text: model.lineText(lineIndex), font: renderer.font).width
+        )
+      }
+      measuredWidthKey = key
+      measuredWidthValue = w
+      width = w
     }
     return CGSize(width: width + renderer.rightPadPts, height: height)
   }
@@ -242,10 +265,9 @@ final class MetalView: MTKView {
     let lineRange = model.lineByteRanges[line]
     let layout = LineLayout(text: model.lineText(line), font: renderer.font)
     // BUG-004：组合期间光标在组合文本末尾（显示文本内联），横向可见性用同一位置。
-    let caretByte = model.cursorByte + (model.hasMarkedText ? model.composition.utf8.count : 0)
-    let cursorX =
-      renderer.leftPadPts + layout.xOffset(atByteOffset: caretByte - lineRange.lowerBound)
-    let lineTop = CGFloat(line) * renderer.lineHeightPts
+    let cursorX = caretGeometry.contentX(
+      lineRange: lineRange, caretByte: model.caretDisplayByte, layout: layout)
+    let lineTop = caretGeometry.lineTop(line: line)
     viewport.ensureCursorVisible(
       cursorX: cursorX,
       lineTop: lineTop,
