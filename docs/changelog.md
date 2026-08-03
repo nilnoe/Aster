@@ -10,6 +10,16 @@
 
 ## [Unreleased]
 
+### Added — 2026-08-03（ADR-025，T-070 设计决策）
+
+- [ADR-025](../docs/adr/ADR-025-document-session.md) — 文档会话状态收拢：
+  `Session` 成为 DM 注册表 + 缓冲 + 快照 + 未决 / 快照序号 / 固化基线 / 失败
+  提示的统一所有者（T-070 实现切片前先记录决策；用户确认「按建议来」：
+  落 Core 而非纯 Swift 模型）。API 面 = Session 类型 + SessionError + session_*
+  FFI 21 项，取代 document_manager_* / store_* / snapshot_* FFI（Rule 14 处置 +
+  ADR-001 / ADR-013 / ADR-023 计数由 ADR-024 机械校验承接）。本切片仅记录
+  ADR + 索引，不包含实现（WORKFLOW：Architecture 先于实现）。
+
 ### Changed — 2026-08-03（T-070 前置，治理纠偏，用户确认「按建议来」）
 
 - docs(workflow)：WORKFLOW Analysis 新增强制**冲突扫描**清单——本切片触碰哪些

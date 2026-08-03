@@ -39,6 +39,7 @@ Proposed → Accepted
 | ADR-021 | 性能基准体系（criterion）（v1.3：CI 粗告警 median + 阈值 200% / 下限 100µs） | Accepted | 2026-08-02 | 0（dev-only） | core（benches）、docs/benchmarks.md、.github/workflows/ci-bench.yml、bench-baseline/ | [ADR-021-performance-benchmarks.md](ADR-021-performance-benchmarks.md) |
 | ADR-022 | 属性测试（proptest）与审计记录制度（v1.1：fuzz 扩展） | Accepted | 2026-08-02 | 0（dev-only + 文档） | core（tests/property.rs）、docs/audits.md、WORKFLOW | [ADR-022-property-tests-audit-log.md](ADR-022-property-tests-audit-log.md) |
 | ADR-023 | 保存语义：缓冲（SQLite）+ 快照（纯文本，v1.6：Cmd+N 新文本快照 / 自动保存缓冲 / Cmd+S 合并；无模态弹窗原则；空快照退出清理；日期+序号轮转；磁盘写回 Deferred） | Accepted | 2026-08-02 | Snapshot 6 方法 + Bridge FFI 6 项（v1.6） | core（新增 snapshot、store、bridge）、app、docs | [ADR-023-disk-save.md](ADR-023-disk-save.md) |
+| ADR-025 | 文档会话（DocumentSession）：生命周期状态收拢（v1.0：Session 统一持有 DM / Store / Snapshot 与未决 / 快照序号 / 固化基线 / 失败提示；FFI 收敛为 session_* 21 项；取代 document_manager_* / store_* / snapshot_* FFI） | Accepted | 2026-08-03 | Session 类型 + SessionError + Bridge FFI 21 项 | core（新增 session、bridge；删 bridge_store）、app、docs | [ADR-025-document-session.md](ADR-025-document-session.md) |
 
 ## 触发规则
 
