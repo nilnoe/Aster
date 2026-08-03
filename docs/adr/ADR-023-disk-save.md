@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-02
-- **Version:** 1.6
+- **Version:** 1.7
 - **新增 Public API:** v1.4：`Snapshot` 类型 5 方法 + Bridge FFI 5 项（snapshot_new /
   snapshot_create_next / snapshot_write / snapshot_read + 缓冲 store_open_buffer /
   store_save_scratch / store_load_scratch）
@@ -11,6 +11,14 @@
 - **是否增加循环依赖:** 否
 
 ---
+
+> **v1.7 备注（T-070 治理纠偏，2026-08-03）**：保存域进入**语义冻结期**——
+> 本 ADR 在一天内被反转六次（v1.1~v1.6），每次反转都伴随 FFI 加加减减与
+> App 状态补丁（BUG-009~018 全部落在此域）。冻结规则：保存 / 恢复 / 关闭域
+> 的任何语义改动，必须先向项目所有者说明「改动什么语义、为什么、影响哪些
+> 既有行为」，经确认并修订本 ADR 后才允许实现（实现先行 = 违规，T-037 /
+> T-040 / T-042 前例）。FFI 面自 T-070 起收敛为 `Session` 统一入口（ADR-025），
+> 本 ADR 头部的 store / snapshot FFI 计数由 ADR-025 / ADR-024 承接。
 
 ## 决策
 
