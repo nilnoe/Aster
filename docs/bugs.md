@@ -17,8 +17,8 @@ Bug 在报告阶段登记，编号自增（BUG-001, BUG-002, ...），与 [docs/
 | BUG-010 | 打开多个文件后「保存全部」互相覆盖、先打开文档内容丢失：`open(_:)` 让所有磁盘文件继承同一个 `currentSnapshotSeq`，`saveAllPending` 逐个合并到同一快照文件，后写覆盖先写（复现测试 BugReproTests：快照实际内容为「+编辑B内容B」，内容A 丢失） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
 | BUG-011 | 崩溃恢复后多文档保存链路断裂：恢复分支创建新文档并置脏，但**不把内容写入缓冲**（新 id 无 scratch 行）→ ⌘S / 保存全部 `store_load_scratch` 失败；同时**其余未决缓冲文档未登记快照序号** → 保存全部 guard 失败 → 退出只能选「不保存」丢弃（复现测试 BugReproTests：退出返回 terminateCancel + 保存错误提示） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
 | BUG-012 | undo 回退到与快照一致的内容后仍标记未保存（假 dirty）：undo/redo 无条件触发 onChange → mark + 写缓冲，不比较内容是否已与快照一致（复现测试 BugReproTests：保存后输入再 undo，pendingDocs 仍含该文档） | Fixed | Implementation Bug | — | 435e3a0 | 2026-08-02 |
-| BUG-013 | IME 点击定位契约违规：`characterIndex(for:)` 把**屏幕坐标**当视图坐标、且返回 **UTF-8 字节偏移**，而 NSTextInputClient 契约（SDK 头文件：point 为屏幕坐标系、返回字符索引，协议全量区间为 UTF-16 单位）要求 UTF-16 索引——CJK 下 IME 点击定位错位（「你好」中「好」= 字节 3，契约索引应为 1；变异复验：旧实现报 3≠1 / 屏幕点报 8≠1） | Fixed | Implementation Bug | — | T-052 切片 | 2026-08-03 |
-| BUG-014 | 组合开始忽略 `replacementRange`：选中文本后输入拼音，组合显示在光标处、原选区高亮残留（组合与选区重叠）；替换被推迟到提交，取消组合则选区未删——NSTextInputClient 契约要求 setMarkedText「inserts string replacing the content specified by replacementRange」 | Fixed | Implementation Bug | — | T-052 切片 | 2026-08-03 |
+| BUG-013 | IME 点击定位契约违规：`characterIndex(for:)` 把**屏幕坐标**当视图坐标、且返回 **UTF-8 字节偏移**，而 NSTextInputClient 契约（SDK 头文件：point 为屏幕坐标系、返回字符索引，协议全量区间为 UTF-16 单位）要求 UTF-16 索引——CJK 下 IME 点击定位错位（「你好」中「好」= 字节 3，契约索引应为 1；变异复验：旧实现报 3≠1 / 屏幕点报 8≠1） | Fixed | Implementation Bug | — | 4d7c81b | 2026-08-03 |
+| BUG-014 | 组合开始忽略 `replacementRange`：选中文本后输入拼音，组合显示在光标处、原选区高亮残留（组合与选区重叠）；替换被推迟到提交，取消组合则选区未删——NSTextInputClient 契约要求 setMarkedText「inserts string replacing the content specified by replacementRange」 | Fixed | Implementation Bug | — | 4d7c81b | 2026-08-03 |
 | --- | --- | --- | --- | --- | --- | --- |
 
 ## 规则
