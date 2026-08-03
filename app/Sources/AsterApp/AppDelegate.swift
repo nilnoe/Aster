@@ -19,7 +19,7 @@ import AsterBridge
 // 决策依据：`final` 只是编译期优化，非架构约束；测试 seam 需要子类覆写
 // `presentPendingDocsAlert` / `presentRecoveryAlert`（Rule 9：0 抽象层，
 // 只放开一个继承点）。
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// DocumentManager 注册表（T-015 首次进产品，Rule 14 存量处置；
   /// 所有打开路径统一经它，ADR-001）。
   var documentManager = document_manager_new()
@@ -88,19 +88,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /// 决策依据：系统关闭流程（关闭最后窗口 / Cmd+Q）都会经此；「保存」失败必须
   /// 阻止退出（ADR-004：失败可见），让用户自己决定。「不保存」删除缓冲行
   /// （ADR-013 v1.3 删除时机 3）。
-  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    guard !pendingDocs.isEmpty else { return .terminateNow }
-    switch presentPendingDocsAlert() {
-    case 1:
-      return saveAllPending() ? .terminateNow : .terminateCancel
-    case 0:
-      discardAllPending()
-      return .terminateNow
-    default:
-      return .terminateCancel
-    }
-  }
-
   /// 未决文档退出提示（T-050 集成测试接缝；docs/testing.md）。
   ///
   /// 决策依据：模态交互（runModal）无法被测试进程驱动，把「弹窗并返回用户
@@ -254,6 +241,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       defer: false
     )
     window.title = AppInfo.name
+    // BUG-017：关闭按钮必须经 windowShouldClose 拦截未决文档决策，
+    // 否则窗口先关、提示后弹，取消后无窗口导致终止流程反复重触发。
+    window.delegate = self
     // 启动默认文档 = 首个 Scratch（DM 分配唯一 id，作保存键；ADR-001 v1.2）。
     // Scratch 打开不可失败（无 IO）；兜底 id 1 仅为结构完整性（ADR-004 不静默）。
     let id = (try? document_manager_open_scratch(documentManager)) ?? 1

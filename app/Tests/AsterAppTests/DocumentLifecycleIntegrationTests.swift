@@ -198,3 +198,67 @@ final class AppExitFlowIntegrationTests: AppIntegrationTestCase {
     XCTAssertTrue(appDelegate.pendingDocs.contains(4))
   }
 }
+
+/// BUG-017：关闭按钮 / ⌘W 路径——未决文档必须「先决策后关窗」。
+///
+/// 决策依据（bug-workflow）：旧实现关闭事件直接关窗，未决提示在系统终止流程
+/// （applicationShouldTerminate）里才弹——取消返回 terminateCancel 后应用处于
+/// 无窗口状态，`applicationShouldTerminateAfterLastWindowClosed` 恒为 true，
+/// AppKit 反复重新触发终止 = 弹窗死循环（独立 repro 实测：取消后连续弹窗直到
+/// watchdog）。修复：windowShouldClose 拦截，决策在窗口仍打开时进行。
+@MainActor
+final class AppWindowCloseFlowTests: AppIntegrationTestCase {
+  func testCloseWithPendingSaveAllResolvesThenAllowsClose() throws {
+    launchApp()
+    let model = try XCTUnwrap(currentModel)
+    try model.typeText("未保存内容")
+    let window = try XCTUnwrap(appDelegate.mainWindow)
+    seamed.pendingDocsReply = 1
+
+    let allow = appDelegate.windowShouldClose(window)
+
+    XCTAssertTrue(allow, "保存全部成功必须允许关窗")
+    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
+    XCTAssertTrue(window.isVisible, "windowShouldClose 只放行，关窗由 AppKit 随后执行")
+    let id = UInt(model.bufferIdValue)
+    let seq = try XCTUnwrap(appDelegate.snapshotSeqByDocId[id])
+    let saved = try String(
+      contentsOfFile: storeDir + "/" + snapshotName(seq: Int(seq)), encoding: .utf8)
+    XCTAssertTrue(saved.contains("未保存内容"), "保存全部必须固化内容")
+  }
+
+  func testCloseWithPendingDiscardAllowsClose() throws {
+    launchApp()
+    try currentModel?.typeText("丢弃内容")
+    let window = try XCTUnwrap(appDelegate.mainWindow)
+    seamed.pendingDocsReply = 0
+
+    XCTAssertTrue(appDelegate.windowShouldClose(window), "丢弃全部后必须允许关窗")
+    XCTAssertTrue(appDelegate.pendingDocs.isEmpty)
+  }
+
+  func testCloseWithPendingCancelKeepsWindowOpen() throws {
+    launchApp()
+    try currentModel?.typeText("取消保留")
+    let window = try XCTUnwrap(appDelegate.mainWindow)
+    seamed.pendingDocsReply = nil
+
+    XCTAssertFalse(
+      appDelegate.windowShouldClose(window),
+      "取消必须阻止关窗——否则无窗口状态反复重触发终止（BUG-017 死循环）"
+    )
+    XCTAssertTrue(
+      appDelegate.pendingDocs.contains(UInt((currentModel?.bufferIdValue)!)),
+      "取消后未决状态必须保留"
+    )
+    XCTAssertTrue(window.isVisible, "取消后窗口必须保持打开")
+  }
+
+  func testCloseWithoutPendingAllowsCloseWithoutPrompt() throws {
+    launchApp()
+    let window = try XCTUnwrap(appDelegate.mainWindow)
+
+    XCTAssertTrue(appDelegate.windowShouldClose(window))
+    XCTAssertEqual(seamed.pendingDocsAlertCount, 0, "无未决文档时不得弹提示")
+  }
+}

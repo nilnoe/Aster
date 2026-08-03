@@ -30,8 +30,13 @@ class AppIntegrationTestCase: XCTestCase {
     var saveErrorCount = 0
     /// 最近一次错误提示文本（T-054：断言提示内容准确，不只数次数）。
     var lastSaveErrorMessage: String?
+    /// 未决文档提示调用次数（BUG-017：无未决时关窗不得弹提示）。
+    var pendingDocsAlertCount = 0
 
-    override func presentPendingDocsAlert() -> Int? { pendingDocsReply }
+    override func presentPendingDocsAlert() -> Int? {
+      pendingDocsAlertCount += 1
+      return pendingDocsReply
+    }
 
     override func presentRecoveryAlert(count: Int) -> Int { recoveryReply }
 

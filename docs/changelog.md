@@ -143,6 +143,24 @@
   false、标题恒为纯文件名（无「●」前缀）；先红后绿（旧实现报「● Aster」）。
   App 全量 101 项全绿（100 → +1）；Bridge 20 + Core 131 不变；门禁零告警。
 
+### Fixed — 2026-08-03（BUG-017，关闭按钮路径死循环 / 卡死）
+
+- **根因（Implementation Bug）**：关闭按钮路径「先关窗、后决策」——未决提示
+  放在系统终止流程（applicationShouldTerminate）里弹，此时窗口已关；「取消」
+  返回 terminateCancel 后应用无窗口，`applicationShouldTerminateAfterLastWindow
+  Closed` 恒为 true，AppKit 反复重触发终止 = 弹窗死循环；「保存全部 / 全部不
+  保存」同上下文（保存失败→提示→取消→重触发循环），表现为卡死。Cmd+Q 窗口
+  仍在，因此正常。独立 repro 复现：取消后连续弹窗直到 watchdog；修复版验证：
+  取消后窗口保持、只弹一次、终止流程不再重触发。
+- fix(app)：`NSWindowDelegate.windowShouldClose` 拦截——未决文档存在时**先决策
+  后关窗**（标准 macOS 模式，TextEdit 同款）：保存全部成功 / 全部不保存才放行
+  关窗，取消则窗口保持打开；决策抽为 `resolvePendingDocs()` 与 Cmd+Q 路径共用，
+  两路径行为一致。新增 AppDelegate+CloseFlow.swift（Rule 3：AppDelegate 311 →
+  275 + 52 拆分）。
+- test：4 项回归先红后绿（保存全部放行并固化 / 丢弃放行 / 取消保窗且未决保留 /
+  无未决不弹提示直接放行）；App 全量 105 项全绿（101 → +4）；变异门禁 5/5
+  仍全捕获；Bridge 20 + Core 131 不变；门禁零告警。
+
 ### Added — 2026-08-03（数据结构评估落地，ADR-006 v1.1）
 
 - ADR-006 v1.1：追加「评估进展」节——全仓数据结构复审结论（已确认无风险项 +

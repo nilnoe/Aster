@@ -15,10 +15,10 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**101 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**105 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
-    T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + BUG-010~016 回归），
-    源码 2204 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
+    T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + T-067 关闭流程 +
+    BUG-010~017 回归），源码 2247 行（Rule 12 的 Swift 预算 ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-023 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1 修订：ADR-001 / ADR-006（2026-08-03 数据结构评估进展）/ ADR-013 / ADR-021 /
   ADR-022 / ADR-023）；宪法 V1.4（Rule 13~16：ADR 闭环 / 无消费者不交付 /
@@ -57,6 +57,9 @@ BUG-010~016 完成；Beta V0.1.2 已发布）
   - T-067 未保存指示迁移系统原生（本切片）：dirty「●」标题手拼 →
     `NSWindow.isDocumentEdited`（关闭按钮红点，Principle 4 / Rule 11）——
     契约测试先红后绿；App 101 全绿
+  - BUG-017 关闭按钮路径死循环 / 卡死（本切片）：根因 = 先关窗后决策 + 无窗口
+    重触发终止（独立 repro 复现取消连续弹窗）；修复 = windowShouldClose 拦截
+    + resolvePendingDocs 共用决策；App 105 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
