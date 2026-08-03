@@ -10,6 +10,27 @@
 
 ## [Unreleased]
 
+### Fixed — 2026-08-03（BUG-018 ①，关闭最后一个窗口卡死 / 菊花旋转）
+
+- **根因（Design Bug）**：关闭**最后一个窗口**时 `windowShouldClose` 只按该窗口
+  文档决策——无窗口的**孤儿未决文档**（⌘N / ⌘O 替换当前模型后遗留、崩溃忽略
+  登记，T-046 多文档全程检查的既定状态）漏过：窗口先关 → 终止流程再弹提示 →
+  取消后应用无窗口，`applicationShouldTerminateAfterLastWindowClosed` 恒 true →
+  AppKit 反复重触发终止 = 弹窗循环 / 主线程卡死（用户确认症状：菊花旋转；
+  BUG-017 同机制的另一入口）。此前穷尽复现均正常：测试 seam 绕过 runModal，
+  且孤儿场景无覆盖——T-070 真实路径播种后由回归测试抓住。
+- fix(app)：`windowShouldClose` 对**最后一个 frame** 改走**全局**未决决策
+  （resolvePendingDocs，含孤儿）——取消保窗（不进无窗口重触发循环），保存 /
+  丢弃成功则关窗后终止流程无未决可弹（干净 terminateNow）；非最后窗口仍按
+  窗口文档决策（关 B 只问 B，T-070 语义不变）。
+- feat(app)：主线程卡死看门狗（MainThreadWatchdog，BUG-018 诊断兜底）——后台
+  探针检测主线程心跳停滞 ≥3s 时 NSLog 卡死时间窗（ADR-004：本地日志、默认无
+  遥测）；Timer 用 block + 弱引用（BUG-018 保留环教训自举），AppDelegate
+  deinit 确定性 stop。
+- test：2 项回归先红后绿（孤儿未决 + 关最后窗口：取消保窗且只决策一次 /
+  保存全部在关窗前固化孤儿、终止流程零弹窗）+ 看门狗冒烟 1 项；App 114 全绿
+  （111 → +3）；Bridge 20 + Core 148 不变；门禁零告警。
+
 ### Changed — 2026-08-03（宪法 V1.5，治理铁律，用户确认「直接落实」）
 
 - [docs/constitution.md](../docs/constitution.md) — Version 1.4 → 1.5：新增

@@ -42,10 +42,22 @@ extension AppDelegate {
   /// 关闭按钮 / ⌘W 拦截（BUG-017）：**该窗口**文档未决时先决策后关窗。
   ///
   /// 决策依据：close 由 AppKit 在本方法返回 true 后执行；取消返回 false 时窗口
-  /// 保持打开，未决状态与缓冲行原样保留。T-070 修正：只决策该窗口的文档
-  /// （closeDecisionDocId 上下文），其他 frame 的未决不受本窗口关闭影响。
+  /// 保持打开，未决状态与缓冲行原样保留。
+  /// - 非最后窗口（T-070，BUG-019）：只决策该窗口的文档（closeDecisionDocId
+  ///   上下文），其他 frame 的未决不受本窗口关闭影响（关 B 只问 B）。
+  /// - **最后窗口（BUG-018 修复，2026-08-03）**：关最后一个窗口 = 退出，走
+  ///   **全局**未决决策（含无窗口的孤儿未决——⌘N / ⌘O 替换当前模型后遗留、
+  ///   崩溃忽略登记）。旧实现只检查该窗口文档，孤儿漏过：窗口先关 → 终止流程
+  ///   再弹提示 → 取消后无窗口，`applicationShouldTerminateAfterLastWindowClosed`
+  ///   恒 true → AppKit 反复重触发终止 = 弹窗循环 / 菊花旋转（用户确认症状，
+  ///   BUG-017 同机制）。全局决策在关窗前完成：取消保窗（不进循环），保存 /
+  ///   丢弃成功则关窗后终止流程无未决可弹（干净 terminateNow）。
   func windowShouldClose(_ sender: NSWindow) -> Bool {
-    guard let view = sender.contentView as? MetalView, let session else { return true }
+    guard let session else { return true }
+    if frames.count <= 1 {
+      return resolvePendingDocs()
+    }
+    guard let view = sender.contentView as? MetalView else { return true }
     let id = UInt(view.model.bufferIdValue)
     guard session_is_pending(session, id) else { return true }
     closeDecisionDocId = id

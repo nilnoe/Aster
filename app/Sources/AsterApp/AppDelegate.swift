@@ -37,6 +37,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 关闭决策上下文的文档 id（windowShouldClose 时设置；nil = 全局退出决策）。
   /// T-070 修正：关 frame B 只决策 B 的文档，不再弹 frame A 的未决提示。
   var closeDecisionDocId: UInt?
+  /// 主线程卡死看门狗（BUG-018 诊断：菊花 = 主线程阻塞，复现难；下次卡死
+  /// 由后台探针 NSLog 卡死时间窗，控制台可直接定位）。
+  private let watchdog = MainThreadWatchdog()
+
+  deinit {
+    // BUG-018：Timer 保留环教训——看门狗退出时确定性停止（测试 teardown 与
+    // 生产退出都走 deinit；applicationWillTerminate 提前 stop 幂等）。
+    watchdog.stop()
+  }
 
   /// 当前 Frame：键窗口优先（⌘S / ⌘O / ⌘N 作用于用户正在操作的 frame），
   /// 无键窗口时回退第一个（启动早期 / 测试环境）。
@@ -64,6 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // 容忍快照创建失败（setupStorage 已提示存储未就绪，窗口照开，保存时再报）。
     makeFrame(seedContent: "你好，世界。Hello, Aster!\nMetal 文本渲染 — 第二行 CJK")
     presentRecoveryIfNeeded()
+    watchdog.start()
     NSApp.activate(ignoringOtherApps: true)
   }
 
@@ -72,6 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   /// 决策依据：AppKit 在正常终止（Cmd+Q / 关最后窗口，且未被取消）时调用本方法；
   /// kill / 崩溃不调用，哨兵保持非干净。哨兵不承担数据清理（ADR-013 v1.3）。
   func applicationWillTerminate(_ notification: Notification) {
+    watchdog.stop()
     guard let session else { return }
     _ = try? session_set_clean_exit(session, true)
     // T-047（ADR-023 v1.6）：进程干净退出时删除空快照文件（启动即建 / 从未

@@ -16,10 +16,11 @@
     proptest 1.11（dev，ADR-022）。
   - bridge/：swift-bridge 绑定 Swift Package（20 个 XCTest 全绿；生成代码与 .a
     不提交，`bridge/build.sh` 是唯一生成入口）。
-  - app/：AppKit 壳 + Metal 编辑视图（**111 个 XCTest 全绿**：T-050 五组集成测试 +
+  - app/：AppKit 壳 + Metal 编辑视图（**114 个 XCTest 全绿**：T-050 五组集成测试 +
     T-051 失败注入 / 状态机不变量 + T-052 IME 契约 + T-054 失败可见性 +
     T-058 不变量扩展 + T-059 已知限制契约 + T-056 损坏缓冲 + T-067 关闭流程 +
-    T-069 Frame + T-070 生命周期收拢 + BUG-010~023 回归），源码 2326 行（Rule 12 的 Swift 预算
+    T-069 Frame + T-070 生命周期收拢 + BUG-010~023 回归 + BUG-018 关闭卡死 +
+    看门狗），源码 2411 行（Rule 12 的 Swift 预算
     ≤5,000 行生效中）。
 - **决策：** ADR-001 ~ ADR-025 全部 Accepted（索引见 `docs/adr/README.md`；
   v1.1+ 修订：ADR-001 / ADR-006 / ADR-013 / ADR-021 / ADR-022 / ADR-023 /
@@ -78,6 +79,11 @@
     App 111 + Bridge 20 + Core 148 全绿
   - ADR-024 FFI 总账机械化（本切片）：scripts/ffi-ledger.py + CI-Docs 门禁
     （当前 FFI 面 50 项），禁止手抄计数
+  - BUG-018 ① 关闭卡死修复（本切片）：用户补充「菊花旋转」= 主线程卡死——
+    根因 = 关最后窗口只按窗口文档决策，孤儿未决（⌘N/⌘O 替换模型遗留）漏过 →
+    关窗后终止再弹提示 → 取消无窗口 → 反复重触发终止（BUG-017 同机制另一入口；
+    Red→Green 2 项回归）；修复 = 最后窗口走全局决策；新增 MainThreadWatchdog
+    诊断兜底（后台探针 + 主线程心跳，block 弱引用 Timer）；App 114 全绿
   - Phase 7 测试专项登记（aed01f8）：T-052~T-062（IME 契约 / 渲染变异 / 失败
     可见性 / 原子写 / 存储损坏 / 时序 / 状态机扩展 / 已知限制固化 / 崩溃完整 /
     跨日轮转 / 变异工具化）——用户将专门投入测试，执行原则 = 先变异定位盲区
@@ -309,6 +315,7 @@
 | 2026-08-03 | T-070 | mutate.py 变异点迁至 Rust 后：最后一个 Rust 变异恢复源码，但 bridge/artifacts 的 staticlib 仍是变异版本（M5 丢弃不清行残留）→ 后续全量测试连环失败 | mutate.py 循环结束后若有 Rust 变异点则重跑 ./bridge/build.sh 还原产物（工具 docstring 记录）；Rust 变异点 run 命令必须含 bridge 重建 |
 | 2026-08-03 | T-070 | 跨切面布尔 / 全局决策 = 多文档冲突源：旧全局 bufferSaveErrorVisible 被其他 frame 成功保存吞掉（BUG-020）；关 frame B 弹 frame A 未决（BUG-019）；makeFrame 兜底 ?? 1 两 frame 抢 id（BUG-021）；DM 注册表永不关闭（BUG-022） | 状态收拢进 Core Session 按文档隔离（DocState.save_error_visible per doc），窗口决策按窗口文档（closeDecisionDocId），id 分配推进防复用，窗口关闭 = 文档关闭 |
 | 2026-08-03 | T-070 | swift-bridge RustString 插值不渲染消息体：`"\(error)"` 只显示类型——T-054 断言「存储未就绪」失败 | 统一 errorText(error) 助手：`(error as? RustString)?.toString() ?? "\(error)"`；所有 presentSaveError / presentOpenError 走它 |
+| 2026-08-03 | BUG-018 | 关最后窗口卡死（菊花）多年藏身：`windowShouldClose` 只按窗口文档决策，**孤儿未决**（⌘N / ⌘O 替换模型后遗留、崩溃忽略登记）漏过——窗口先关 → 终止再弹提示 → 取消无窗口 → `applicationShouldTerminateAfterLastWindowClosed` 恒 true → 反复重触发终止（BUG-017 同机制另一入口）；进程内穷尽复现（performClose / posted 事件 / real alert）均正常，因为 seam 绕过 runModal 且孤儿场景无覆盖 | ① 关**最后一个**窗口 = 退出，必须走**全局**未决决策（含孤儿）——取消保窗，保存/丢弃成功则关窗后终止零弹窗；② 主线程看门狗（后台探针 + 心跳，block 弱引用 Timer）兜底不可复现场景，下次卡死控制台给时间窗；③ 回归测试用真实孤儿播种（typeText → open 换模型） |
 
 ## 给下一个 agent 的提醒
 
