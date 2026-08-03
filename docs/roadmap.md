@@ -203,10 +203,12 @@
 - [x] T-074 frame 域收拢（I-012 / I-013）：`FrameDocument`（frame + docId +
   fileName）单一所有者；`closeDecisionDocId` 改显式参数（Rule 17 同型模式回潮
   处置）
-- [ ] T-075 文档内容单一事实来源（I-009，P0）：编辑会话 Buffer 与 Session 注册表
-  副本统一（`content_changed` 回写注册表，或编辑直接持有注册表 Buffer）——
-   **涉及保存域语义，需用户确认方向后实施（ADR-023 v1.7 冻结流程）**；建议作为
-  T-024 激活文档接线前置
+- [~] T-075 文档内容单一事实来源（I-009，P0，ADR-027；用户 2026-08-03 确认
+  方向②）：注册表与编辑会话共享同一 Buffer（`Rc<RefCell<Buffer>>`），结构上
+  消除双副本失鲜；`content_changed` 删文本参数（Core 读活文，消除每键全量文本
+  流）；App 不再构造 Buffer（`session_open_scratch(seed)` / `session_editor`）；
+  分支 `feat/single-buffer-perf` 内集成 Phase 8（T-063 基准 / T-064 行索引缓存 /
+  T-065 自动保存节流——方向已确认，落地时走冻结留痕）
 - 已排期承接：T-016（Theme 接线）/ T-024（Command 输入分发）/ T-029（恢复编排
   + shouldOfferRecovery 下沉，I-015）
 

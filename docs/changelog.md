@@ -10,6 +10,17 @@
 
 ## [Unreleased]
 
+### Added — 2026-08-03（ADR-027，文档内容单一事实来源，T-075）
+
+- [ADR-027](../docs/adr/ADR-027-single-buffer.md) — 单 Buffer 共享所有权
+  （`Rc<RefCell<Buffer>>`）：注册表与编辑会话结构上共享同一内容，双副本失鲜
+  （I-009）根治；`content_changed` 删文本参数（Core 读活文——消除 ADR-006
+  热点 1 每键全量文本流）；App 不再构造 Buffer（`session_open_scratch(seed)` /
+  `session_editor`）。ADR-017 v1.1（`Editor::text` → String）与 ADR-023 v1.8
+  （保存域冻结期方向确认：用户 2026-08-03 指示单 Buffer + 性能第一）修订留痕。
+- 分支 `feat/single-buffer-perf` 建立；Phase 8 集成切片（T-063 / T-064 /
+  T-065）排入该分支；审查未改生产代码（本条目为架构决策）。
+
 ### Changed — 2026-08-03（T-074，frame 域收拢，I-012 / I-013）
 
 - refactor(app)：新增 `FrameDocument`（frame + documentId + fileName）——
